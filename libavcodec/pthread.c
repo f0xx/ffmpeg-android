@@ -134,6 +134,11 @@ static void* attribute_align_arg worker(void *v)
     int thread_count = avctx->thread_count;
     int self_id;
 
+    if (avctx->fn_worker_init_callback) {
+        avctx->fn_worker_init_callback(avctx->fn_worker_init_callback_param);
+    }
+
+
     pthread_mutex_lock(&c->current_job_lock);
     self_id = c->current_job++;
     for (;;){
@@ -281,6 +286,10 @@ static attribute_align_arg void *frame_worker_thread(void *arg)
     FrameThreadContext *fctx = p->parent;
     AVCodecContext *avctx = p->avctx;
     AVCodec *codec = avctx->codec;
+
+		if (avctx->fn_worker_init_callback) {
+			avctx->fn_worker_init_callback(avctx->fn_worker_init_callback_param);
+		}
 
     while (1) {
         if (p->state == STATE_INPUT_READY && !fctx->die) {
@@ -506,7 +515,8 @@ int ff_thread_decode_frame(AVCodecContext *avctx,
     err = submit_packet(p, avpkt);
     if (err) return err;
 
-    fctx->next_decoding++;
+		++fctx->next_decoding;
+		fctx->next_decoding %= avctx->thread_count; // fix for singlethreaded pipeline
 
     /*
      * If we're still receiving the initial packets, don't return a frame.
@@ -685,7 +695,7 @@ static int frame_thread_init(AVCodecContext *avctx)
     FrameThreadContext *fctx;
     int i, err = 0;
 
-    if (thread_count <= 1) {
+		if (thread_count < 1) { // foxx: modified <= 1 - use 0 to disable pipelining
         avctx->active_thread_type = 0;
         return 0;
     }
@@ -874,7 +884,11 @@ static void validate_thread_parameters(AVCodecContext *avctx)
                                 && !(avctx->flags & CODEC_FLAG_LOW_DELAY)
                                 && !(avctx->flags2 & CODEC_FLAG2_CHUNKS);
     if (avctx->thread_count == 1) {
+			if (frame_threading_supported && (avctx->thread_type & FF_THREAD_FRAME)) {
+				avctx->active_thread_type = 1;
+			} else {
         avctx->active_thread_type = 0;
+			}
     } else if (frame_threading_supported && (avctx->thread_type & FF_THREAD_FRAME)) {
         avctx->active_thread_type = FF_THREAD_FRAME;
     } else if (avctx->codec->capabilities & CODEC_CAP_SLICE_THREADS &&
