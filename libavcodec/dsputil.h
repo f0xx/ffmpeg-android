@@ -84,8 +84,8 @@ extern const uint8_t ff_zigzag248_direct[64];
 #define MAX_NEG_CROP 1024
 
 /* temporary */
-extern uint32_t ff_squareTbl[512];
-extern uint8_t ff_cropTbl[256 + 2 * MAX_NEG_CROP];
+extern uint32_t ff_squareTbl[512] av_export ;
+extern uint8_t ff_cropTbl[256 + 2 * MAX_NEG_CROP] av_export ;
 
 #define PUTAVG_PIXELS(depth)\
 void ff_put_pixels8x8_ ## depth ## _c(uint8_t *dst, uint8_t *src, int stride);\
@@ -571,7 +571,7 @@ typedef struct DSPContext {
 } DSPContext;
 
 void dsputil_static_init(void);
-void dsputil_init(DSPContext* p, AVCodecContext *avctx);
+av_export void dsputil_init(DSPContext* p, AVCodecContext *avctx);
 
 int ff_check_alignment(void);
 
@@ -584,7 +584,7 @@ void ff_block_permute(DCTELEM *block, uint8_t *permutation, const uint8_t *scant
 void ff_set_cmp(DSPContext* c, me_cmp_func *cmp, int type);
 
 #define         BYTE_VEC32(c)   ((c)*0x01010101UL)
-#define         BYTE_VEC64(c)   ((c)*0x0001000100010001UL)
+#define         BYTE_VEC64(c)   ((c)*0x0001000100010001ULL)
 
 static inline uint32_t rnd_avg32(uint32_t a, uint32_t b)
 {

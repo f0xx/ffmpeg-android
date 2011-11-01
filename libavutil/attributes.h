@@ -125,6 +125,17 @@
 #endif
 #endif
 
+#ifndef av_extern
+#if __GNUC__ >= 4
+#    define av_extern __attribute__ ((visibility("default")))
+#    define av_local __attribute__ ((visibility("hidden")))
+#else
+#    define av_extern
+#    define av_local
+#endif
+#endif
+#define av_export av_extern 
+
 #ifdef __GNUC__
 #    define av_builtin_constant_p __builtin_constant_p
 #else

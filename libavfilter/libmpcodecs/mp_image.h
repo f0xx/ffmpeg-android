@@ -33,6 +33,10 @@
 #undef rand
 #undef srand
 #undef printf
+
+#ifdef ASMALIGN
+#undef ASMALIGN
+#endif
 #define ASMALIGN(ZEROBITS) ".p2align " #ZEROBITS "\n\t"
 
 

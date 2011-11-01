@@ -54,17 +54,17 @@
 /**
  * Returns the LIBSWSCALE_VERSION_INT constant.
  */
-unsigned swscale_version(void);
+av_export unsigned swscale_version(void);
 
 /**
  * Returns the libswscale build-time configuration.
  */
-const char *swscale_configuration(void);
+av_export const char *swscale_configuration(void);
 
 /**
  * Returns the libswscale license.
  */
-const char *swscale_license(void);
+av_export const char *swscale_license(void);
 
 /* values for the flags, the stuff on the command line is different */
 #define SWS_FAST_BILINEAR     1
@@ -119,7 +119,7 @@ const char *swscale_license(void);
  * @param colorspace One of the SWS_CS_* macros. If invalid,
  * SWS_CS_DEFAULT is used.
  */
-const int *sws_getCoefficients(int colorspace);
+av_export const int *sws_getCoefficients(int colorspace);
 
 
 // when used for filters they must have an odd number of elements
@@ -143,20 +143,20 @@ struct SwsContext;
  * Returns a positive value if pix_fmt is a supported input format, 0
  * otherwise.
  */
-int sws_isSupportedInput(enum PixelFormat pix_fmt);
+av_export int sws_isSupportedInput(enum PixelFormat pix_fmt);
 
 /**
  * Returns a positive value if pix_fmt is a supported output format, 0
  * otherwise.
  */
-int sws_isSupportedOutput(enum PixelFormat pix_fmt);
+av_export int sws_isSupportedOutput(enum PixelFormat pix_fmt);
 
 /**
  * Allocates an empty SwsContext. This must be filled and passed to
  * sws_init_context(). For filling see AVOptions, options.c and
  * sws_setColorspaceDetails().
  */
-struct SwsContext *sws_alloc_context(void);
+av_export struct SwsContext *sws_alloc_context(void);
 
 /**
  * Initializes the swscaler context sws_context.
@@ -164,13 +164,13 @@ struct SwsContext *sws_alloc_context(void);
  * @return zero or positive value on success, a negative value on
  * error
  */
-int sws_init_context(struct SwsContext *sws_context, SwsFilter *srcFilter, SwsFilter *dstFilter);
+av_export int sws_init_context(struct SwsContext *sws_context, SwsFilter *srcFilter, SwsFilter *dstFilter);
 
 /**
  * Frees the swscaler context swsContext.
  * If swsContext is NULL, then does nothing.
  */
-void sws_freeContext(struct SwsContext *swsContext);
+av_export void sws_freeContext(struct SwsContext *swsContext);
 
 #if FF_API_SWS_GETCONTEXT
 /**
@@ -188,7 +188,7 @@ void sws_freeContext(struct SwsContext *swsContext);
  * @note this function is to be removed after a saner alternative is
  *       written
  */
-struct SwsContext *sws_getContext(int srcW, int srcH, enum PixelFormat srcFormat,
+av_export struct SwsContext *sws_getContext(int srcW, int srcH, enum PixelFormat srcFormat,
                                   int dstW, int dstH, enum PixelFormat dstFormat,
                                   int flags, SwsFilter *srcFilter,
                                   SwsFilter *dstFilter, const double *param);
@@ -220,14 +220,14 @@ struct SwsContext *sws_getContext(int srcW, int srcH, enum PixelFormat srcFormat
  *                  the destination image
  * @return          the height of the output slice
  */
-int sws_scale(struct SwsContext *context, const uint8_t* const srcSlice[], const int srcStride[],
+av_export int sws_scale(struct SwsContext *context, const uint8_t* const srcSlice[], const int srcStride[],
               int srcSliceY, int srcSliceH, uint8_t* const dst[], const int dstStride[]);
 
 #if LIBSWSCALE_VERSION_MAJOR < 1
 /**
  * @deprecated Use sws_scale() instead.
  */
-int sws_scale_ordered(struct SwsContext *context, const uint8_t* const src[],
+av_export int sws_scale_ordered(struct SwsContext *context, const uint8_t* const src[],
                       int srcStride[], int srcSliceY, int srcSliceH,
                       uint8_t* dst[], int dstStride[]) attribute_deprecated;
 #endif
@@ -237,59 +237,59 @@ int sws_scale_ordered(struct SwsContext *context, const uint8_t* const src[],
  * @param fullRange if 1 then the luma range is 0..255 if 0 it is 16..235
  * @return -1 if not supported
  */
-int sws_setColorspaceDetails(struct SwsContext *c, const int inv_table[4],
+av_export int sws_setColorspaceDetails(struct SwsContext *c, const int inv_table[4],
                              int srcRange, const int table[4], int dstRange,
                              int brightness, int contrast, int saturation);
 
 /**
  * @return -1 if not supported
  */
-int sws_getColorspaceDetails(struct SwsContext *c, int **inv_table,
+av_export int sws_getColorspaceDetails(struct SwsContext *c, int **inv_table,
                              int *srcRange, int **table, int *dstRange,
                              int *brightness, int *contrast, int *saturation);
 
 /**
  * Allocates and returns an uninitialized vector with length coefficients.
  */
-SwsVector *sws_allocVec(int length);
+av_export SwsVector *sws_allocVec(int length);
 
 /**
  * Returns a normalized Gaussian curve used to filter stuff
  * quality=3 is high quality, lower is lower quality.
  */
-SwsVector *sws_getGaussianVec(double variance, double quality);
+av_export SwsVector *sws_getGaussianVec(double variance, double quality);
 
 /**
  * Allocates and returns a vector with length coefficients, all
  * with the same value c.
  */
-SwsVector *sws_getConstVec(double c, int length);
+av_export SwsVector *sws_getConstVec(double c, int length);
 
 /**
  * Allocates and returns a vector with just one coefficient, with
  * value 1.0.
  */
-SwsVector *sws_getIdentityVec(void);
+av_export SwsVector *sws_getIdentityVec(void);
 
 /**
  * Scales all the coefficients of a by the scalar value.
  */
-void sws_scaleVec(SwsVector *a, double scalar);
+av_export void sws_scaleVec(SwsVector *a, double scalar);
 
 /**
  * Scales all the coefficients of a so that their sum equals height.
  */
-void sws_normalizeVec(SwsVector *a, double height);
-void sws_convVec(SwsVector *a, SwsVector *b);
-void sws_addVec(SwsVector *a, SwsVector *b);
-void sws_subVec(SwsVector *a, SwsVector *b);
-void sws_shiftVec(SwsVector *a, int shift);
+av_export void sws_normalizeVec(SwsVector *a, double height);
+av_export void sws_convVec(SwsVector *a, SwsVector *b);
+av_export void sws_addVec(SwsVector *a, SwsVector *b);
+av_export void sws_subVec(SwsVector *a, SwsVector *b);
+av_export void sws_shiftVec(SwsVector *a, int shift);
 
 /**
  * Allocates and returns a clone of the vector a, that is a vector
  * with the same coefficients as a.
  */
-SwsVector *sws_cloneVec(SwsVector *a);
+av_export SwsVector *sws_cloneVec(SwsVector *a);
 
 #if LIBSWSCALE_VERSION_MAJOR < 1
 /**
@@ -302,15 +302,15 @@ attribute_deprecated void sws_printVec(SwsVector *a);
  * Prints with av_log() a textual representation of the vector a
  * if log_level <= av_log_level.
  */
-void sws_printVec2(SwsVector *a, AVClass *log_ctx, int log_level);
+av_export void sws_printVec2(SwsVector *a, AVClass *log_ctx, int log_level);
 
-void sws_freeVec(SwsVector *a);
+av_export void sws_freeVec(SwsVector *a);
 
-SwsFilter *sws_getDefaultFilter(float lumaGBlur, float chromaGBlur,
+av_export SwsFilter *sws_getDefaultFilter(float lumaGBlur, float chromaGBlur,
                                 float lumaSharpen, float chromaSharpen,
                                 float chromaHShift, float chromaVShift,
                                 int verbose);
-void sws_freeFilter(SwsFilter *filter);
+av_export void sws_freeFilter(SwsFilter *filter);
 
 /**
  * Checks if context can be reused, otherwise reallocates a new
@@ -325,7 +325,7 @@ void sws_freeFilter(SwsFilter *filter);
  * Be warned that srcFilter and dstFilter are not checked, they
  * are assumed to remain the same.
  */
-struct SwsContext *sws_getCachedContext(struct SwsContext *context,
+av_export struct SwsContext *sws_getCachedContext(struct SwsContext *context,
                                         int srcW, int srcH, enum PixelFormat srcFormat,
                                         int dstW, int dstH, enum PixelFormat dstFormat,
                                         int flags, SwsFilter *srcFilter,
@@ -341,7 +341,7 @@ struct SwsContext *sws_getCachedContext(struct SwsContext *context,
  * @param num_pixels number of pixels to convert
  * @param palette    array with [256] entries, which must match color arrangement (RGB or BGR) of src
  */
-void sws_convertPalette8ToPacked32(const uint8_t *src, uint8_t *dst, long num_pixels, const uint8_t *palette);
+av_export void sws_convertPalette8ToPacked32(const uint8_t *src, uint8_t *dst, long num_pixels, const uint8_t *palette);
 
 /**
  * Converts an 8bit paletted frame into a frame with a color depth of 24 bits.
@@ -353,7 +353,7 @@ void sws_convertPalette8ToPacked32(const uint8_t *src, uint8_t *dst, long num_pi
  * @param num_pixels number of pixels to convert
  * @param palette    array with [256] entries, which must match color arrangement (RGB or BGR) of src
  */
-void sws_convertPalette8ToPacked24(const uint8_t *src, uint8_t *dst, long num_pixels, const uint8_t *palette);
+av_export void sws_convertPalette8ToPacked24(const uint8_t *src, uint8_t *dst, long num_pixels, const uint8_t *palette);
 
 
 #endif /* SWSCALE_SWSCALE_H */

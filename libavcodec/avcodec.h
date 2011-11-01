@@ -2877,6 +2877,15 @@ typedef struct AVCodecContext {
     int64_t pts_correction_last_pts;       /// PTS of the last frame
     int64_t pts_correction_last_dts;       /// DTS of the last frame
 
+
+		/**
+		 * ANDROID multithreaded optimization
+		 * If not null, each worker thread should touch this callback before proceed
+		 * // made for lowend device thread priority setup
+		 */
+		void (*fn_worker_init_callback)(void* );
+		void* fn_worker_init_callback_param;
+		
 } AVCodecContext;
 
 /**
@@ -3137,14 +3146,14 @@ attribute_deprecated void av_destruct_packet_nofree(AVPacket *pkt);
 /**
  * Default packet destructor.
  */
-void av_destruct_packet(AVPacket *pkt);
+av_export void av_destruct_packet(AVPacket *pkt);
 
 /**
  * Initialize optional fields of a packet with default values.
  *
  * @param pkt packet
  */
-void av_init_packet(AVPacket *pkt);
+av_export void av_init_packet(AVPacket *pkt);
 
 /**
  * Allocate the payload of a packet and initialize its fields with
@@ -3154,7 +3163,7 @@ void av_init_packet(AVPacket *pkt);
  * @param size wanted payload size
  * @return 0 if OK, AVERROR_xxx otherwise
  */
-int av_new_packet(AVPacket *pkt, int size);
+av_export int av_new_packet(AVPacket *pkt, int size);
 
 /**
  * Reduce packet size, correctly zeroing padding
@@ -3162,7 +3171,7 @@ int av_new_packet(AVPacket *pkt, int size);
  * @param pkt packet
  * @param size new size
  */
-void av_shrink_packet(AVPacket *pkt, int size);
+av_export void av_shrink_packet(AVPacket *pkt, int size);
 
 /**
  * Increase packet size, correctly zeroing padding
@@ -3170,20 +3179,20 @@ void av_shrink_packet(AVPacket *pkt, int size);
  * @param pkt packet
  * @param grow_by number of bytes by which to increase the size of the packet
  */
-int av_grow_packet(AVPacket *pkt, int grow_by);
+av_export int av_grow_packet(AVPacket *pkt, int grow_by);
 
 /**
  * @warning This is a hack - the packet memory allocation stuff is broken. The
  * packet is allocated if it was not really allocated.
  */
-int av_dup_packet(AVPacket *pkt);
+av_export int av_dup_packet(AVPacket *pkt);
 
 /**
  * Free a packet.
  *
  * @param pkt packet to free
  */
-void av_free_packet(AVPacket *pkt);
+av_export void av_free_packet(AVPacket *pkt);
 
 /**
  * Allocate new information of a packet.
@@ -3193,7 +3202,7 @@ void av_free_packet(AVPacket *pkt);
  * @param size side information size
  * @return pointer to fresh allocated data or NULL otherwise
  */
-uint8_t* av_packet_new_side_data(AVPacket *pkt, enum AVPacketSideDataType type,
+av_export uint8_t* av_packet_new_side_data(AVPacket *pkt, enum AVPacketSideDataType type,
                                  int size);
 
 /**
@@ -3204,7 +3213,7 @@ uint8_t* av_packet_new_side_data(AVPacket *pkt, enum AVPacketSideDataType type,
  * @param size pointer for side information size to store (optional)
  * @return pointer to data if present or NULL otherwise
  */
-uint8_t* av_packet_get_side_data(AVPacket *pkt, enum AVPacketSideDataType type,
+av_export uint8_t* av_packet_get_side_data(AVPacket *pkt, enum AVPacketSideDataType type,
                                  int *size);
 
 /* resample.c */
@@ -3230,14 +3239,14 @@ typedef struct ReSampleContext ReSampleContext;
  * @param cutoff           cutoff frequency, 1.0 corresponds to half the output sampling rate
  * @return allocated ReSampleContext, NULL if error occured
  */
-ReSampleContext *av_audio_resample_init(int output_channels, int input_channels,
+av_export ReSampleContext *av_audio_resample_init(int output_channels, int input_channels,
                                         int output_rate, int input_rate,
                                         enum AVSampleFormat sample_fmt_out,
                                         enum AVSampleFormat sample_fmt_in,
                                         int filter_length, int log2_phase_count,
                                         int linear, double cutoff);
 
-int audio_resample(ReSampleContext *s, short *output, short *input, int nb_samples);
+av_export int audio_resample(ReSampleContext *s, short *output, short *input, int nb_samples);
 
 /**
  * Free resample context.
@@ -3245,7 +3254,7 @@ int audio_resample(ReSampleContext *s, short *output, short *input, int nb_sampl
  * @param s a non-NULL pointer to a resample context previously
  *          created with av_audio_resample_init()
  */
-void audio_resample_close(ReSampleContext *s);
+av_export void audio_resample_close(ReSampleContext *s);
 
 
 /**
@@ -3257,7 +3266,7 @@ void audio_resample_close(ReSampleContext *s);
                  between the 2 closest, if 0 the closest will be used
  * @param cutoff cutoff frequency, 1.0 corresponds to half the output sampling rate
  */
-struct AVResampleContext *av_resample_init(int out_rate, int in_rate, int filter_length, int log2_phase_count, int linear, double cutoff);
+av_export struct AVResampleContext *av_resample_init(int out_rate, int in_rate, int filter_length, int log2_phase_count, int linear, double cutoff);
 
 /**
  * Resample an array of samples using a previously configured context.
@@ -3268,7 +3277,7 @@ struct AVResampleContext *av_resample_init(int out_rate, int in_rate, int filter
  * @param update_ctx If this is 0 then the context will not be modified, that way several channels can be resampled with the same context.
  * @return the number of samples written in dst or -1 if an error occurred
  */
-int av_resample(struct AVResampleContext *c, short *dst, short *src, int *consumed, int src_size, int dst_size, int update_ctx);
+av_export int av_resample(struct AVResampleContext *c, short *dst, short *src, int *consumed, int src_size, int dst_size, int update_ctx);
 
 
 /**
@@ -3283,8 +3292,8 @@ int av_resample(struct AVResampleContext *c, short *dst, short *src, int *consum
  * note, due to rounding the actual compensation might be slightly different,
  * especially if the compensation_distance is large and the in_rate used during init is small
  */
-void av_resample_compensate(struct AVResampleContext *c, int sample_delta, int compensation_distance);
-void av_resample_close(struct AVResampleContext *c);
+av_export void av_resample_compensate(struct AVResampleContext *c, int sample_delta, int compensation_distance);
+av_export void av_resample_close(struct AVResampleContext *c);
 
 /**
  * Allocate memory for a picture.  Call avpicture_free() to free it.
@@ -3297,7 +3306,7 @@ void av_resample_close(struct AVResampleContext *c);
  * @param height the height of the picture
  * @return zero if successful, a negative value if not
  */
-int avpicture_alloc(AVPicture *picture, enum PixelFormat pix_fmt, int width, int height);
+av_export int avpicture_alloc(AVPicture *picture, enum PixelFormat pix_fmt, int width, int height);
 
 /**
  * Free a picture previously allocated by avpicture_alloc().
@@ -3306,7 +3315,7 @@ int avpicture_alloc(AVPicture *picture, enum PixelFormat pix_fmt, int width, int
  *
  * @param picture the AVPicture to be freed
  */
-void avpicture_free(AVPicture *picture);
+av_export void avpicture_free(AVPicture *picture);
 
 /**
  * Fill in the AVPicture fields.
@@ -3328,7 +3337,7 @@ void avpicture_free(AVPicture *picture);
  * @param height the height of the image in pixels
  * @return size of the image data in bytes
  */
-int avpicture_fill(AVPicture *picture, uint8_t *ptr,
+av_export int avpicture_fill(AVPicture *picture, uint8_t *ptr,
                    enum PixelFormat pix_fmt, int width, int height);
 
 /**
@@ -3346,7 +3355,7 @@ int avpicture_fill(AVPicture *picture, uint8_t *ptr,
  * @param[in] dest_size The size of 'dest'.
  * @return The number of bytes written to dest, or a negative value (error code) on error.
  */
-int avpicture_layout(const AVPicture* src, enum PixelFormat pix_fmt, int width, int height,
+av_export int avpicture_layout(const AVPicture* src, enum PixelFormat pix_fmt, int width, int height,
                      unsigned char *dest, int dest_size);
 
 /**
@@ -3361,24 +3370,24 @@ int avpicture_layout(const AVPicture* src, enum PixelFormat pix_fmt, int width, 
  * @param height the height of the image
  * @return Image data size in bytes or -1 on error (e.g. too large dimensions).
  */
-int avpicture_get_size(enum PixelFormat pix_fmt, int width, int height);
-void avcodec_get_chroma_sub_sample(enum PixelFormat pix_fmt, int *h_shift, int *v_shift);
+av_export int avpicture_get_size(enum PixelFormat pix_fmt, int width, int height);
+av_export void avcodec_get_chroma_sub_sample(enum PixelFormat pix_fmt, int *h_shift, int *v_shift);
 
 /**
  * Return the short name for a pixel format.
  *
  * \see av_get_pix_fmt(), av_get_pix_fmt_string().
  */
-const char *avcodec_get_pix_fmt_name(enum PixelFormat pix_fmt);
+av_export const char *avcodec_get_pix_fmt_name(enum PixelFormat pix_fmt);
 
-void avcodec_set_dimensions(AVCodecContext *s, int width, int height);
+av_export void avcodec_set_dimensions(AVCodecContext *s, int width, int height);
 
 /**
  * Return a value representing the fourCC code associated to the
  * pixel format pix_fmt, or 0 if no associated fourCC code can be
  * found.
  */
-unsigned int avcodec_pix_fmt_to_codec_tag(enum PixelFormat pix_fmt);
+av_export unsigned int avcodec_pix_fmt_to_codec_tag(enum PixelFormat pix_fmt);
 
 /**
  * Put a string representing the codec tag codec_tag in buf.
@@ -3387,7 +3396,7 @@ unsigned int avcodec_pix_fmt_to_codec_tag(enum PixelFormat pix_fmt);
  * @return the length of the string that would have been generated if
  * enough space had been available, excluding the trailing null
  */
-size_t av_get_codec_tag_string(char *buf, size_t buf_size, unsigned int codec_tag);
+av_export size_t av_get_codec_tag_string(char *buf, size_t buf_size, unsigned int codec_tag);
 
 #define FF_LOSS_RESOLUTION  0x0001 /**< loss due to resolution change */
 #define FF_LOSS_DEPTH       0x0002 /**< loss due to color depth change */
@@ -3413,7 +3422,7 @@ size_t av_get_codec_tag_string(char *buf, size_t buf_size, unsigned int codec_ta
  * @param[in] has_alpha Whether the source pixel format alpha channel is used.
  * @return Combination of flags informing you what kind of losses will occur.
  */
-int avcodec_get_pix_fmt_loss(enum PixelFormat dst_pix_fmt, enum PixelFormat src_pix_fmt,
+av_export int avcodec_get_pix_fmt_loss(enum PixelFormat dst_pix_fmt, enum PixelFormat src_pix_fmt,
                              int has_alpha);
 
 /**
@@ -3438,7 +3447,7 @@ int avcodec_get_pix_fmt_loss(enum PixelFormat dst_pix_fmt, enum PixelFormat src_
  * @param[out] loss_ptr Combination of flags informing you what kind of losses will occur.
  * @return The best pixel format to convert to or -1 if none was found.
  */
-enum PixelFormat avcodec_find_best_pix_fmt(int64_t pix_fmt_mask, enum PixelFormat src_pix_fmt,
+av_export enum PixelFormat avcodec_find_best_pix_fmt(int64_t pix_fmt_mask, enum PixelFormat src_pix_fmt,
                               int has_alpha, int *loss_ptr);
 
 #define FF_ALPHA_TRANSP       0x0001 /* image has some totally transparent pixels */
@@ -3448,12 +3457,12 @@ enum PixelFormat avcodec_find_best_pix_fmt(int64_t pix_fmt_mask, enum PixelForma
  * Tell if an image really has transparent alpha values.
  * @return ored mask of FF_ALPHA_xxx constants
  */
-int img_get_alpha_info(const AVPicture *src,
+av_export int img_get_alpha_info(const AVPicture *src,
                        enum PixelFormat pix_fmt, int width, int height);
 
 /* deinterlace a picture */
 /* deinterlace - if not supported return -1 */
-int avpicture_deinterlace(AVPicture *dst, const AVPicture *src,
+av_export int avpicture_deinterlace(AVPicture *dst, const AVPicture *src,
                           enum PixelFormat pix_fmt, int width, int height);
 
 /* external high level API */
@@ -3463,22 +3472,22 @@ int avpicture_deinterlace(AVPicture *dst, const AVPicture *src,
  * if c is non-NULL, returns the next registered codec after c,
  * or NULL if c is the last one.
  */
-AVCodec *av_codec_next(AVCodec *c);
+av_export AVCodec *av_codec_next(AVCodec *c);
 
 /**
  * Return the LIBAVCODEC_VERSION_INT constant.
  */
-unsigned avcodec_version(void);
+av_export unsigned avcodec_version(void);
 
 /**
  * Return the libavcodec build-time configuration.
  */
-const char *avcodec_configuration(void);
+av_export const char *avcodec_configuration(void);
 
 /**
  * Return the libavcodec license.
  */
-const char *avcodec_license(void);
+av_export const char *avcodec_license(void);
 
 /**
  * Initialize libavcodec.
@@ -3489,14 +3498,14 @@ const char *avcodec_license(void);
  *
  * @warning This function is not thread-safe.
  */
-void avcodec_init(void);
+av_export void avcodec_init(void);
 
 /**
  * Register the codec codec and initialize libavcodec.
  *
  * @see avcodec_init(), avcodec_register_all()
  */
-void avcodec_register(AVCodec *codec);
+av_export void avcodec_register(AVCodec *codec);
 
 /**
  * Find a registered encoder with a matching codec ID.
@@ -3504,7 +3513,7 @@ void avcodec_register(AVCodec *codec);
  * @param id CodecID of the requested encoder
  * @return An encoder if one was found, NULL otherwise.
  */
-AVCodec *avcodec_find_encoder(enum CodecID id);
+av_export AVCodec *avcodec_find_encoder(enum CodecID id);
 
 /**
  * Find a registered encoder with the specified name.
@@ -3512,7 +3521,7 @@ AVCodec *avcodec_find_encoder(enum CodecID id);
  * @param name name of the requested encoder
  * @return An encoder if one was found, NULL otherwise.
  */
-AVCodec *avcodec_find_encoder_by_name(const char *name);
+av_export AVCodec *avcodec_find_encoder_by_name(const char *name);
 
 /**
  * Find a registered decoder with a matching codec ID.
@@ -3520,7 +3529,7 @@ AVCodec *avcodec_find_encoder_by_name(const char *name);
  * @param id CodecID of the requested decoder
  * @return A decoder if one was found, NULL otherwise.
  */
-AVCodec *avcodec_find_decoder(enum CodecID id);
+av_export AVCodec *avcodec_find_decoder(enum CodecID id);
 
 /**
  * Find a registered decoder with the specified name.
@@ -3528,8 +3537,8 @@ AVCodec *avcodec_find_decoder(enum CodecID id);
  * @param name name of the requested decoder
  * @return A decoder if one was found, NULL otherwise.
  */
-AVCodec *avcodec_find_decoder_by_name(const char *name);
-void avcodec_string(char *buf, int buf_size, AVCodecContext *enc, int encode);
+av_export AVCodec *avcodec_find_decoder_by_name(const char *name);
+av_export void avcodec_string(char *buf, int buf_size, AVCodecContext *enc, int encode);
 
 /**
  * Return a name for the specified profile, if available.
@@ -3538,22 +3547,22 @@ void avcodec_string(char *buf, int buf_size, AVCodecContext *enc, int encode);
  * @param profile the profile value for which a name is requested
  * @return A name for the profile if found, NULL otherwise.
  */
-const char *av_get_profile_name(const AVCodec *codec, int profile);
+av_export const char *av_get_profile_name(const AVCodec *codec, int profile);
 
 /**
  * Set the fields of the given AVCodecContext to default values.
  *
  * @param s The AVCodecContext of which the fields should be set to default values.
  */
-void avcodec_get_context_defaults(AVCodecContext *s);
+av_export void avcodec_get_context_defaults(AVCodecContext *s);
 
 /** THIS FUNCTION IS NOT YET PART OF THE PUBLIC API!
  *  we WILL change its arguments and name a few times! */
-void avcodec_get_context_defaults2(AVCodecContext *s, enum AVMediaType);
+av_export void avcodec_get_context_defaults2(AVCodecContext *s, enum AVMediaType);
 
 /** THIS FUNCTION IS NOT YET PART OF THE PUBLIC API!
  *  we WILL change its arguments and name a few times! */
-int avcodec_get_context_defaults3(AVCodecContext *s, AVCodec *codec);
+av_export int avcodec_get_context_defaults3(AVCodecContext *s, AVCodec *codec);
 
 /**
  * Allocate an AVCodecContext and set its fields to default values.  The
@@ -3562,15 +3571,15 @@ int avcodec_get_context_defaults3(AVCodecContext *s, AVCodec *codec);
  * @return An AVCodecContext filled with default values or NULL on failure.
  * @see avcodec_get_context_defaults
  */
-AVCodecContext *avcodec_alloc_context(void);
+av_export AVCodecContext *avcodec_alloc_context(void);
 
 /** THIS FUNCTION IS NOT YET PART OF THE PUBLIC API!
  *  we WILL change its arguments and name a few times! */
-AVCodecContext *avcodec_alloc_context2(enum AVMediaType);
+av_export AVCodecContext *avcodec_alloc_context2(enum AVMediaType);
 
 /** THIS FUNCTION IS NOT YET PART OF THE PUBLIC API!
  *  we WILL change its arguments and name a few times! */
-AVCodecContext *avcodec_alloc_context3(AVCodec *codec);
+av_export AVCodecContext *avcodec_alloc_context3(AVCodec *codec);
 
 /**
  * Copy the settings of the source AVCodecContext into the destination
@@ -3583,14 +3592,14 @@ AVCodecContext *avcodec_alloc_context3(AVCodec *codec);
  * @param src source codec context
  * @return AVERROR() on error (e.g. memory allocation error), 0 on success
  */
-int avcodec_copy_context(AVCodecContext *dest, const AVCodecContext *src);
+av_export int avcodec_copy_context(AVCodecContext *dest, const AVCodecContext *src);
 
 /**
  * Set the fields of the given AVFrame to default values.
  *
  * @param pic The AVFrame of which the fields should be set to default values.
  */
-void avcodec_get_frame_defaults(AVFrame *pic);
+av_export void avcodec_get_frame_defaults(AVFrame *pic);
 
 /**
  * Allocate an AVFrame and set its fields to default values.  The resulting
@@ -3599,11 +3608,11 @@ void avcodec_get_frame_defaults(AVFrame *pic);
  * @return An AVFrame filled with default values or NULL on failure.
  * @see avcodec_get_frame_defaults
  */
-AVFrame *avcodec_alloc_frame(void);
+av_export AVFrame *avcodec_alloc_frame(void);
 
-int avcodec_default_get_buffer(AVCodecContext *s, AVFrame *pic);
-void avcodec_default_release_buffer(AVCodecContext *s, AVFrame *pic);
-int avcodec_default_reget_buffer(AVCodecContext *s, AVFrame *pic);
+av_export int avcodec_default_get_buffer(AVCodecContext *s, AVFrame *pic);
+av_export void avcodec_default_release_buffer(AVCodecContext *s, AVFrame *pic);
+av_export int avcodec_default_reget_buffer(AVCodecContext *s, AVFrame *pic);
 
 /**
  * Return the amount of padding in pixels which the get_buffer callback must
@@ -3612,7 +3621,7 @@ int avcodec_default_reget_buffer(AVCodecContext *s, AVFrame *pic);
  *
  * @return Required padding in pixels.
  */
-unsigned avcodec_get_edge_width(void);
+av_export unsigned avcodec_get_edge_width(void);
 /**
  * Modify width and height values so that they will result in a memory
  * buffer that is acceptable for the codec if you do not use any horizontal
@@ -3622,7 +3631,7 @@ unsigned avcodec_get_edge_width(void);
  * If CODEC_FLAG_EMU_EDGE is not set, the dimensions must have been increased
  * according to avcodec_get_edge_width() before.
  */
-void avcodec_align_dimensions(AVCodecContext *s, int *width, int *height);
+av_export void avcodec_align_dimensions(AVCodecContext *s, int *width, int *height);
 /**
  * Modify width and height values so that they will result in a memory
  * buffer that is acceptable for the codec if you also ensure that all
@@ -3632,10 +3641,10 @@ void avcodec_align_dimensions(AVCodecContext *s, int *width, int *height);
  * If CODEC_FLAG_EMU_EDGE is not set, the dimensions must have been increased
  * according to avcodec_get_edge_width() before.
  */
-void avcodec_align_dimensions2(AVCodecContext *s, int *width, int *height,
+av_export void avcodec_align_dimensions2(AVCodecContext *s, int *width, int *height,
                                int linesize_align[4]);
 
-enum PixelFormat avcodec_default_get_format(struct AVCodecContext *s, const enum PixelFormat * fmt);
+av_export enum PixelFormat avcodec_default_get_format(struct AVCodecContext *s, const enum PixelFormat * fmt);
 
 #if FF_API_THREAD_INIT
 /**
@@ -3645,8 +3654,8 @@ attribute_deprecated
 int avcodec_thread_init(AVCodecContext *s, int thread_count);
 #endif
 
-int avcodec_default_execute(AVCodecContext *c, int (*func)(AVCodecContext *c2, void *arg2),void *arg, int *ret, int count, int size);
-int avcodec_default_execute2(AVCodecContext *c, int (*func)(AVCodecContext *c2, void *arg2, int, int),void *arg, int *ret, int count);
+av_export int avcodec_default_execute(AVCodecContext *c, int (*func)(AVCodecContext *c2, void *arg2),void *arg, int *ret, int count, int size);
+av_export int avcodec_default_execute2(AVCodecContext *c, int (*func)(AVCodecContext *c2, void *arg2, int, int),void *arg, int *ret, int count);
 //FIXME func typedef
 
 /**
@@ -3676,7 +3685,7 @@ int avcodec_default_execute2(AVCodecContext *c, int (*func)(AVCodecContext *c2, 
  * @return zero on success, a negative value on error
  * @see avcodec_alloc_context, avcodec_find_decoder, avcodec_find_encoder, avcodec_close
  */
-int avcodec_open(AVCodecContext *avctx, AVCodec *codec);
+av_export int avcodec_open(AVCodecContext *avctx, AVCodec *codec);
 
 /**
  * Decode the audio frame of size avpkt->size from avpkt->data into samples.
@@ -3717,7 +3726,7 @@ int avcodec_open(AVCodecContext *avctx, AVCodec *codec);
  * @return On error a negative value is returned, otherwise the number of bytes
  * used or zero if no frame data was decompressed (used) from the input AVPacket.
  */
-int avcodec_decode_audio3(AVCodecContext *avctx, int16_t *samples,
+av_export int avcodec_decode_audio3(AVCodecContext *avctx, int16_t *samples,
                          int *frame_size_ptr,
                          AVPacket *avpkt);
 
@@ -3761,7 +3770,7 @@ int avcodec_decode_audio3(AVCodecContext *avctx, int16_t *samples,
  * @return On error a negative value is returned, otherwise the number of bytes
  * used or zero if no frame could be decompressed.
  */
-int avcodec_decode_video2(AVCodecContext *avctx, AVFrame *picture,
+av_export int avcodec_decode_video2(AVCodecContext *avctx, AVFrame *picture,
                          int *got_picture_ptr,
                          AVPacket *avpkt);
 
@@ -3781,7 +3790,7 @@ int avcodec_decode_video2(AVCodecContext *avctx, AVFrame *picture,
  * @param[in,out] got_sub_ptr Zero if no subtitle could be decompressed, otherwise, it is nonzero.
  * @param[in] avpkt The input AVPacket containing the input buffer.
  */
-int avcodec_decode_subtitle2(AVCodecContext *avctx, AVSubtitle *sub,
+av_export int avcodec_decode_subtitle2(AVCodecContext *avctx, AVSubtitle *sub,
                             int *got_sub_ptr,
                             AVPacket *avpkt);
 
@@ -3790,9 +3799,9 @@ int avcodec_decode_subtitle2(AVCodecContext *avctx, AVSubtitle *sub,
  *
  * @param sub AVSubtitle to free.
  */
-void avsubtitle_free(AVSubtitle *sub);
+av_export void avsubtitle_free(AVSubtitle *sub);
 
-int avcodec_parse_frame(AVCodecContext *avctx, uint8_t **pdata,
+av_export int avcodec_parse_frame(AVCodecContext *avctx, uint8_t **pdata,
                         int *data_size_ptr,
                         uint8_t *buf, int buf_size);
 
@@ -3815,7 +3824,7 @@ int avcodec_parse_frame(AVCodecContext *avctx, uint8_t **pdata,
  * @return On error a negative value is returned, on success zero or the number
  * of bytes used to encode the data read from the input buffer.
  */
-int avcodec_encode_audio(AVCodecContext *avctx, uint8_t *buf, int buf_size,
+av_export int avcodec_encode_audio(AVCodecContext *avctx, uint8_t *buf, int buf_size,
                          const short *samples);
 
 /**
@@ -3830,12 +3839,12 @@ int avcodec_encode_audio(AVCodecContext *avctx, uint8_t *buf, int buf_size,
  * @return On error a negative value is returned, on success zero or the number
  * of bytes used from the output buffer.
  */
-int avcodec_encode_video(AVCodecContext *avctx, uint8_t *buf, int buf_size,
+av_export int avcodec_encode_video(AVCodecContext *avctx, uint8_t *buf, int buf_size,
                          const AVFrame *pict);
-int avcodec_encode_subtitle(AVCodecContext *avctx, uint8_t *buf, int buf_size,
+av_export int avcodec_encode_subtitle(AVCodecContext *avctx, uint8_t *buf, int buf_size,
                             const AVSubtitle *sub);
 
-int avcodec_close(AVCodecContext *avctx);
+av_export int avcodec_close(AVCodecContext *avctx);
 
 /**
  * Register all the codecs, parsers and bitstream filters which were enabled at
@@ -3847,14 +3856,14 @@ int avcodec_close(AVCodecContext *avctx);
  * @see av_register_codec_parser
  * @see av_register_bitstream_filter
  */
-void avcodec_register_all(void);
+av_export void avcodec_register_all(void);
 
 /**
  * Flush buffers, should be called when seeking or when switching to a different stream.
  */
-void avcodec_flush_buffers(AVCodecContext *avctx);
+av_export void avcodec_flush_buffers(AVCodecContext *avctx);
 
-void avcodec_default_free_buffers(AVCodecContext *s);
+av_export void avcodec_default_free_buffers(AVCodecContext *s);
 
 /* misc useful functions */
 
@@ -3864,7 +3873,7 @@ void avcodec_default_free_buffers(AVCodecContext *s);
  * @param[in] pict_type the picture type
  * @return A single character representing the picture type.
  */
-char av_get_pict_type_char(int pict_type);
+av_export char av_get_pict_type_char(int pict_type);
 
 /**
  * Return codec bits per sample.
@@ -3872,7 +3881,7 @@ char av_get_pict_type_char(int pict_type);
  * @param[in] codec_id the codec
  * @return Number of bits per sample or zero if unknown for the given codec.
  */
-int av_get_bits_per_sample(enum CodecID codec_id);
+av_export int av_get_bits_per_sample(enum CodecID codec_id);
 
 #if FF_API_OLD_SAMPLE_FMT
 /**
@@ -4024,10 +4033,10 @@ typedef struct AVCodecParser {
     struct AVCodecParser *next;
 } AVCodecParser;
 
-AVCodecParser *av_parser_next(AVCodecParser *c);
+av_export AVCodecParser *av_parser_next(AVCodecParser *c);
 
-void av_register_codec_parser(AVCodecParser *parser);
-AVCodecParserContext *av_parser_init(int codec_id);
+av_export void av_register_codec_parser(AVCodecParser *parser);
+av_export AVCodecParserContext *av_parser_init(int codec_id);
 
 /**
  * Parse a packet.
@@ -4057,18 +4066,18 @@ AVCodecParserContext *av_parser_init(int codec_id);
  *   }
  * @endcode
  */
-int av_parser_parse2(AVCodecParserContext *s,
+av_export int av_parser_parse2(AVCodecParserContext *s,
                      AVCodecContext *avctx,
                      uint8_t **poutbuf, int *poutbuf_size,
                      const uint8_t *buf, int buf_size,
                      int64_t pts, int64_t dts,
                      int64_t pos);
 
-int av_parser_change(AVCodecParserContext *s,
+av_export int av_parser_change(AVCodecParserContext *s,
                      AVCodecContext *avctx,
                      uint8_t **poutbuf, int *poutbuf_size,
                      const uint8_t *buf, int buf_size, int keyframe);
-void av_parser_close(AVCodecParserContext *s);
+av_export void av_parser_close(AVCodecParserContext *s);
 
 
 typedef struct AVBitStreamFilterContext {
@@ -4090,15 +4099,15 @@ typedef struct AVBitStreamFilter {
     struct AVBitStreamFilter *next;
 } AVBitStreamFilter;
 
-void av_register_bitstream_filter(AVBitStreamFilter *bsf);
-AVBitStreamFilterContext *av_bitstream_filter_init(const char *name);
-int av_bitstream_filter_filter(AVBitStreamFilterContext *bsfc,
+av_export void av_register_bitstream_filter(AVBitStreamFilter *bsf);
+av_export AVBitStreamFilterContext *av_bitstream_filter_init(const char *name);
+av_export int av_bitstream_filter_filter(AVBitStreamFilterContext *bsfc,
                                AVCodecContext *avctx, const char *args,
                                uint8_t **poutbuf, int *poutbuf_size,
                                const uint8_t *buf, int buf_size, int keyframe);
-void av_bitstream_filter_close(AVBitStreamFilterContext *bsf);
+av_export void av_bitstream_filter_close(AVBitStreamFilterContext *bsf);
 
-AVBitStreamFilter *av_bitstream_filter_next(AVBitStreamFilter *f);
+av_export AVBitStreamFilter *av_bitstream_filter_next(AVBitStreamFilter *f);
 
 /* memory */
 
@@ -4107,7 +4116,7 @@ AVBitStreamFilter *av_bitstream_filter_next(AVBitStreamFilter *f);
  *
  * @see av_realloc
  */
-void *av_fast_realloc(void *ptr, unsigned int *size, size_t min_size);
+av_export void *av_fast_realloc(void *ptr, unsigned int *size, size_t min_size);
 
 /**
  * Allocate a buffer, reusing the given one if large enough.
@@ -4121,24 +4130,24 @@ void *av_fast_realloc(void *ptr, unsigned int *size, size_t min_size);
  * @param min_size minimum size of *ptr buffer after returning, *ptr will be NULL and
  *                 *size 0 if an error occurred.
  */
-void av_fast_malloc(void *ptr, unsigned int *size, size_t min_size);
+av_export void av_fast_malloc(void *ptr, unsigned int *size, size_t min_size);
 
 /**
  * Copy image src to dst. Wraps av_picture_data_copy() above.
  */
-void av_picture_copy(AVPicture *dst, const AVPicture *src,
+av_export void av_picture_copy(AVPicture *dst, const AVPicture *src,
                      enum PixelFormat pix_fmt, int width, int height);
 
 /**
  * Crop image top and left side.
  */
-int av_picture_crop(AVPicture *dst, const AVPicture *src,
+av_export int av_picture_crop(AVPicture *dst, const AVPicture *src,
                     enum PixelFormat pix_fmt, int top_band, int left_band);
 
 /**
  * Pad image.
  */
-int av_picture_pad(AVPicture *dst, const AVPicture *src, int height, int width, enum PixelFormat pix_fmt,
+av_export int av_picture_pad(AVPicture *dst, const AVPicture *src, int height, int width, enum PixelFormat pix_fmt,
             int padtop, int padbottom, int padleft, int padright, int *color);
 
 /**
@@ -4148,7 +4157,7 @@ int av_picture_pad(AVPicture *dst, const AVPicture *src, int height, int width, 
  * @param v size of extradata in bytes
  * @return number of bytes written to the buffer.
  */
-unsigned int av_xiphlacing(unsigned char *s, unsigned int v);
+av_export unsigned int av_xiphlacing(unsigned char *s, unsigned int v);
 
 /**
  * Logs a generic warning message about a missing feature. This function is
@@ -4162,7 +4171,7 @@ unsigned int av_xiphlacing(unsigned char *s, unsigned int v);
  * message which tells the user how to report samples to the development
  * mailing list.
  */
-void av_log_missing_feature(void *avc, const char *feature, int want_sample);
+av_export void av_log_missing_feature(void *avc, const char *feature, int want_sample);
 
 /**
  * Log a generic warning message asking for a sample. This function is
@@ -4172,19 +4181,19 @@ void av_log_missing_feature(void *avc, const char *feature, int want_sample);
  * a pointer to an AVClass struct
  * @param[in] msg string containing an optional message, or NULL if no message
  */
-void av_log_ask_for_sample(void *avc, const char *msg);
+av_export void av_log_ask_for_sample(void *avc, const char *msg);
 
 /**
  * Register the hardware accelerator hwaccel.
  */
-void av_register_hwaccel(AVHWAccel *hwaccel);
+av_export void av_register_hwaccel(AVHWAccel *hwaccel);
 
 /**
  * If hwaccel is NULL, returns the first registered hardware accelerator,
  * if hwaccel is non-NULL, returns the next registered hardware accelerator
  * after hwaccel, or NULL if hwaccel is the last one.
  */
-AVHWAccel *av_hwaccel_next(AVHWAccel *hwaccel);
+av_export AVHWAccel *av_hwaccel_next(AVHWAccel *hwaccel);
 
 
 /**
@@ -4210,6 +4219,6 @@ enum AVLockOp {
  *           Also note that during unregistration the previously registered
  *           lockmgr callback may also be invoked.
  */
-int av_lockmgr_register(int (*cb)(void **mutex, enum AVLockOp op));
+av_export int av_lockmgr_register(int (*cb)(void **mutex, enum AVLockOp op));
 
 #endif /* AVCODEC_AVCODEC_H */

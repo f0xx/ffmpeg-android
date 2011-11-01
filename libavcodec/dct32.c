@@ -23,6 +23,16 @@
 #   define FIXHR(x)       ((float)(x))
 #   define MULH3(x, y, s) ((s)*(y)*(x))
 #   define INTFLOAT float
+#else
+#ifndef FIXHR
+#   define FIXHR(x)       ((int)(x))
+#endif
+#ifndef MULH3
+#   define MULH3(x, y, s) ((s)*(y)*(x))
+#endif
+#ifndef INTFLOAT
+#   define INTFLOAT int
+#endif
 #endif
 
 

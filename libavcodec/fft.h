@@ -40,7 +40,8 @@ typedef float FFTDouble;
 
 #else
 
-#define FFT_NAME(x) x ## _fixed
+#define FFT_NAME(x) x
+//#define FFT_NAME(x) x ## _fixed
 
 typedef int16_t FFTSample;
 typedef int     FFTDouble;
@@ -145,7 +146,7 @@ void ff_fft_end(FFTContext *s);
 #define ff_mdct_init FFT_NAME(ff_mdct_init)
 #define ff_mdct_end  FFT_NAME(ff_mdct_end)
 
-int ff_mdct_init(FFTContext *s, int nbits, int inverse, double scale);
-void ff_mdct_end(FFTContext *s);
+av_export int ff_mdct_init(FFTContext *s, int nbits, int inverse, double scale);
+av_export void ff_mdct_end(FFTContext *s);
 
 #endif /* AVCODEC_FFT_H */

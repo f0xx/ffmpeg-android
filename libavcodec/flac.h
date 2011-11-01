@@ -95,7 +95,7 @@ typedef struct FLACFrameInfo {
  * @param[out] s       where parsed information is stored
  * @param[in]  buffer  pointer to start of 34-byte streaminfo data
  */
-void ff_flac_parse_streaminfo(AVCodecContext *avctx, struct FLACStreaminfo *s,
+av_export void ff_flac_parse_streaminfo(AVCodecContext *avctx, struct FLACStreaminfo *s,
                               const uint8_t *buffer);
 
 /**
@@ -105,7 +105,7 @@ void ff_flac_parse_streaminfo(AVCodecContext *avctx, struct FLACStreaminfo *s,
  * @param[out] streaminfo_start pointer to start of 34-byte STREAMINFO data.
  * @return 1 if valid, 0 if not valid.
  */
-int ff_flac_is_extradata_valid(AVCodecContext *avctx,
+av_export int ff_flac_is_extradata_valid(AVCodecContext *avctx,
                                enum FLACExtradataFormat *format,
                                uint8_t **streaminfo_start);
 
@@ -116,7 +116,7 @@ int ff_flac_is_extradata_valid(AVCodecContext *avctx,
  * @param[out] type metadata block type
  * @param[out] size metadata block size
  */
-void ff_flac_parse_block_header(const uint8_t *block_header,
+av_export void ff_flac_parse_block_header(const uint8_t *block_header,
                                 int *last, int *type, int *size);
 
 /**
@@ -125,7 +125,7 @@ void ff_flac_parse_block_header(const uint8_t *block_header,
  * @param ch number of channels
  * @param bps bits-per-sample
  */
-int ff_flac_get_max_frame_size(int blocksize, int ch, int bps);
+av_export int ff_flac_get_max_frame_size(int blocksize, int ch, int bps);
 
 /**
  * Validate and decode a frame header.
@@ -135,6 +135,6 @@ int ff_flac_get_max_frame_size(int blocksize, int ch, int bps);
  * @param      log_level_offset  log level offset. can be used to silence error messages.
  * @return non-zero on error, 0 if ok
  */
-int ff_flac_decode_frame_header(AVCodecContext *avctx, GetBitContext *gb,
+av_export int ff_flac_decode_frame_header(AVCodecContext *avctx, GetBitContext *gb,
                                 FLACFrameInfo *fi, int log_level_offset);
 #endif /* AVCODEC_FLAC_H */

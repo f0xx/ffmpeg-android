@@ -29,8 +29,10 @@
 #define TABLE_4_3_SIZE (8191 + 16)*4
 #if CONFIG_HARDCODED_TABLES
 #define mpegaudio_tableinit()
-#include "libavcodec/mpegaudio_tables.h"
+//#include "libavcodec/mpegaudio_tables.h"
 #else
+#include "mpegaudio.h"
+
 static int8_t   table_4_3_exp[TABLE_4_3_SIZE];
 static uint32_t table_4_3_value[TABLE_4_3_SIZE];
 static uint32_t exp_table[512];

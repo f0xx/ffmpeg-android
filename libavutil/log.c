@@ -29,6 +29,10 @@
 #include "avutil.h"
 #include "log.h"
 
+#ifdef ANDROID
+#include <android/log.h>
+#endif
+
 static int av_log_level = AV_LOG_INFO;
 static int flags;
 
@@ -44,7 +48,13 @@ static const uint8_t color[]={0x41,0x41,0x11,0x03,9,9,9};
 #define set_color(x)  fprintf(stderr, "\033[%d;3%dm", color[x]>>4, color[x]&15)
 #define reset_color() fprintf(stderr, "\033[0m")
 #endif
-static int use_color=-1;
+static int use_color=
+#ifdef ANDROID
+  0
+#else
+  -1  
+#endif
+  ;
 
 #undef fprintf
 static void colored_fputs(int level, const char *str){
@@ -69,7 +79,11 @@ static void colored_fputs(int level, const char *str){
     if(use_color){
         set_color(level);
     }
+#ifdef ANDROID
+		__android_log_write(ANDROID_LOG_INFO, "ffmpeg_android", str);
+#else
     fputs(str, stderr);
+#endif		
     if(use_color){
         reset_color();
     }

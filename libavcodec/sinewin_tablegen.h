@@ -46,7 +46,7 @@ SINETABLE_CONST float * const ff_sine_windows[] = {
 };
 
 // Generate a sine window.
-av_cold void ff_sine_window_init(float *window, int n) {
+av_export av_cold void ff_sine_window_init(float *window, int n) {
     int i;
     for(i = 0; i < n; i++)
         window[i] = sinf((i + 0.5) * (M_PI / (2.0 * n)));

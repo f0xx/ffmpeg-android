@@ -68,9 +68,16 @@
 #include "mpegaudiodata.h"
 #include "mpegaudiodectab.h"
 
+#if CONFIG_HARDCODED_TABLES
+#include "mpegaudio_tables.h"
+#endif
+
 #if CONFIG_FLOAT
 #    include "fft.h"
 #else
+#ifdef DCT32_FLOAT
+#undef DCT32_FLOAT
+#endif
 #    include "dct32.c"
 #endif
 

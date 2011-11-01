@@ -40,8 +40,8 @@ typedef struct {
     int ps;  //< -1 implicit, 1 presence
 } MPEG4AudioConfig;
 
-extern const int ff_mpeg4audio_sample_rates[16];
-extern const uint8_t ff_mpeg4audio_channels[8];
+extern const int ff_mpeg4audio_sample_rates[16] av_export ;
+extern const uint8_t ff_mpeg4audio_channels[8] av_export ;
 /**
  * Parse MPEG-4 systems extradata to retrieve audio configuration.
  * @param[in] c        MPEG4AudioConfig structure to fill.
@@ -49,7 +49,7 @@ extern const uint8_t ff_mpeg4audio_channels[8];
  * @param[in] buf_size Extradata size.
  * @return On error -1 is returned, on success AudioSpecificConfig bit index in extradata.
  */
-int ff_mpeg4audio_get_config(MPEG4AudioConfig *c, const uint8_t *buf, int buf_size);
+av_export int ff_mpeg4audio_get_config(MPEG4AudioConfig *c, const uint8_t *buf, int buf_size);
 
 enum AudioObjectType {
     AOT_NULL,
