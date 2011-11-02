@@ -24,6 +24,7 @@ LIBSWSCALE_SRC_FILES := \
 		options.c \
 		rgb2rgb.c \
 		swscale.c \
+		swscale_unscaled.c \
 		utils.c \
 		yuv2rgb.c \
 

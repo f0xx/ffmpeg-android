@@ -80,7 +80,7 @@ int avcodec_channel_layout_num_channels(int64_t channel_layout);
  * @param fmt_name Format name, or NULL if unknown
  * @return Channel layout mask
  */
-int64_t avcodec_guess_channel_layout(int nb_channels, enum CodecID codec_id, const char *fmt_name);
+av_export int64_t avcodec_guess_channel_layout(int nb_channels, enum CodecID codec_id, const char *fmt_name);
 
 struct AVAudioConvert;
 typedef struct AVAudioConvert AVAudioConvert;
@@ -95,14 +95,14 @@ typedef struct AVAudioConvert AVAudioConvert;
  * @param flags See AV_CPU_FLAG_xx
  * @return NULL on error
  */
-AVAudioConvert *av_audio_convert_alloc(enum AVSampleFormat out_fmt, int out_channels,
+av_export AVAudioConvert *av_audio_convert_alloc(enum AVSampleFormat out_fmt, int out_channels,
                                        enum AVSampleFormat in_fmt, int in_channels,
                                        const float *matrix, int flags);
 
 /**
  * Free audio sample format converter context
  */
-void av_audio_convert_free(AVAudioConvert *ctx);
+av_export void av_audio_convert_free(AVAudioConvert *ctx);
 
 /**
  * Convert between audio sample formats
@@ -112,7 +112,7 @@ void av_audio_convert_free(AVAudioConvert *ctx);
  * @param[in] in_stride distance between consecutive input samples (measured in bytes)
  * @param len length of audio frame size (measured in samples)
  */
-int av_audio_convert(AVAudioConvert *ctx,
+av_export int av_audio_convert(AVAudioConvert *ctx,
                            void * const out[6], const int out_stride[6],
                      const void * const  in[6], const int  in_stride[6], int len);
 

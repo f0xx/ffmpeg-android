@@ -459,8 +459,9 @@ add_dstream(AVFormatContext *s, AVStream *orig_st)
 {
     AVStream *st;
 
-    if (!(st = av_new_stream(s, orig_st->id)))
+    if (!(st = avformat_new_stream(s, NULL)))
         return NULL;
+    st->id = orig_st->id;
     st->codec->codec_type = orig_st->codec->codec_type;
     st->first_dts         = orig_st->first_dts;
 
@@ -523,7 +524,7 @@ rdt_new_context (void)
 {
     PayloadContext *rdt = av_mallocz(sizeof(PayloadContext));
 
-    av_open_input_stream(&rdt->rmctx, NULL, "", &ff_rdt_demuxer, NULL);
+    avformat_open_input(&rdt->rmctx, "", &ff_rdt_demuxer, NULL);
 
     return rdt;
 }
@@ -539,7 +540,7 @@ rdt_free_context (PayloadContext *rdt)
             av_freep(&rdt->rmst[i]);
         }
     if (rdt->rmctx)
-        av_close_input_stream(rdt->rmctx);
+        av_close_input_file(rdt->rmctx);
     av_freep(&rdt->mlti_data);
     av_freep(&rdt->rmst);
     av_free(rdt);
@@ -551,8 +552,8 @@ static RTPDynamicProtocolHandler ff_rdt_ ## n ## _handler = { \
     .codec_type       = t, \
     .codec_id         = CODEC_ID_NONE, \
     .parse_sdp_a_line = rdt_parse_sdp_line, \
-    .open             = rdt_new_context, \
-    .close            = rdt_free_context, \
+    .alloc            = rdt_new_context, \
+    .free             = rdt_free_context, \
     .parse_packet     = rdt_parse_packet \
 }
 

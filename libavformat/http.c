@@ -54,11 +54,14 @@ typedef struct {
 
 #define OFFSET(x) offsetof(HTTPContext, x)
 static const AVOption options[] = {
-{"chunksize", "use chunked transfer-encoding for posts, -1 disables it, 0 enables it", OFFSET(chunksize), FF_OPT_TYPE_INT64, 0, -1, 0 }, /* Default to 0, for chunked POSTs */
+{"chunksize", "use chunked transfer-encoding for posts, -1 disables it, 0 enables it", OFFSET(chunksize), AV_OPT_TYPE_INT64, {.dbl = 0}, -1, 0 }, /* Default to 0, for chunked POSTs */
 {NULL}
 };
 static const AVClass httpcontext_class = {
-    "HTTP", av_default_item_name, options, LIBAVUTIL_VERSION_INT
+    .class_name     = "HTTP",
+    .item_name      = av_default_item_name,
+    .option         = options,
+    .version        = LIBAVUTIL_VERSION_INT,
 };
 
 static int http_connect(URLContext *h, const char *path, const char *hoststr,
@@ -262,6 +265,8 @@ static int process_line(URLContext *h, char *line, int line_count,
                     s->filesize = atoll(slash+1);
             }
             h->is_streamed = 0; /* we _can_ in fact seek */
+        } else if (!strcasecmp(tag, "Accept-Ranges") && !strncmp(p, "bytes", 5)) {
+            h->is_streamed = 0;
         } else if (!strcasecmp (tag, "Transfer-Encoding") && !strncasecmp(p, "chunked", 7)) {
             s->filesize = -1;
             s->chunksize = 0;

@@ -19,9 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-/* needed for gethostname() */
-#define _XOPEN_SOURCE 600
-
+#include "libavutil/mathematics.h"
 #include "libavcodec/get_bits.h"
 #include "avformat.h"
 #include "mpegts.h"
@@ -114,14 +112,15 @@ RTPDynamicProtocolHandler *ff_rtp_handler_find_by_id(int id,
 static int rtcp_parse_packet(RTPDemuxContext *s, const unsigned char *buf, int len)
 {
     int payload_len;
-    while (len >= 2) {
+    while (len >= 4) {
+        payload_len = FFMIN(len, (AV_RB16(buf + 2) + 1) * 4);
+
         switch (buf[1]) {
         case RTCP_SR:
-            if (len < 16) {
+            if (payload_len < 20) {
                 av_log(NULL, AV_LOG_ERROR, "Invalid length for RTCP SR packet\n");
                 return AVERROR_INVALIDDATA;
             }
-            payload_len = (AV_RB16(buf + 2) + 1) * 4;
 
             s->last_rtcp_ntp_time = AV_RB64(buf + 8);
             s->last_rtcp_timestamp = AV_RB32(buf + 16);
@@ -132,14 +131,13 @@ static int rtcp_parse_packet(RTPDemuxContext *s, const unsigned char *buf, int l
                 s->rtcp_ts_offset = s->last_rtcp_timestamp - s->base_timestamp;
             }
 
-            buf += payload_len;
-            len -= payload_len;
             break;
         case RTCP_BYE:
             return -RTCP_BYE;
-        default:
-            return -1;
         }
+
+        buf += payload_len;
+        len -= payload_len;
     }
     return -1;
 }
@@ -220,23 +218,7 @@ static int rtp_valid_packet_in_sequence(RTPStatistics *s, uint16_t seq)
     return 1;
 }
 
-#if 0
-/**
-* This function is currently unused; without a valid local ntp time, I don't see how we could calculate the
-* difference between the arrival and sent timestamp.  As a result, the jitter and transit statistics values
-* never change.  I left this in in case someone else can see a way. (rdm)
-*/
-static void rtcp_update_jitter(RTPStatistics *s, uint32_t sent_timestamp, uint32_t arrival_timestamp)
-{
-    uint32_t transit= arrival_timestamp - sent_timestamp;
-    int d;
-    s->transit= transit;
-    d= FFABS(transit - s->transit);
-    s->jitter += d - ((s->jitter + 8)>>4);
-}
-#endif
-
-int rtp_check_and_send_back_rr(RTPDemuxContext *s, int count)
+int ff_rtp_check_and_send_back_rr(RTPDemuxContext *s, int count)
 {
     AVIOContext *pb;
     uint8_t *buf;
@@ -324,7 +306,7 @@ int rtp_check_and_send_back_rr(RTPDemuxContext *s, int count)
     avio_flush(pb);
     len = avio_close_dyn_buf(pb, &buf);
     if ((len > 0) && buf) {
-        int result;
+        int av_unused result;
         av_dlog(s->ic, "sending %d bytes of RR\n", len);
         result= ffurl_write(s->rtp_ctx, buf, len);
         av_dlog(s->ic, "result from ffurl_write: %d\n", result);
@@ -333,7 +315,7 @@ int rtp_check_and_send_back_rr(RTPDemuxContext *s, int count)
     return 0;
 }
 
-void rtp_send_punch_packets(URLContext* rtp_handle)
+void ff_rtp_send_punch_packets(URLContext* rtp_handle)
 {
     AVIOContext *pb;
     uint8_t *buf;
@@ -377,7 +359,7 @@ void rtp_send_punch_packets(URLContext* rtp_handle)
  * MPEG2TS streams to indicate that they should be demuxed inside the
  * rtp demux (otherwise CODEC_ID_MPEG2TS packets are returned)
  */
-RTPDemuxContext *rtp_parse_open(AVFormatContext *s1, AVStream *st, URLContext *rtpc, int payload_type, int queue_size)
+RTPDemuxContext *ff_rtp_parse_open(AVFormatContext *s1, AVStream *st, URLContext *rtpc, int payload_type, int queue_size)
 {
     RTPDemuxContext *s;
 
@@ -425,8 +407,8 @@ RTPDemuxContext *rtp_parse_open(AVFormatContext *s1, AVStream *st, URLContext *r
 }
 
 void
-rtp_parse_set_dynamic_protocol(RTPDemuxContext *s, PayloadContext *ctx,
-                               RTPDynamicProtocolHandler *handler)
+ff_rtp_parse_set_dynamic_protocol(RTPDemuxContext *s, PayloadContext *ctx,
+                                  RTPDynamicProtocolHandler *handler)
 {
     s->dynamic_protocol_context = ctx;
     s->parse_packet = handler->parse_packet;
@@ -740,8 +722,8 @@ static int rtp_parse_one_packet(RTPDemuxContext *s, AVPacket *pkt,
  * @return 0 if a packet is returned, 1 if a packet is returned and more can follow
  * (use buf as NULL to read the next). -1 if no packet (error or no more packet).
  */
-int rtp_parse_packet(RTPDemuxContext *s, AVPacket *pkt,
-                     uint8_t **bufptr, int len)
+int ff_rtp_parse_packet(RTPDemuxContext *s, AVPacket *pkt,
+                        uint8_t **bufptr, int len)
 {
     int rv = rtp_parse_one_packet(s, pkt, bufptr, len);
     s->prev_ret = rv;
@@ -750,7 +732,7 @@ int rtp_parse_packet(RTPDemuxContext *s, AVPacket *pkt,
     return rv ? rv : has_next_packet(s);
 }
 
-void rtp_parse_close(RTPDemuxContext *s)
+void ff_rtp_parse_close(RTPDemuxContext *s)
 {
     ff_rtp_reset_packet_queue(s);
     if (!strcmp(ff_rtp_enc_name(s->payload_type), "MP2T")) {

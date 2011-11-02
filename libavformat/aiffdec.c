@@ -20,9 +20,11 @@
  */
 
 #include "libavutil/intfloat_readwrite.h"
+#include "libavutil/dict.h"
 #include "avformat.h"
 #include "pcm.h"
 #include "aiff.h"
+#include "isom.h"
 
 #define AIFF                    0
 #define AIFF_C_VERSION1         0xA2805140
@@ -67,19 +69,20 @@ static int get_tag(AVIOContext *pb, uint32_t * tag)
 static void get_meta(AVFormatContext *s, const char *key, int size)
 {
     uint8_t *str = av_malloc(size+1);
-    int res;
 
-    if (!str) {
-        avio_skip(s->pb, size);
-        return;
-    }
+    if (str) {
+        int res = avio_read(s->pb, str, size);
+        if (res < 0){
+            av_free(str);
+            return;
+        }
+        size += (size&1)-res;
+        str[res] = 0;
+        av_dict_set(&s->metadata, key, str, AV_METADATA_DONT_STRDUP_VAL);
+    }else
+        size+= size&1;
 
-    res = avio_read(s->pb, str, size);
-    if (res < 0)
-        return;
-
-    str[res] = 0;
-    av_metadata_set2(&s->metadata, key, str, AV_METADATA_DONT_STRDUP_VAL);
+    avio_skip(s->pb, size);
 }
 
 /* Returns the number of sound data frames or negative on error */
@@ -195,7 +198,7 @@ static int aiff_read_header(AVFormatContext *s,
 
     filesize -= 4;
 
-    st = av_new_stream(s, 0);
+    st = avformat_new_stream(s, NULL);
     if (!st)
         return AVERROR(ENOMEM);
 
@@ -253,6 +256,11 @@ static int aiff_read_header(AVFormatContext *s,
             st->codec->extradata_size = size;
             avio_read(pb, st->codec->extradata, size);
             break;
+        case MKTAG('C','H','A','N'):
+            if (size < 12)
+                return AVERROR_INVALIDDATA;
+            ff_mov_read_chan(s, size, st->codec);
+            break;
         default: /* Jump */
             if (size & 1)   /* Always even aligned */
                 size++;
@@ -267,9 +275,6 @@ static int aiff_read_header(AVFormatContext *s,
 
 got_sound:
     /* Now positioned, get the sound data start and end */
-    if (st->nb_frames)
-        s->file_size = st->nb_frames * st->codec->block_align;
-
     av_set_pts_info(st, 64, 1, st->codec->sample_rate);
     st->start_time = 0;
     st->duration = st->codec->frame_size ?
@@ -312,13 +317,12 @@ static int aiff_read_packet(AVFormatContext *s,
 }
 
 AVInputFormat ff_aiff_demuxer = {
-    "aiff",
-    NULL_IF_CONFIG_SMALL("Audio IFF"),
-    sizeof(AIFFInputContext),
-    aiff_probe,
-    aiff_read_header,
-    aiff_read_packet,
-    NULL,
-    pcm_read_seek,
+    .name           = "aiff",
+    .long_name      = NULL_IF_CONFIG_SMALL("Audio IFF"),
+    .priv_data_size = sizeof(AIFFInputContext),
+    .read_probe     = aiff_probe,
+    .read_header    = aiff_read_header,
+    .read_packet    = aiff_read_packet,
+    .read_seek      = pcm_read_seek,
     .codec_tag= (const AVCodecTag* const []){ff_codec_aiff_tags, 0},
 };

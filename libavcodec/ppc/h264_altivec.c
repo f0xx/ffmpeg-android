@@ -527,7 +527,7 @@ static void ff_h264_idct8_dc_add_altivec(uint8_t *dst, DCTELEM *block, int strid
     h264_idct_dc_add_internal(dst, block, stride, 8);
 }
 
-static void ff_h264_idct_add16_altivec(uint8_t *dst, const int *block_offset, DCTELEM *block, int stride, const uint8_t nnzc[6*8]){
+static void ff_h264_idct_add16_altivec(uint8_t *dst, const int *block_offset, DCTELEM *block, int stride, const uint8_t nnzc[15*8]){
     int i;
     for(i=0; i<16; i++){
         int nnz = nnzc[ scan8[i] ];
@@ -538,7 +538,7 @@ static void ff_h264_idct_add16_altivec(uint8_t *dst, const int *block_offset, DC
     }
 }
 
-static void ff_h264_idct_add16intra_altivec(uint8_t *dst, const int *block_offset, DCTELEM *block, int stride, const uint8_t nnzc[6*8]){
+static void ff_h264_idct_add16intra_altivec(uint8_t *dst, const int *block_offset, DCTELEM *block, int stride, const uint8_t nnzc[15*8]){
     int i;
     for(i=0; i<16; i++){
         if(nnzc[ scan8[i] ]) ff_h264_idct_add_altivec(dst + block_offset[i], block + i*16, stride);
@@ -546,7 +546,7 @@ static void ff_h264_idct_add16intra_altivec(uint8_t *dst, const int *block_offse
     }
 }
 
-static void ff_h264_idct8_add4_altivec(uint8_t *dst, const int *block_offset, DCTELEM *block, int stride, const uint8_t nnzc[6*8]){
+static void ff_h264_idct8_add4_altivec(uint8_t *dst, const int *block_offset, DCTELEM *block, int stride, const uint8_t nnzc[15*8]){
     int i;
     for(i=0; i<16; i+=4){
         int nnz = nnzc[ scan8[i] ];
@@ -557,13 +557,15 @@ static void ff_h264_idct8_add4_altivec(uint8_t *dst, const int *block_offset, DC
     }
 }
 
-static void ff_h264_idct_add8_altivec(uint8_t **dest, const int *block_offset, DCTELEM *block, int stride, const uint8_t nnzc[6*8]){
-    int i;
-    for(i=16; i<16+8; i++){
-        if(nnzc[ scan8[i] ])
-            ff_h264_idct_add_altivec(dest[(i&4)>>2] + block_offset[i], block + i*16, stride);
-        else if(block[i*16])
-            h264_idct_dc_add_altivec(dest[(i&4)>>2] + block_offset[i], block + i*16, stride);
+static void ff_h264_idct_add8_altivec(uint8_t **dest, const int *block_offset, DCTELEM *block, int stride, const uint8_t nnzc[15*8]){
+    int i, j;
+    for (j = 1; j < 3; j++) {
+        for(i = j * 16; i < j * 16 + 4; i++){
+            if(nnzc[ scan8[i] ])
+                ff_h264_idct_add_altivec(dest[j-1] + block_offset[i], block + i*16, stride);
+            else if(block[i*16])
+                h264_idct_dc_add_altivec(dest[j-1] + block_offset[i], block + i*16, stride);
+        }
     }
 }
 
@@ -841,7 +843,8 @@ static void h264_h_loop_filter_luma_altivec(uint8_t *pix, int stride, int alpha,
 }
 
 static av_always_inline
-void weight_h264_WxH_altivec(uint8_t *block, int stride, int log2_denom, int weight, int offset, int w, int h)
+void weight_h264_W_altivec(uint8_t *block, int stride, int height,
+                           int log2_denom, int weight, int offset, int w)
 {
     int y, aligned;
     vec_u8 vblock;
@@ -862,7 +865,7 @@ void weight_h264_WxH_altivec(uint8_t *block, int stride, int log2_denom, int wei
     voffset = vec_splat(vtemp, 5);
     aligned = !((unsigned long)block & 0xf);
 
-    for (y=0; y<h; y++) {
+    for (y = 0; y < height; y++) {
         vblock = vec_ld(0, block);
 
         v0 = (vec_s16)vec_mergeh(zero_u8v, vblock);
@@ -886,8 +889,8 @@ void weight_h264_WxH_altivec(uint8_t *block, int stride, int log2_denom, int wei
 }
 
 static av_always_inline
-void biweight_h264_WxH_altivec(uint8_t *dst, uint8_t *src, int stride, int log2_denom,
-                               int weightd, int weights, int offset, int w, int h)
+void biweight_h264_W_altivec(uint8_t *dst, uint8_t *src, int stride, int height,
+                             int log2_denom, int weightd, int weights, int offset, int w)
 {
     int y, dst_aligned, src_aligned;
     vec_u8 vsrc, vdst;
@@ -910,7 +913,7 @@ void biweight_h264_WxH_altivec(uint8_t *dst, uint8_t *src, int stride, int log2_
     dst_aligned = !((unsigned long)dst & 0xf);
     src_aligned = !((unsigned long)src & 0xf);
 
-    for (y=0; y<h; y++) {
+    for (y = 0; y < height; y++) {
         vdst = vec_ld(0, dst);
         vsrc = vec_ld(0, src);
 
@@ -950,25 +953,24 @@ void biweight_h264_WxH_altivec(uint8_t *dst, uint8_t *src, int stride, int log2_
     }
 }
 
-#define H264_WEIGHT(W,H) \
-static void ff_weight_h264_pixels ## W ## x ## H ## _altivec(uint8_t *block, int stride, int log2_denom, int weight, int offset){ \
-    weight_h264_WxH_altivec(block, stride, log2_denom, weight, offset, W, H); \
+#define H264_WEIGHT(W) \
+static void ff_weight_h264_pixels ## W ## _altivec(uint8_t *block, int stride, int height, \
+                                                   int log2_denom, int weight, int offset){ \
+    weight_h264_W_altivec(block, stride, height, log2_denom, weight, offset, W); \
 }\
-static void ff_biweight_h264_pixels ## W ## x ## H ## _altivec(uint8_t *dst, uint8_t *src, int stride, int log2_denom, int weightd, int weights, int offset){ \
-    biweight_h264_WxH_altivec(dst, src, stride, log2_denom, weightd, weights, offset, W, H); \
+static void ff_biweight_h264_pixels ## W ## _altivec(uint8_t *dst, uint8_t *src, int stride, int height, \
+                                                     int log2_denom, int weightd, int weights, int offset){ \
+    biweight_h264_W_altivec(dst, src, stride, height, log2_denom, weightd, weights, offset, W); \
 }
 
-H264_WEIGHT(16,16)
-H264_WEIGHT(16, 8)
-H264_WEIGHT( 8,16)
-H264_WEIGHT( 8, 8)
-H264_WEIGHT( 8, 4)
+H264_WEIGHT(16)
+H264_WEIGHT( 8)
 
 void dsputil_h264_init_ppc(DSPContext* c, AVCodecContext *avctx) {
-    const int h264_high_depth = avctx->codec_id == CODEC_ID_H264 && avctx->bits_per_raw_sample > 8;
+    const int high_bit_depth = avctx->bits_per_raw_sample > 8;
 
     if (av_get_cpu_flags() & AV_CPU_FLAG_ALTIVEC) {
-    if (!h264_high_depth) {
+    if (!high_bit_depth) {
         c->put_h264_chroma_pixels_tab[0] = put_h264_chroma_mc8_altivec;
         c->avg_h264_chroma_pixels_tab[0] = avg_h264_chroma_mc8_altivec;
 
@@ -997,12 +999,13 @@ void dsputil_h264_init_ppc(DSPContext* c, AVCodecContext *avctx) {
     }
 }
 
-void ff_h264dsp_init_ppc(H264DSPContext *c, const int bit_depth)
+void ff_h264dsp_init_ppc(H264DSPContext *c, const int bit_depth, const int chroma_format_idc)
 {
     if (av_get_cpu_flags() & AV_CPU_FLAG_ALTIVEC) {
     if (bit_depth == 8) {
         c->h264_idct_add = ff_h264_idct_add_altivec;
-        c->h264_idct_add8 = ff_h264_idct_add8_altivec;
+        if (chroma_format_idc == 1)
+            c->h264_idct_add8 = ff_h264_idct_add8_altivec;
         c->h264_idct_add16 = ff_h264_idct_add16_altivec;
         c->h264_idct_add16intra = ff_h264_idct_add16intra_altivec;
         c->h264_idct_dc_add= h264_idct_dc_add_altivec;
@@ -1012,16 +1015,10 @@ void ff_h264dsp_init_ppc(H264DSPContext *c, const int bit_depth)
         c->h264_v_loop_filter_luma= h264_v_loop_filter_luma_altivec;
         c->h264_h_loop_filter_luma= h264_h_loop_filter_luma_altivec;
 
-        c->weight_h264_pixels_tab[0] = ff_weight_h264_pixels16x16_altivec;
-        c->weight_h264_pixels_tab[1] = ff_weight_h264_pixels16x8_altivec;
-        c->weight_h264_pixels_tab[2] = ff_weight_h264_pixels8x16_altivec;
-        c->weight_h264_pixels_tab[3] = ff_weight_h264_pixels8x8_altivec;
-        c->weight_h264_pixels_tab[4] = ff_weight_h264_pixels8x4_altivec;
-        c->biweight_h264_pixels_tab[0] = ff_biweight_h264_pixels16x16_altivec;
-        c->biweight_h264_pixels_tab[1] = ff_biweight_h264_pixels16x8_altivec;
-        c->biweight_h264_pixels_tab[2] = ff_biweight_h264_pixels8x16_altivec;
-        c->biweight_h264_pixels_tab[3] = ff_biweight_h264_pixels8x8_altivec;
-        c->biweight_h264_pixels_tab[4] = ff_biweight_h264_pixels8x4_altivec;
+        c->weight_h264_pixels_tab[0] = ff_weight_h264_pixels16_altivec;
+        c->weight_h264_pixels_tab[1] = ff_weight_h264_pixels8_altivec;
+        c->biweight_h264_pixels_tab[0] = ff_biweight_h264_pixels16_altivec;
+        c->biweight_h264_pixels_tab[1] = ff_biweight_h264_pixels8_altivec;
     }
     }
 }

@@ -23,6 +23,8 @@
 #include <strings.h>
 #include "libavutil/avstring.h"
 #include "libavutil/bswap.h"
+#include "libavutil/dict.h"
+#include "libavutil/mathematics.h"
 #include "libavutil/tree.h"
 #include "avio_internal.h"
 #include "nut.h"
@@ -190,7 +192,6 @@ static int decode_main_header(NUTContext *nut){
     uint64_t tmp, end;
     unsigned int stream_count;
     int i, j, tmp_stream, tmp_mul, tmp_pts, tmp_size, count, tmp_res, tmp_head_idx;
-    int64_t tmp_match;
 
     end= get_packetheader(nut, bc, 1, MAIN_STARTCODE);
     end += avio_tell(bc);
@@ -218,7 +219,6 @@ static int decode_main_header(NUTContext *nut){
     tmp_pts=0;
     tmp_mul=1;
     tmp_stream=0;
-    tmp_match= 1-(1LL<<62);
     tmp_head_idx= 0;
     for(i=0; i<256;){
         int tmp_flags = ffio_read_varlen(bc);
@@ -232,7 +232,7 @@ static int decode_main_header(NUTContext *nut){
         else             tmp_res   = 0;
         if(tmp_fields>5) count     = ffio_read_varlen(bc);
         else             count     = tmp_mul - tmp_size;
-        if(tmp_fields>6) tmp_match = get_s(bc);
+        if(tmp_fields>6) get_s(bc);
         if(tmp_fields>7) tmp_head_idx= ffio_read_varlen(bc);
 
         while(tmp_fields-- > 8)
@@ -288,7 +288,7 @@ static int decode_main_header(NUTContext *nut){
 
     nut->stream = av_mallocz(sizeof(StreamContext)*stream_count);
     for(i=0; i<stream_count; i++){
-        av_new_stream(s, i);
+        avformat_new_stream(s, NULL);
     }
 
     return 0;
@@ -403,7 +403,7 @@ static int decode_info_header(NUTContext *nut){
     const char *type;
     AVChapter *chapter= NULL;
     AVStream *st= NULL;
-    AVMetadata **metadata = NULL;
+    AVDictionary **metadata = NULL;
 
     end= get_packetheader(nut, bc, 1, INFO_STARTCODE);
     end += avio_tell(bc);
@@ -416,7 +416,7 @@ static int decode_info_header(NUTContext *nut){
 
     if(chapter_id && !stream_id_plus1){
         int64_t start= chapter_start / nut->time_base_count;
-        chapter= ff_new_chapter(s, chapter_id,
+        chapter= avpriv_new_chapter(s, chapter_id,
                                 nut->time_base[chapter_start % nut->time_base_count],
                                 start, start + chapter_len, NULL);
         metadata = &chapter->metadata;
@@ -461,7 +461,7 @@ static int decode_info_header(NUTContext *nut){
             }
             if(metadata && strcasecmp(name,"Uses")
                && strcasecmp(name,"Depends") && strcasecmp(name,"Replaces"))
-                av_metadata_set2(metadata, name, str_value, 0);
+                av_dict_set(metadata, name, str_value, 0);
         }
     }
 
@@ -874,16 +874,16 @@ static int read_seek(AVFormatContext *s, int stream_index, int64_t pts, int flag
                      (void **) next_node);
         av_log(s, AV_LOG_DEBUG, "%"PRIu64"-%"PRIu64" %"PRId64"-%"PRId64"\n", next_node[0]->pos, next_node[1]->pos,
                                                     next_node[0]->ts , next_node[1]->ts);
-        pos= av_gen_search(s, -1, dummy.ts, next_node[0]->pos, next_node[1]->pos, next_node[1]->pos,
-                                            next_node[0]->ts , next_node[1]->ts, AVSEEK_FLAG_BACKWARD, &ts, nut_read_timestamp);
+        pos = ff_gen_search(s, -1, dummy.ts, next_node[0]->pos, next_node[1]->pos, next_node[1]->pos,
+                                             next_node[0]->ts , next_node[1]->ts, AVSEEK_FLAG_BACKWARD, &ts, nut_read_timestamp);
 
         if(!(flags & AVSEEK_FLAG_BACKWARD)){
             dummy.pos= pos+16;
             next_node[1]= &nopts_sp;
             av_tree_find(nut->syncpoints, &dummy, (void *) ff_nut_sp_pos_cmp,
                          (void **) next_node);
-            pos2= av_gen_search(s, -2, dummy.pos, next_node[0]->pos     , next_node[1]->pos, next_node[1]->pos,
-                                                next_node[0]->back_ptr, next_node[1]->back_ptr, flags, &ts, nut_read_timestamp);
+            pos2 = ff_gen_search(s, -2, dummy.pos, next_node[0]->pos     , next_node[1]->pos, next_node[1]->pos,
+                                                   next_node[0]->back_ptr, next_node[1]->back_ptr, flags, &ts, nut_read_timestamp);
             if(pos2>=0)
                 pos= pos2;
             //FIXME dir but I think it does not matter
@@ -924,14 +924,14 @@ static int nut_read_close(AVFormatContext *s)
 
 #if CONFIG_NUT_DEMUXER
 AVInputFormat ff_nut_demuxer = {
-    "nut",
-    NULL_IF_CONFIG_SMALL("NUT format"),
-    sizeof(NUTContext),
-    nut_probe,
-    nut_read_header,
-    nut_read_packet,
-    nut_read_close,
-    read_seek,
+    .name           = "nut",
+    .long_name      = NULL_IF_CONFIG_SMALL("NUT format"),
+    .priv_data_size = sizeof(NUTContext),
+    .read_probe     = nut_probe,
+    .read_header    = nut_read_header,
+    .read_packet    = nut_read_packet,
+    .read_close     = nut_read_close,
+    .read_seek      = read_seek,
     .extensions = "nut",
     .codec_tag = (const AVCodecTag * const []) { ff_codec_bmp_tags, ff_nut_video_tags, ff_codec_wav_tags, ff_nut_subtitle_tags, 0 },
 };

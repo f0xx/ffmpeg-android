@@ -234,7 +234,7 @@ static void memset_float(float *buf, float val, int size)
  *        be a multiple of four.
  * @return the LPC value
  *
- * @todo reuse code from vorbis_dec.c: vorbis_floor0_decode
+ * @todo reuse code from Vorbis decoder: vorbis_floor0_decode
  */
 static float eval_lpc_spectrum(const float *lsp, float cos_val, int order)
 {
@@ -411,7 +411,7 @@ static inline float mulawinv(float y, float clip, float mu)
  * a*b == 200 and the nearest integer is ill-defined, use a table to emulate
  * the following broken float-based implementation used by the binary decoder:
  *
- * \code
+ * @code
  * static int very_broken_op(int a, int b)
  * {
  *    static float test; // Ugh, force gcc to do the division first...
@@ -419,7 +419,7 @@ static inline float mulawinv(float y, float clip, float mu)
  *    test = a/400.;
  *    return b * test +  0.5;
  * }
- * \endcode
+ * @endcode
  *
  * @note if this function is replaced by just ROUNDED_DIV(a*b,400.), the stddev
  * between the original file (before encoding with Yamaha encoder) and the
@@ -822,7 +822,7 @@ static int twin_decode_frame(AVCodecContext * avctx, void *data,
     const ModeTab *mtab = tctx->mtab;
     float *out = data;
     enum FrameType ftype;
-    int window_type;
+    int window_type, out_size;
     static const enum FrameType wtype_to_ftype_table[] = {
         FT_LONG,   FT_LONG, FT_SHORT, FT_LONG,
         FT_MEDIUM, FT_LONG, FT_LONG,  FT_MEDIUM, FT_MEDIUM
@@ -831,8 +831,14 @@ static int twin_decode_frame(AVCodecContext * avctx, void *data,
     if (buf_size*8 < avctx->bit_rate*mtab->size/avctx->sample_rate + 8) {
         av_log(avctx, AV_LOG_ERROR,
                "Frame too small (%d bytes). Truncated file?\n", buf_size);
-        *data_size = 0;
-        return buf_size;
+        return AVERROR(EINVAL);
+    }
+
+    out_size = mtab->size * avctx->channels *
+               av_get_bytes_per_sample(avctx->sample_fmt);
+    if (*data_size < out_size) {
+        av_log(avctx, AV_LOG_ERROR, "output buffer is too small\n");
+        return AVERROR(EINVAL);
     }
 
     init_get_bits(&gb, buf, buf_size * 8);
@@ -857,7 +863,7 @@ static int twin_decode_frame(AVCodecContext * avctx, void *data,
         return buf_size;
     }
 
-    *data_size = mtab->size*avctx->channels*4;
+    *data_size = out_size;
 
     return buf_size;
 }
@@ -938,14 +944,14 @@ static void permutate_in_line(int16_t *tab, int num_vect, int num_blocks,
 /**
  * Interpret the input data as in the following table:
  *
- * \verbatim
+ * @verbatim
  *
  * abcdefgh
  * ijklmnop
  * qrstuvw
  * x123456
  *
- * \endverbatim
+ * @endverbatim
  *
  * and transpose it, giving the output
  * aiqxbjr1cks2dlt3emu4fvn5gow6hp
@@ -1120,15 +1126,13 @@ static av_cold int twin_decode_close(AVCodecContext *avctx)
     return 0;
 }
 
-AVCodec ff_twinvq_decoder =
-{
-    "twinvq",
-    AVMEDIA_TYPE_AUDIO,
-    CODEC_ID_TWINVQ,
-    sizeof(TwinContext),
-    twin_decode_init,
-    NULL,
-    twin_decode_close,
-    twin_decode_frame,
-    .long_name = NULL_IF_CONFIG_SMALL("VQF TwinVQ"),
+AVCodec ff_twinvq_decoder = {
+    .name           = "twinvq",
+    .type           = AVMEDIA_TYPE_AUDIO,
+    .id             = CODEC_ID_TWINVQ,
+    .priv_data_size = sizeof(TwinContext),
+    .init           = twin_decode_init,
+    .close          = twin_decode_close,
+    .decode         = twin_decode_frame,
+    .long_name      = NULL_IF_CONFIG_SMALL("VQF TwinVQ"),
 };

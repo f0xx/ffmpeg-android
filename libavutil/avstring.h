@@ -22,6 +22,7 @@
 #define AVUTIL_AVSTRING_H
 
 #include <stddef.h>
+#include "attributes.h"
 
 /**
  * Return non-zero if pfx is a prefix of str. If it is, *ptr is set to
@@ -107,7 +108,17 @@ size_t av_strlcat(char *dst, const char *src, size_t size);
  * @return the length of the string that would have been generated
  *  if enough space had been available
  */
-size_t av_strlcatf(char *dst, size_t size, const char *fmt, ...);
+size_t av_strlcatf(char *dst, size_t size, const char *fmt, ...) av_printf_format(3, 4);
+
+/**
+ * Print arguments following specified format into a large enough auto
+ * allocated buffer. It is similar to GNU asprintf().
+ * @param fmt printf-compatible format string, specifying how the
+ *            following parameters are used.
+ * @return the allocated string
+ * @note You have to free the string yourself with av_free().
+ */
+char *av_asprintf(const char *fmt, ...) av_printf_format(1, 2);
 
 /**
  * Convert a number to a av_malloced string.
@@ -129,5 +140,29 @@ char *av_d2str(double d);
  * the user, NULL in case of allocation failure
  */
 char *av_get_token(const char **buf, const char *term);
+
+/**
+ * Split the string into several tokens which can be accessed by
+ * successive calls to av_strtok().
+ *
+ * A token is defined as a sequence of characters not belonging to the
+ * set specified in delim.
+ *
+ * On the first call to av_strtok(), s should point to the string to
+ * parse, and the value of saveptr is ignored. In subsequent calls, s
+ * should be NULL, and saveptr should be unchanged since the previous
+ * call.
+ *
+ * This function is similar to strtok_r() defined in POSIX.1.
+ *
+ * @param s the string to parse, may be NULL
+ * @param delim 0-terminated list of token delimiters, must be non-NULL
+ * @param saveptr user-provided pointer which points to stored
+ * information necessary for av_strtok() to continue scanning the same
+ * string. saveptr is updated to point to the next character after the
+ * first delimiter found, or to NULL if the string was terminated
+ * @return the found token, or NULL when no token is found
+ */
+char *av_strtok(char *s, const char *delim, char **saveptr);
 
 #endif /* AVUTIL_AVSTRING_H */

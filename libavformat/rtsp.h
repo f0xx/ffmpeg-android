@@ -28,6 +28,9 @@
 #include "network.h"
 #include "httpauth.h"
 
+#include "libavutil/log.h"
+#include "libavutil/opt.h"
+
 /**
  * Network layer over which RTP/etc packet data will be transported.
  */
@@ -35,7 +38,10 @@ enum RTSPLowerTransport {
     RTSP_LOWER_TRANSPORT_UDP = 0,           /**< UDP/unicast */
     RTSP_LOWER_TRANSPORT_TCP = 1,           /**< TCP; interleaved in RTSP */
     RTSP_LOWER_TRANSPORT_UDP_MULTICAST = 2, /**< UDP/multicast */
-    RTSP_LOWER_TRANSPORT_NB
+    RTSP_LOWER_TRANSPORT_NB,
+    RTSP_LOWER_TRANSPORT_HTTP = 8,          /**< HTTP tunneled - not a proper
+                                                 transport mode as such,
+                                                 only for use via AVOptions */
 };
 
 /**
@@ -196,6 +202,7 @@ enum RTSPServerType {
  * @todo Use AVIOContext instead of URLContext
  */
 typedef struct RTSPState {
+    const AVClass *class;             /**< Class for private options. */
     URLContext *rtsp_hd; /* RTSP TCP connection handle */
 
     /** number of items in the 'rtsp_streams' variable */
@@ -216,9 +223,6 @@ typedef struct RTSPState {
      * whenever we resume playback. Either way, the value is only used once,
      * see rtsp_read_play() and rtsp_read_seek(). */
     int64_t seek_timestamp;
-
-    /* XXX: currently we use unbuffered input */
-    //    AVIOContext rtsp_gb;
 
     int seq;                          /**< RTSP command sequence number */
 
@@ -313,10 +317,6 @@ typedef struct RTSPState {
     /** Reusable buffer for receiving packets */
     uint8_t* recvbuf;
 
-    /** Filter incoming UDP packets - receive packets only from the right
-     * source address and port. */
-    int filter_source;
-
     /**
      * A mask with all requested transport methods
      */
@@ -331,7 +331,34 @@ typedef struct RTSPState {
      * Polling array for udp
      */
     struct pollfd *p;
+
+    /**
+     * Whether the server supports the GET_PARAMETER method.
+     */
+    int get_parameter_supported;
+
+    /**
+     * Do not begin to play the stream immediately.
+     */
+    int initial_pause;
+
+    /**
+     * Option flags for the chained RTP muxer.
+     */
+    int rtp_muxer_flags;
+
+    /** Whether the server accepts the x-Dynamic-Rate header */
+    int accept_dynamic_rate;
+
+    /**
+     * Various option flags for the RTSP muxer/demuxer.
+     */
+    int rtsp_flags;
 } RTSPState;
+
+#define RTSP_FLAG_FILTER_SRC  0x1    /**< Filter incoming UDP packets -
+                                          receive packets only from the right
+                                          source address and port. */
 
 /**
  * Describes a single stream, as identified by a single m= line block in the
@@ -470,9 +497,9 @@ void ff_rtsp_close_streams(AVFormatContext *s);
 /**
  * Close all connection handles within the RTSP (de)muxer
  *
- * @param rt RTSP (de)muxer context
+ * @param s RTSP (de)muxer context
  */
-void ff_rtsp_close_connections(AVFormatContext *rt);
+void ff_rtsp_close_connections(AVFormatContext *s);
 
 /**
  * Get the description of the stream and set up the RTSPStream child
@@ -487,8 +514,9 @@ int ff_rtsp_setup_input_streams(AVFormatContext *s, RTSPMessageHeader *reply);
 int ff_rtsp_setup_output_streams(AVFormatContext *s, const char *addr);
 
 /**
- * Parse a SDP description of streams by populating an RTSPState struct
- * within the AVFormatContext.
+ * Parse an SDP description of streams by populating an RTSPState struct
+ * within the AVFormatContext; also allocate the RTP streams and the
+ * pollfd array used for UDP streams.
  */
 int ff_sdp_parse(AVFormatContext *s, const char *content);
 
@@ -507,6 +535,7 @@ int ff_rtsp_fetch_packet(AVFormatContext *s, AVPacket *pkt);
 /**
  * Do the SETUP requests for each stream for the chosen
  * lower transport mode.
+ * @return 0 on success, <0 on error, 1 if protocol is unavailable
  */
 int ff_rtsp_make_setup_request(AVFormatContext *s, const char *host, int port,
                                int lower_transport, const char *real_challenge);
@@ -516,5 +545,7 @@ int ff_rtsp_make_setup_request(AVFormatContext *s, const char *host, int port,
  * transport_priv and rtp_handle fields.
  */
 void ff_rtsp_undo_setup(AVFormatContext *s);
+
+extern const AVOption ff_rtsp_options[];
 
 #endif /* AVFORMAT_RTSP_H */

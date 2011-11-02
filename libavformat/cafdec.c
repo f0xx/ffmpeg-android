@@ -29,6 +29,8 @@
 #include "riff.h"
 #include "isom.h"
 #include "libavutil/intreadwrite.h"
+#include "libavutil/intfloat_readwrite.h"
+#include "libavutil/dict.h"
 #include "caf.h"
 
 typedef struct {
@@ -59,14 +61,14 @@ static int read_desc_chunk(AVFormatContext *s)
     int flags;
 
     /* new audio stream */
-    st = av_new_stream(s, 0);
+    st = avformat_new_stream(s, NULL);
     if (!st)
         return AVERROR(ENOMEM);
 
     /* parse format description */
     st->codec->codec_type  = AVMEDIA_TYPE_AUDIO;
     st->codec->sample_rate = av_int2dbl(avio_rb64(pb));
-    st->codec->codec_tag   = avio_rb32(pb);
+    st->codec->codec_tag   = avio_rl32(pb);
     flags = avio_rb32(pb);
     caf->bytes_per_packet  = avio_rb32(pb);
     st->codec->block_align = caf->bytes_per_packet;
@@ -83,7 +85,7 @@ static int read_desc_chunk(AVFormatContext *s)
     }
 
     /* determine codec */
-    if (st->codec->codec_tag == MKBETAG('l','p','c','m'))
+    if (st->codec->codec_tag == MKTAG('l','p','c','m'))
         st->codec->codec_id = ff_mov_get_lpcm_codec_id(st->codec->bits_per_coded_sample, (flags ^ 0x2) | 0x4);
     else
         st->codec->codec_id = ff_codec_get_id(ff_codec_caf_tags, st->codec->codec_tag);
@@ -187,7 +189,7 @@ static void read_info_chunk(AVFormatContext *s, int64_t size)
         char value[1024];
         get_strz(pb, key, sizeof(key));
         get_strz(pb, value, sizeof(value));
-        av_metadata_set2(&s->metadata, key, value, 0);
+        av_dict_set(&s->metadata, key, value, 0);
     }
 }
 
@@ -257,10 +259,16 @@ static int read_header(AVFormatContext *s,
             read_info_chunk(s, size);
             break;
 
+        case MKBETAG('c','h','a','n'):
+            if (size < 12)
+                return AVERROR_INVALIDDATA;
+            ff_mov_read_chan(s, size, st->codec);
+            break;
+
         default:
 #define _(x) ((x) >= ' ' ? (x) : ' ')
-            av_log(s, AV_LOG_WARNING, "skipping CAF chunk: %08X (%c%c%c%c)\n",
-                tag, _(tag>>24), _((tag>>16)&0xFF), _((tag>>8)&0xFF), _(tag&0xFF));
+            av_log(s, AV_LOG_WARNING, "skipping CAF chunk: %08X (%c%c%c%c), size %"PRId64"\n",
+                tag, _(tag>>24), _((tag>>16)&0xFF), _((tag>>8)&0xFF), _(tag&0xFF), size);
 #undef _
         case MKBETAG('f','r','e','e'):
             if (size < 0)
@@ -284,8 +292,6 @@ static int read_header(AVFormatContext *s,
                                 "block size or frame size are variable.\n");
         return AVERROR_INVALIDDATA;
     }
-    s->file_size = avio_size(pb);
-    s->file_size = FFMAX(0, s->file_size);
 
     av_set_pts_info(st, 64, 1, st->codec->sample_rate);
     st->start_time = 0;
@@ -358,6 +364,7 @@ static int read_seek(AVFormatContext *s, int stream_index,
 {
     AVStream *st = s->streams[0];
     CaffContext *caf = s->priv_data;
+    CaffContext caf2 = *caf;
     int64_t pos;
 
     timestamp = FFMAX(timestamp, 0);
@@ -377,18 +384,20 @@ static int read_seek(AVFormatContext *s, int stream_index,
         return -1;
     }
 
-    avio_seek(s->pb, pos + caf->data_start, SEEK_SET);
+    if (avio_seek(s->pb, pos + caf->data_start, SEEK_SET) < 0) {
+        *caf = caf2;
+        return -1;
+    }
     return 0;
 }
 
 AVInputFormat ff_caf_demuxer = {
-    "caf",
-    NULL_IF_CONFIG_SMALL("Apple Core Audio Format"),
-    sizeof(CaffContext),
-    probe,
-    read_header,
-    read_packet,
-    NULL,
-    read_seek,
+    .name           = "caf",
+    .long_name      = NULL_IF_CONFIG_SMALL("Apple Core Audio Format"),
+    .priv_data_size = sizeof(CaffContext),
+    .read_probe     = probe,
+    .read_header    = read_header,
+    .read_packet    = read_packet,
+    .read_seek      = read_seek,
     .codec_tag = (const AVCodecTag*[]){ff_codec_caf_tags, 0},
 };

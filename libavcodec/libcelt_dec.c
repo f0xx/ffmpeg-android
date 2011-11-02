@@ -1,5 +1,5 @@
 /*
- * Xiph CELT / Opus decoder using libcelt
+ * Xiph CELT decoder using libcelt
  * Copyright (c) 2011 Nicolas George
  *
  * This file is part of FFmpeg.
@@ -33,7 +33,7 @@ struct libcelt_context {
 
 static int ff_celt_error_to_averror(int err)
 {
-    switch(err) {
+    switch (err) {
         case CELT_BAD_ARG:          return AVERROR(EINVAL);
 #ifdef CELT_BUFFER_TOO_SMALL
         case CELT_BUFFER_TOO_SMALL: return AVERROR(ENOBUFS);
@@ -41,9 +41,11 @@ static int ff_celt_error_to_averror(int err)
         case CELT_INTERNAL_ERROR:   return AVERROR(EFAULT);
         case CELT_CORRUPTED_DATA:   return AVERROR_INVALIDDATA;
         case CELT_UNIMPLEMENTED:    return AVERROR(ENOTSUP);
+#ifdef ENOTRECOVERABLE
         case CELT_INVALID_STATE:    return AVERROR(ENOTRECOVERABLE);
+#endif
         case CELT_ALLOC_FAIL:       return AVERROR(ENOMEM);
-        default:                    return AVERROR_UNKNOWN;
+        default:                    return AVERROR(EINVAL);
     }
 }
 
@@ -80,7 +82,7 @@ static av_cold int libcelt_dec_init(AVCodecContext *c)
         }
         celt->discard *= c->channels * sizeof(int16_t);
     }
-    if(c->extradata_size >= 8) {
+    if (c->extradata_size >= 8) {
         unsigned version = AV_RL32(c->extradata + 4);
         unsigned lib_version = ff_celt_bitstream_version_hack(celt->mode);
         if (version != lib_version)
@@ -89,6 +91,7 @@ static av_cold int libcelt_dec_init(AVCodecContext *c)
                    "improperly decoded by libcelt for version 0x%x.\n",
                    version, lib_version);
     }
+    c->sample_fmt = AV_SAMPLE_FMT_S16;
     return 0;
 }
 
@@ -130,5 +133,5 @@ AVCodec ff_libcelt_decoder = {
     .close          = libcelt_dec_close,
     .decode         = libcelt_dec_decode,
     .capabilities   = 0,
-    .long_name = NULL_IF_CONFIG_SMALL("Xiph CELT/Opus decoder using libcelt"),
+    .long_name      = NULL_IF_CONFIG_SMALL("Xiph CELT decoder using libcelt"),
 };

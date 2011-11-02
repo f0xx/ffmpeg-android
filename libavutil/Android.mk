@@ -27,6 +27,7 @@ LIBAVUTIL_SRC_FILES := \
 		cpu.c \
 		crc.c \
 		des.c \
+		dict.c \
 		error.c \
 		eval.c \
 		fifo.c \

@@ -49,6 +49,6 @@ typedef struct {
  * -2 if the version element is invalid, -3 if the sample rate
  * element is invalid, or -4 if the bit rate element is invalid.
  */
-av_export int ff_aac_parse_header(GetBitContext *gbc, AACADTSHeaderInfo *hdr);
+av_export int avpriv_aac_parse_header(GetBitContext *gbc, AACADTSHeaderInfo *hdr);
 
 #endif /* AVCODEC_AACADTSDEC_H */

@@ -83,7 +83,7 @@ static int query_formats(AVFilterContext *ctx)
         PIX_FMT_NONE
     };
 
-    avfilter_set_common_formats(ctx, avfilter_make_format_list(pix_fmts));
+    avfilter_set_common_pixel_formats(ctx, avfilter_make_format_list(pix_fmts));
     return 0;
 }
 
@@ -122,11 +122,11 @@ static void start_frame(AVFilterLink *inlink, AVFilterBufferRef *picref)
                                                  outlink->w, outlink->h);
     outlink->out_buf->pts = picref->pts;
 
-    if (picref->video->pixel_aspect.num == 0) {
-        outlink->out_buf->video->pixel_aspect = picref->video->pixel_aspect;
+    if (picref->video->sample_aspect_ratio.num == 0) {
+        outlink->out_buf->video->sample_aspect_ratio = picref->video->sample_aspect_ratio;
     } else {
-        outlink->out_buf->video->pixel_aspect.num = picref->video->pixel_aspect.den;
-        outlink->out_buf->video->pixel_aspect.den = picref->video->pixel_aspect.num;
+        outlink->out_buf->video->sample_aspect_ratio.num = picref->video->sample_aspect_ratio.den;
+        outlink->out_buf->video->sample_aspect_ratio.den = picref->video->sample_aspect_ratio.num;
     }
 
     avfilter_start_frame(outlink, avfilter_ref_buffer(outlink->out_buf, ~0));
@@ -195,6 +195,8 @@ static void end_frame(AVFilterLink *inlink)
     avfilter_unref_buffer(outpic);
 }
 
+static void null_draw_slice(AVFilterLink *link, int y, int h, int slice_dir) { }
+
 AVFilter avfilter_vf_transpose = {
     .name      = "transpose",
     .description = NULL_IF_CONFIG_SMALL("Transpose input video."),
@@ -207,6 +209,7 @@ AVFilter avfilter_vf_transpose = {
     .inputs    = (AVFilterPad[]) {{ .name            = "default",
                                     .type            = AVMEDIA_TYPE_VIDEO,
                                     .start_frame     = start_frame,
+                                    .draw_slice      = null_draw_slice,
                                     .end_frame       = end_frame,
                                     .min_perms       = AV_PERM_READ, },
                                   { .name = NULL}},

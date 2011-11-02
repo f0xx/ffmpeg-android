@@ -47,24 +47,24 @@ const uint64_t ff_mlp_layout[32] = {
     AV_CH_LAYOUT_MONO,
     AV_CH_LAYOUT_STEREO,
     AV_CH_LAYOUT_2_1,
-    AV_CH_LAYOUT_2_2,
+    AV_CH_LAYOUT_QUAD,
     AV_CH_LAYOUT_STEREO|AV_CH_LOW_FREQUENCY,
     AV_CH_LAYOUT_2_1|AV_CH_LOW_FREQUENCY,
-    AV_CH_LAYOUT_2_2|AV_CH_LOW_FREQUENCY,
+    AV_CH_LAYOUT_QUAD|AV_CH_LOW_FREQUENCY,
     AV_CH_LAYOUT_SURROUND,
     AV_CH_LAYOUT_4POINT0,
-    AV_CH_LAYOUT_5POINT0,
+    AV_CH_LAYOUT_5POINT0_BACK,
     AV_CH_LAYOUT_SURROUND|AV_CH_LOW_FREQUENCY,
     AV_CH_LAYOUT_4POINT0|AV_CH_LOW_FREQUENCY,
-    AV_CH_LAYOUT_5POINT1,
+    AV_CH_LAYOUT_5POINT1_BACK,
     AV_CH_LAYOUT_4POINT0,
-    AV_CH_LAYOUT_5POINT0,
+    AV_CH_LAYOUT_5POINT0_BACK,
     AV_CH_LAYOUT_SURROUND|AV_CH_LOW_FREQUENCY,
     AV_CH_LAYOUT_4POINT0|AV_CH_LOW_FREQUENCY,
-    AV_CH_LAYOUT_5POINT1,
-    AV_CH_LAYOUT_2_2|AV_CH_LOW_FREQUENCY,
-    AV_CH_LAYOUT_5POINT0,
-    AV_CH_LAYOUT_5POINT1,
+    AV_CH_LAYOUT_5POINT1_BACK,
+    AV_CH_LAYOUT_QUAD|AV_CH_LOW_FREQUENCY,
+    AV_CH_LAYOUT_5POINT0_BACK,
+    AV_CH_LAYOUT_5POINT1_BACK,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
@@ -138,11 +138,11 @@ int ff_mlp_read_major_sync(void *log, MLPHeaderInfo *mh, GetBitContext *gb)
     checksum = ff_mlp_checksum16(gb->buffer, 26);
     if (checksum != AV_RL16(gb->buffer+26)) {
         av_log(log, AV_LOG_ERROR, "major sync info header checksum error\n");
-        return -1;
+        return AVERROR_INVALIDDATA;
     }
 
     if (get_bits_long(gb, 24) != 0xf8726f) /* Sync words */
-        return -1;
+        return AVERROR_INVALIDDATA;
 
     mh->stream_type = get_bits(gb, 8);
 
@@ -173,7 +173,7 @@ int ff_mlp_read_major_sync(void *log, MLPHeaderInfo *mh, GetBitContext *gb)
 
         mh->channels_thd_stream2 = get_bits(gb, 13);
     } else
-        return -1;
+        return AVERROR_INVALIDDATA;
 
     mh->access_unit_size = 40 << (ratebits & 7);
     mh->access_unit_size_pow2 = 64 << (ratebits & 7);

@@ -87,6 +87,7 @@
 #include "h264.h"
 #include "libavutil/imgutils.h"
 #include "libavutil/intreadwrite.h"
+#include "libavutil/opt.h"
 
 /** Timeout parameter passed to DtsProcOutput() in us */
 #define OUTPUT_PROC_TIMEOUT 50
@@ -118,10 +119,12 @@ typedef struct OpaqueList {
 } OpaqueList;
 
 typedef struct {
+    AVClass *av_class;
     AVCodecContext *avctx;
     AVFrame pic;
     HANDLE dev;
 
+    AVBitStreamFilterContext *bsfc;
     AVCodecParserContext *parser;
 
     uint8_t is_70012;
@@ -137,7 +140,20 @@ typedef struct {
 
     OpaqueList *head;
     OpaqueList *tail;
+
+    /* Options */
+    uint32_t sWidth;
+    uint8_t bframe_bug;
 } CHDContext;
+
+static const AVOption options[] = {
+    { "crystalhd_downscale_width",
+      "Turn on downscaling to the specified width",
+      offsetof(CHDContext, sWidth),
+      AV_OPT_TYPE_INT, 0, 0, UINT32_MAX,
+      AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_DECODING_PARAM, },
+    { NULL, },
+};
 
 
 /*****************************************************************************
@@ -323,6 +339,9 @@ static av_cold int uninit(AVCodecContext *avctx)
     DtsDeviceClose(device);
 
     av_parser_close(priv->parser);
+    if (priv->bsfc) {
+        av_bitstream_filter_close(priv->bsfc);
+    }
 
     av_free(priv->sps_pps_buf);
 
@@ -382,39 +401,18 @@ static av_cold int init(AVCodecContext *avctx)
         {
             uint8_t *dummy_p;
             int dummy_int;
-            AVBitStreamFilterContext *bsfc;
 
-            uint32_t orig_data_size = avctx->extradata_size;
-            uint8_t *orig_data = av_malloc(orig_data_size);
-            if (!orig_data) {
-                av_log(avctx, AV_LOG_ERROR,
-                       "Failed to allocate copy of extradata\n");
-                return AVERROR(ENOMEM);
-            }
-            memcpy(orig_data, avctx->extradata, orig_data_size);
-
-
-            bsfc = av_bitstream_filter_init("h264_mp4toannexb");
-            if (!bsfc) {
+            priv->bsfc = av_bitstream_filter_init("h264_mp4toannexb");
+            if (!priv->bsfc) {
                 av_log(avctx, AV_LOG_ERROR,
                        "Cannot open the h264_mp4toannexb BSF!\n");
-                av_free(orig_data);
                 return AVERROR_BSF_NOT_FOUND;
             }
-            av_bitstream_filter_filter(bsfc, avctx, NULL, &dummy_p,
+            av_bitstream_filter_filter(priv->bsfc, avctx, NULL, &dummy_p,
                                        &dummy_int, NULL, 0, 0);
-            av_bitstream_filter_close(bsfc);
-
-            priv->sps_pps_buf     = avctx->extradata;
-            priv->sps_pps_size    = avctx->extradata_size;
-            avctx->extradata      = orig_data;
-            avctx->extradata_size = orig_data_size;
-
-            format.pMetaData   = priv->sps_pps_buf;
-            format.metaDataSz  = priv->sps_pps_size;
-            format.startCodeSz = (avctx->extradata[4] & 0x03) + 1;
         }
-        break;
+        subtype = BC_MSUBTYPE_H264;
+        // Fall-through
     case BC_MSUBTYPE_H264:
         format.startCodeSz = 4;
         // Fall-through
@@ -433,6 +431,11 @@ static av_cold int init(AVCodecContext *avctx)
         return AVERROR(EINVAL);
     }
     format.mSubtype = subtype;
+
+    if (priv->sWidth) {
+        format.bEnableScaling = 1;
+        format.ScalingParams.sWidth = priv->sWidth;
+    }
 
     /* Get a decoder instance */
     av_log(avctx, AV_LOG_VERBOSE, "CrystalHD: starting up\n");
@@ -492,6 +495,7 @@ static av_cold int init(AVCodecContext *avctx)
             av_log(avctx, AV_LOG_WARNING,
                    "Cannot open the h.264 parser! Interlaced h.264 content "
                    "will not be detected reliably.\n");
+        priv->parser->flags = PARSER_FLAG_COMPLETE_FRAMES;
     }
     av_log(avctx, AV_LOG_VERBOSE, "CrystalHD: Init complete.\n");
 
@@ -725,7 +729,7 @@ static inline CopyRet receive_frame(AVCodecContext *avctx,
             }
 
             if (avctx->codec->id == CODEC_ID_MPEG4 &&
-                output.PicInfo.timeStamp == 0) {
+                output.PicInfo.timeStamp == 0 && priv->bframe_bug) {
                 av_log(avctx, AV_LOG_VERBOSE,
                        "CrystalHD: Not returning packed frame twice.\n");
                 priv->last_picture++;
@@ -786,33 +790,72 @@ static int decode(AVCodecContext *avctx, void *data, int *data_size, AVPacket *a
     CopyRet rec_ret;
     CHDContext *priv   = avctx->priv_data;
     HANDLE dev         = priv->dev;
+    uint8_t *in_data   = avpkt->data;
     int len            = avpkt->size;
+    int free_data      = 0;
     uint8_t pic_type   = 0;
 
     av_log(avctx, AV_LOG_VERBOSE, "CrystalHD: decode_frame\n");
+
+    if (avpkt->size == 7 && !priv->bframe_bug) {
+        /*
+         * The use of a drop frame triggers the bug
+         */
+        av_log(avctx, AV_LOG_INFO,
+               "CrystalHD: Enabling work-around for packed b-frame bug\n");
+        priv->bframe_bug = 1;
+    } else if (avpkt->size == 8 && priv->bframe_bug) {
+        /*
+         * Delay frames don't trigger the bug
+         */
+        av_log(avctx, AV_LOG_INFO,
+               "CrystalHD: Disabling work-around for packed b-frame bug\n");
+        priv->bframe_bug = 0;
+    }
 
     if (len) {
         int32_t tx_free = (int32_t)DtsTxFreeSize(dev);
 
         if (priv->parser) {
-            uint8_t *pout;
-            int psize;
-            const uint8_t *in_data = avpkt->data;
-            int in_len = len;
-            H264Context *h = priv->parser->priv_data;
+            int ret = 0;
 
-            while (in_len) {
-                int index;
-                index = av_parser_parse2(priv->parser, avctx, &pout, &psize,
-                                         in_data, in_len, avctx->pkt->pts,
-                                         avctx->pkt->dts, 0);
-                in_data += index;
-                in_len -= index;
+            if (priv->bsfc) {
+                ret = av_bitstream_filter_filter(priv->bsfc, avctx, NULL,
+                                                 &in_data, &len,
+                                                 avpkt->data, len, 0);
             }
-            av_log(avctx, AV_LOG_VERBOSE,
-                   "CrystalHD: parser picture type %d\n",
-                   h->s.picture_structure);
-            pic_type = h->s.picture_structure;
+            free_data = ret > 0;
+
+            if (ret >= 0) {
+                uint8_t *pout;
+                int psize;
+                int index;
+                H264Context *h = priv->parser->priv_data;
+
+                index = av_parser_parse2(priv->parser, avctx, &pout, &psize,
+                                         in_data, len, avctx->pkt->pts,
+                                         avctx->pkt->dts, 0);
+                if (index < 0) {
+                    av_log(avctx, AV_LOG_WARNING,
+                           "CrystalHD: Failed to parse h.264 packet to "
+                           "detect interlacing.\n");
+                } else if (index != len) {
+                    av_log(avctx, AV_LOG_WARNING,
+                           "CrystalHD: Failed to parse h.264 packet "
+                           "completely. Interlaced frames may be "
+                           "incorrectly detected\n.");
+                } else {
+                    av_log(avctx, AV_LOG_VERBOSE,
+                           "CrystalHD: parser picture type %d\n",
+                           h->s.picture_structure);
+                    pic_type = h->s.picture_structure;
+                }
+            } else {
+                av_log(avctx, AV_LOG_WARNING,
+                       "CrystalHD: mp4toannexb filter failed to filter "
+                       "packet. Interlaced frames may be incorrectly "
+                       "detected.\n");
+            }
         }
 
         if (len < tx_free - 1024) {
@@ -827,11 +870,17 @@ static int decode(AVCodecContext *avctx, void *data, int *data_size, AVPacket *a
              */
             uint64_t pts = opaque_list_push(priv, avctx->pkt->pts, pic_type);
             if (!pts) {
+                if (free_data) {
+                    av_freep(&in_data);
+                }
                 return AVERROR(ENOMEM);
             }
             av_log(priv->avctx, AV_LOG_VERBOSE,
                    "input \"pts\": %"PRIu64"\n", pts);
-            ret = DtsProcInput(dev, avpkt->data, len, pts, 0);
+            ret = DtsProcInput(dev, in_data, len, pts, 0);
+            if (free_data) {
+                av_freep(&in_data);
+            }
             if (ret == BC_STS_BUSY) {
                 av_log(avctx, AV_LOG_WARNING,
                        "CrystalHD: ProcInput returned busy\n");
@@ -948,6 +997,13 @@ static int decode(AVCodecContext *avctx, void *data, int *data_size, AVPacket *a
 
 
 #if CONFIG_H264_CRYSTALHD_DECODER
+static AVClass h264_class = {
+    "h264_crystalhd",
+    av_default_item_name,
+    options,
+    LIBAVUTIL_VERSION_INT,
+};
+
 AVCodec ff_h264_crystalhd_decoder = {
     .name           = "h264_crystalhd",
     .type           = AVMEDIA_TYPE_VIDEO,
@@ -960,10 +1016,18 @@ AVCodec ff_h264_crystalhd_decoder = {
     .flush          = flush,
     .long_name      = NULL_IF_CONFIG_SMALL("H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10 (CrystalHD acceleration)"),
     .pix_fmts       = (const enum PixelFormat[]){PIX_FMT_YUYV422, PIX_FMT_NONE},
+    .priv_class     = &h264_class,
 };
 #endif
 
 #if CONFIG_MPEG2_CRYSTALHD_DECODER
+static AVClass mpeg2_class = {
+    "mpeg2_crystalhd",
+    av_default_item_name,
+    options,
+    LIBAVUTIL_VERSION_INT,
+};
+
 AVCodec ff_mpeg2_crystalhd_decoder = {
     .name           = "mpeg2_crystalhd",
     .type           = AVMEDIA_TYPE_VIDEO,
@@ -976,10 +1040,18 @@ AVCodec ff_mpeg2_crystalhd_decoder = {
     .flush          = flush,
     .long_name      = NULL_IF_CONFIG_SMALL("MPEG-2 Video (CrystalHD acceleration)"),
     .pix_fmts       = (const enum PixelFormat[]){PIX_FMT_YUYV422, PIX_FMT_NONE},
+    .priv_class     = &mpeg2_class,
 };
 #endif
 
 #if CONFIG_MPEG4_CRYSTALHD_DECODER
+static AVClass mpeg4_class = {
+    "mpeg4_crystalhd",
+    av_default_item_name,
+    options,
+    LIBAVUTIL_VERSION_INT,
+};
+
 AVCodec ff_mpeg4_crystalhd_decoder = {
     .name           = "mpeg4_crystalhd",
     .type           = AVMEDIA_TYPE_VIDEO,
@@ -992,10 +1064,18 @@ AVCodec ff_mpeg4_crystalhd_decoder = {
     .flush          = flush,
     .long_name      = NULL_IF_CONFIG_SMALL("MPEG-4 Part 2 (CrystalHD acceleration)"),
     .pix_fmts       = (const enum PixelFormat[]){PIX_FMT_YUYV422, PIX_FMT_NONE},
+    .priv_class     = &mpeg4_class,
 };
 #endif
 
 #if CONFIG_MSMPEG4_CRYSTALHD_DECODER
+static AVClass msmpeg4_class = {
+    "msmpeg4_crystalhd",
+    av_default_item_name,
+    options,
+    LIBAVUTIL_VERSION_INT,
+};
+
 AVCodec ff_msmpeg4_crystalhd_decoder = {
     .name           = "msmpeg4_crystalhd",
     .type           = AVMEDIA_TYPE_VIDEO,
@@ -1008,10 +1088,18 @@ AVCodec ff_msmpeg4_crystalhd_decoder = {
     .flush          = flush,
     .long_name      = NULL_IF_CONFIG_SMALL("MPEG-4 Part 2 Microsoft variant version 3 (CrystalHD acceleration)"),
     .pix_fmts       = (const enum PixelFormat[]){PIX_FMT_YUYV422, PIX_FMT_NONE},
+    .priv_class     = &msmpeg4_class,
 };
 #endif
 
 #if CONFIG_VC1_CRYSTALHD_DECODER
+static AVClass vc1_class = {
+    "vc1_crystalhd",
+    av_default_item_name,
+    options,
+    LIBAVUTIL_VERSION_INT,
+};
+
 AVCodec ff_vc1_crystalhd_decoder = {
     .name           = "vc1_crystalhd",
     .type           = AVMEDIA_TYPE_VIDEO,
@@ -1024,10 +1112,18 @@ AVCodec ff_vc1_crystalhd_decoder = {
     .flush          = flush,
     .long_name      = NULL_IF_CONFIG_SMALL("SMPTE VC-1 (CrystalHD acceleration)"),
     .pix_fmts       = (const enum PixelFormat[]){PIX_FMT_YUYV422, PIX_FMT_NONE},
+    .priv_class     = &vc1_class,
 };
 #endif
 
 #if CONFIG_WMV3_CRYSTALHD_DECODER
+static AVClass wmv3_class = {
+    "wmv3_crystalhd",
+    av_default_item_name,
+    options,
+    LIBAVUTIL_VERSION_INT,
+};
+
 AVCodec ff_wmv3_crystalhd_decoder = {
     .name           = "wmv3_crystalhd",
     .type           = AVMEDIA_TYPE_VIDEO,
@@ -1040,5 +1136,6 @@ AVCodec ff_wmv3_crystalhd_decoder = {
     .flush          = flush,
     .long_name      = NULL_IF_CONFIG_SMALL("Windows Media Video 9 (CrystalHD acceleration)"),
     .pix_fmts       = (const enum PixelFormat[]){PIX_FMT_YUYV422, PIX_FMT_NONE},
+    .priv_class     = &wmv3_class,
 };
 #endif

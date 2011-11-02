@@ -26,12 +26,16 @@
 
 #define MAX_URL_SIZE 4096
 
+#ifdef DEBUG
+#    define hex_dump_debug(class, buf, size) av_hex_dump_log(class, AV_LOG_DEBUG, buf, size)
+#else
+#    define hex_dump_debug(class, buf, size)
+#endif
+
 typedef struct AVCodecTag {
     enum CodecID id;
     unsigned int tag;
 } AVCodecTag;
-
-void ff_dynarray_add(intptr_t **tab_ptr, int *nb_ptr, intptr_t elem);
 
 #ifdef __GNUC__
 #define dynarray_add(tab, nb_ptr, elem)\
@@ -39,12 +43,12 @@ do {\
     __typeof__(tab) _tab = (tab);\
     __typeof__(elem) _elem = (elem);\
     (void)sizeof(**_tab == _elem); /* check that types are compatible */\
-    ff_dynarray_add((intptr_t **)_tab, nb_ptr, (intptr_t)_elem);\
+    av_dynarray_add(_tab, nb_ptr, _elem);\
 } while(0)
 #else
 #define dynarray_add(tab, nb_ptr, elem)\
 do {\
-    ff_dynarray_add((intptr_t **)(tab), nb_ptr, (intptr_t)(elem));\
+    av_dynarray_add((tab), nb_ptr, (elem));\
 } while(0)
 #endif
 
@@ -102,7 +106,7 @@ uint64_t ff_ntp_time(void);
  */
 int ff_url_join(char *str, int size, const char *proto,
                 const char *authorization, const char *hostname,
-                int port, const char *fmt, ...);
+                int port, const char *fmt, ...) av_printf_format(7, 8);
 
 /**
  * Append the media-specific SDP fragment for the media stream c
@@ -118,10 +122,12 @@ int ff_url_join(char *str, int size, const char *proto,
  * @param dest_type the destination address type, may be NULL
  * @param port the destination port of the media stream, 0 if unknown
  * @param ttl the time to live of the stream, 0 if not multicast
+ * @param fmt the AVFormatContext, which might contain options modifying
+ *            the generated SDP
  */
 void ff_sdp_write_media(char *buff, int size, AVCodecContext *c,
                         const char *dest_addr, const char *dest_type,
-                        int port, int ttl);
+                        int port, int ttl, AVFormatContext *fmt);
 
 /**
  * Write a packet to another muxer than the one the user originally
@@ -149,14 +155,14 @@ void ff_put_v(AVIOContext *bc, uint64_t val);
 
 /**
  * Read a whole line of text from AVIOContext. Stop reading after reaching
- * either a \n, a \0 or EOF. The returned string is always \0 terminated,
+ * either a \\n, a \\0 or EOF. The returned string is always \\0-terminated,
  * and may be truncated if the buffer is too small.
  *
  * @param s the read-only AVIOContext
  * @param buf buffer to store the read line
  * @param maxlen size of the buffer
  * @return the length of the string written in the buffer, not including the
- *         final \0
+ *         final \\0
  */
 int ff_get_line(AVIOContext *s, char *buf, int maxlen);
 
@@ -217,8 +223,8 @@ int ff_add_index_entry(AVIndexEntry **index_entries,
  *
  * @return AVChapter or NULL on error
  */
-AVChapter *ff_new_chapter(AVFormatContext *s, int id, AVRational time_base,
-                          int64_t start, int64_t end, const char *title);
+AVChapter *avpriv_new_chapter(AVFormatContext *s, int id, AVRational time_base,
+                              int64_t start, int64_t end, const char *title);
 
 /**
  * Ensure the index uses less memory than the maximum specified in
@@ -239,5 +245,43 @@ void ff_make_absolute_url(char *buf, int size, const char *base,
                           const char *rel);
 
 enum CodecID ff_guess_image2_codec(const char *filename);
+
+/**
+ * Convert a date string in ISO8601 format to Unix timestamp.
+ */
+int64_t ff_iso8601_to_unix_time(const char *datestr);
+
+/**
+ * Perform a binary search using av_index_search_timestamp() and
+ * AVInputFormat.read_timestamp().
+ *
+ * @param target_ts target timestamp in the time base of the given stream
+ * @param stream_index stream number
+ */
+int ff_seek_frame_binary(AVFormatContext *s, int stream_index,
+                         int64_t target_ts, int flags);
+
+/**
+ * Update cur_dts of all streams based on the given timestamp and AVStream.
+ *
+ * Stream ref_st unchanged, others set cur_dts in their native time base.
+ * Only needed for timestamp wrapping or if (dts not set and pts!=dts).
+ * @param timestamp new dts expressed in time_base of param ref_st
+ * @param ref_st reference stream giving time_base of param timestamp
+ */
+void ff_update_cur_dts(AVFormatContext *s, AVStream *ref_st, int64_t timestamp);
+
+/**
+ * Perform a binary search using read_timestamp().
+ *
+ * @param target_ts target timestamp in the time base of the given stream
+ * @param stream_index stream number
+ */
+int64_t ff_gen_search(AVFormatContext *s, int stream_index,
+                      int64_t target_ts, int64_t pos_min,
+                      int64_t pos_max, int64_t pos_limit,
+                      int64_t ts_min, int64_t ts_max,
+                      int flags, int64_t *ts_ret,
+                      int64_t (*read_timestamp)(struct AVFormatContext *, int , int64_t *, int64_t ));
 
 #endif /* AVFORMAT_INTERNAL_H */

@@ -37,6 +37,7 @@ LIBAVFORMAT_SRC_FILES := \
 		4xm.c \
 		a64.c \
 		aacdec.c \
+		act.c \
 		ac3dec.c \
 		aea.c \
 		aiffdec.c \
@@ -64,11 +65,15 @@ LIBAVFORMAT_SRC_FILES := \
 		bethsoftvid.c \
 		bfi.c \
 		bink.c \
+		bintext.c \
+		bit.c \
 		c93.c \
+		cache.c \
 		caf.c \
 		cafdec.c \
 		cavsvideodec.c \
 		cdg.c \
+		crypto.c \
 		concat.c \
 		cutils.c \
 		daud.c \
@@ -91,6 +96,8 @@ LIBAVFORMAT_SRC_FILES := \
 		flvdec.c \
 		gif.c \
 		gxf.c \
+		g723_1.c \
+		g729dec.c \
 		h261dec.c \
 		h263dec.c \
 		h264dec.c \
@@ -110,6 +117,7 @@ LIBAVFORMAT_SRC_FILES := \
 		ivfdec.c \
 		jvdec.c \
 		lmlm4.c \
+		loasdec.c \
 		lxfdec.c \
 		m4vdec.c \
 		matroska.c \
@@ -207,7 +215,7 @@ LIBAVFORMAT_SRC_FILES := \
 		tcp.c \
 		thp.c \
 		tiertexseq.c \
-		timefilter.c \
+		timecode_v2.c \
 		tmv.c \
 		tta.c \
 		tty.c \
@@ -222,8 +230,10 @@ LIBAVFORMAT_SRC_FILES := \
 		wc3movie.c \
 		westwood.c \
 		wtv.c \
+		wtvdec.c \
 		wv.c \
 		xa.c \
+		xmv.c \
 		xwma.c \
 		yop.c \
 		yuv4mpeg.c \

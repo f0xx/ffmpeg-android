@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include "libavutil/avstring.h"
 #include "libavutil/bswap.h"
+#include "libavutil/dict.h"
 #include "libavcodec/get_bits.h"
 #include "libavcodec/bytestream.h"
 #include "avformat.h"
@@ -44,7 +45,7 @@ static int ogm_chapter(AVFormatContext *as, uint8_t *key, uint8_t *val)
         if (sscanf(val, "%02d:%02d:%02d.%03d", &h, &m, &s, &ms) < 4)
             return 0;
 
-        ff_new_chapter(as, cnum, (AVRational){1,1000},
+        avpriv_new_chapter(as, cnum, (AVRational){1,1000},
                        ms + 1000*(s + 60*(m + 60*h)),
                        AV_NOPTS_VALUE, NULL);
         av_free(val);
@@ -57,8 +58,8 @@ static int ogm_chapter(AVFormatContext *as, uint8_t *key, uint8_t *val)
         if (!chapter)
             return 0;
 
-        av_metadata_set2(&chapter->metadata, "title", val,
-                         AV_METADATA_DONT_STRDUP_VAL);
+        av_dict_set(&chapter->metadata, "title", val,
+                         AV_DICT_DONT_STRDUP_VAL);
     } else
         return 0;
 
@@ -67,7 +68,7 @@ static int ogm_chapter(AVFormatContext *as, uint8_t *key, uint8_t *val)
 }
 
 int
-ff_vorbis_comment(AVFormatContext * as, AVMetadata **m, const uint8_t *buf, int size)
+ff_vorbis_comment(AVFormatContext * as, AVDictionary **m, const uint8_t *buf, int size)
 {
     const uint8_t *p = buf;
     const uint8_t *end = buf + size;
@@ -127,9 +128,9 @@ ff_vorbis_comment(AVFormatContext * as, AVMetadata **m, const uint8_t *buf, int 
             ct[vl] = 0;
 
             if (!ogm_chapter(as, tt, ct))
-                av_metadata_set2(m, tt, ct,
-                                   AV_METADATA_DONT_STRDUP_KEY |
-                                   AV_METADATA_DONT_STRDUP_VAL);
+                av_dict_set(m, tt, ct,
+                                   AV_DICT_DONT_STRDUP_KEY |
+                                   AV_DICT_DONT_STRDUP_VAL);
         }
     }
 

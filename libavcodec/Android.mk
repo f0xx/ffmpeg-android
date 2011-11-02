@@ -53,6 +53,7 @@ LIBAVCODEC_SRC_FILES := \
 		acelp_pitch_delay.c \
 		acelp_vectors.c \
 		adpcm.c \
+		adpcm_data.c \
 		adxdec.c \
 		alac.c \
 		allcodecs.c \
@@ -79,7 +80,8 @@ LIBAVCODEC_SRC_FILES := \
 		bgmc.c \
 		bink.c \
 		binkaudio.c \
-		binkidct.c \
+		binkdsp.c \
+		bintext.c \
 		bitstream.c \
 		bitstream_filter.c \
 		bmp.c \
@@ -102,10 +104,13 @@ LIBAVCODEC_SRC_FILES := \
 		dca.c \
 		dca_parser.c \
 		dct.c \
-		dct32.c \
+		dct32_fixed.c \
 		dctref.c \
 		dfa.c \
 		dirac.c \
+		diracdsp.c \
+		dirac_arith.c \
+		diracdec.c \
 		dirac_parser.c \
 		dnxhd_parser.c \
 		dnxhddata.c \
@@ -123,8 +128,8 @@ LIBAVCODEC_SRC_FILES := \
 		dvdsubdec.c \
 		dwt.c \
 		dxa.c \
+		eac3_data.c \
 		eac3dec.c \
-		eac3dec_data.c \
 		eacmv.c \
 		eaidct.c \
 		eamad.c \
@@ -147,7 +152,11 @@ LIBAVCODEC_SRC_FILES := \
 		fraps.c \
 		frwu.c \
 		g722.c \
+		g722dec.c \
+		g723_1.c \
 		g726.c \
+		g729dec.c \
+		g729postfilter.c \
 		gifdec.c \
 		golomb.c \
 		gsmdec.c \
@@ -159,17 +168,16 @@ LIBAVCODEC_SRC_FILES := \
 		h263_parser.c \
 		h263dec.c \
 		h264.c \
+		h264dsp.c \
 		h264_cabac.c \
 		h264_cavlc.c \
 		h264_direct.c \
-		h264_hl_motion.c \
 		h264_loopfilter.c \
 		h264_mp4toannexb_bsf.c \
 		h264_parser.c \
 		h264_ps.c \
 		h264_refs.c \
 		h264_sei.c \
-		h264dsp.c \
 		h264idct.c \
 		h264pred.c \
 		huffman.c \
@@ -189,6 +197,9 @@ LIBAVCODEC_SRC_FILES := \
 		ituh263dec.c \
 		ivi_common.c \
 		ivi_dsp.c \
+		j2k.c \
+		j2kdec.c \
+		j2k_dwt.c \
 		jvdec.c \
 		jpegls.c \
 		jpeglsdec.c \
@@ -212,6 +223,7 @@ LIBAVCODEC_SRC_FILES := \
 		mjpega_dump_header_bsf.c \
 		mjpegbdec.c \
 		mjpegdec.c \
+		mxpegdec.c \
 		mlp.c \
 		mlp_parser.c \
 		mlpdec.c \
@@ -231,9 +243,11 @@ LIBAVCODEC_SRC_FILES := \
 		mpeg4video_parser.c \
 		mpeg4videodec.c \
 		mpegaudio.c \
+		mpegaudiodsp.c \
 		mpegaudio_parser.c \
 		mpegaudiodata.c \
 		mpegaudiodec.c \
+		mpegaudiodsp_fixed.c \
 		mpegaudiodecheader.c \
 		mpegvideo.c \
 		mpegvideo_parser.c \
@@ -243,6 +257,8 @@ LIBAVCODEC_SRC_FILES := \
 		msrle.c \
 		msrledec.c \
 		msvideo1.c \
+		mqc.c \
+		mqcdec.c \
 		nellymoser.c \
 		nellymoserdec.c \
 		noise_bsf.c \
@@ -260,6 +276,9 @@ LIBAVCODEC_SRC_FILES := \
 		pnm_parser.c \
 		pnmdec.c \
 		ptx.c \
+		proresdsp.c \
+		proresdec2.c \
+		proresdec_lgpl.c \
 		qcelpdec.c \
 		qdm2.c \
 		qdrw.c \
@@ -285,6 +304,8 @@ LIBAVCODEC_SRC_FILES := \
 		rv30.c \
 		rv30dsp.c \
 		rv34.c \
+		rv34dsp.c \
+		rv34_parser.c \
 		rv40.c \
 		rv40dsp.c \
 		s3tc.c \
@@ -300,6 +321,7 @@ LIBAVCODEC_SRC_FILES := \
 		srtdec.c \
 		sp5xdec.c \
 		sunrast.c \
+		s302m.c \
 		svq1.c \
 		svq1dec.c \
 		svq3.c \
@@ -317,6 +339,7 @@ LIBAVCODEC_SRC_FILES := \
 		txd.c \
 		ulti.c \
 		utils.c \
+		utvideo.c \
 		v210dec.c \
 		v210x.c \
 		vb.c \
@@ -330,7 +353,7 @@ LIBAVCODEC_SRC_FILES := \
 		vmnc.c \
 		vorbis.c \
 		vorbis_data.c \
-		vorbis_dec.c \
+		vorbisdec.c \
 		vp3.c \
 		vp3_parser.c \
 		vp3dsp.c \
@@ -341,14 +364,12 @@ LIBAVCODEC_SRC_FILES := \
 		vp56rac.c \
 		vp6.c \
 		vp6dsp.c \
-		vp8.c \
-		vp8_parser.c \
-		vp8dsp.c \
 		vqavideo.c \
 		wavpack.c \
 		wma.c \
 		wmadec.c \
 		wmaprodec.c \
+		wmalosslessdec.c \
 		wmavoice.c \
 		wmv2.c \
 		wmv2dec.c \
@@ -397,6 +418,13 @@ ARMV5_LOCAL_SRC_FILES := \
 		$(LIBAVCODEC_SRC_CODECS_LIST) \
 
 
+VP8_SRC_FILES := \
+		arm/vp8dsp_init_arm.c \
+		vp8.c \
+		vp8_parser.c \
+		vp8dsp.c \
+
+
 COMMON_ARM_SRC_FILES := \
 		arm/asm.S \
 		arm/ac3dsp_arm.S \
@@ -413,7 +441,7 @@ COMMON_ARM_SRC_FILES := \
 		arm/simple_idct_arm.S \
 		arm/fmtconvert_init_arm.c \
 		arm/vp56dsp_init_arm.c \
-		arm/vp8dsp_init_arm.c \
+		arm/mpegaudiodsp_init_arm.c \
 
 
 ARMV5_SRC_FILES := \
@@ -426,12 +454,16 @@ VFP_SRC_FILES := \
 		arm/dsputil_init_vfp.c \
 		arm/dsputil_vfp.S \
 		fmtconvert_vfp.S \
+		$(VP8_SRC_FILES) \
+		arm/vp8dsp_armv6.S \
 
 
 ARM6_SRC_FILES := \
 		arm/dsputil_armv6.S \
 		arm/dsputil_init_armv6.c \
 		arm/simple_idct_armv6.S \
+		$(VP8_SRC_FILES) \
+		arm/vp8dsp_armv6.S \
 
 
 NEON_SRC_FILES := \
@@ -454,6 +486,7 @@ NEON_SRC_FILES := \
 		arm/synth_filter_neon.S.neon \
 		arm/vp3dsp_neon.S.neon \
 		arm/vp56dsp_neon.S.neon \
+		$(VP8_SRC_FILES) \
 		arm/vp8dsp_neon.S.neon \
 
 

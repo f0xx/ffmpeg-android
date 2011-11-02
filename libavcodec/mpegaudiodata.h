@@ -27,14 +27,15 @@
 #ifndef AVCODEC_MPEGAUDIODATA_H
 #define AVCODEC_MPEGAUDIODATA_H
 
-#include "libavutil/common.h"
+#include <stdint.h>
+#include "avcodec.h"
 
 #define MODE_EXT_MS_STEREO 2
 #define MODE_EXT_I_STEREO  1
 
-extern const uint16_t ff_mpa_bitrate_tab[2][3][15] av_export ;
-extern const uint16_t ff_mpa_freq_tab[3] av_export ;
-extern const int32_t ff_mpa_enwindow[257] av_export ; 
+extern const uint16_t avpriv_mpa_bitrate_tab[2][3][15] av_export ;
+extern const uint16_t avpriv_mpa_freq_tab[3] av_export ;
+extern const int32_t ff_mpa_enwindow[257] av_export ;
 extern const int ff_mpa_sblimit_table[5] av_export ;
 extern const int ff_mpa_quant_steps[17] av_export ;
 extern const int ff_mpa_quant_bits[17] av_export ;

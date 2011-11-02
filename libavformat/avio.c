@@ -19,9 +19,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-/* needed for usleep() */
-#define _XOPEN_SOURCE 600
 #include <unistd.h>
+
 #include "libavutil/avstring.h"
 #include "libavutil/opt.h"
 #include "os_support.h"
@@ -40,8 +39,12 @@ static const char *urlcontext_to_name(void *ptr)
     else        return "NULL";
 }
 static const AVOption options[] = {{NULL}};
-static const AVClass urlcontext_class =
-        { "URLContext", urlcontext_to_name, options, LIBAVUTIL_VERSION_INT };
+static const AVClass urlcontext_class = {
+    .class_name     = "URLContext",
+    .item_name      = urlcontext_to_name,
+    .option         = options,
+    .version        = LIBAVUTIL_VERSION_INT,
+};
 /*@}*/
 
 static int default_interrupt_cb(void);
@@ -57,11 +60,11 @@ URLProtocol *av_protocol_next(URLProtocol *p)
 
 const char *avio_enum_protocols(void **opaque, int output)
 {
-    URLProtocol **p = opaque;
-    *p = *p ? (*p)->next : first_protocol;
-    if (!*p) return NULL;
-    if ((output && (*p)->url_write) || (!output && (*p)->url_read))
-        return (*p)->name;
+    URLProtocol *p = *opaque;
+    p = p ? p->next : first_protocol;
+    if (!p) return NULL;
+    if ((output && p->url_write) || (!output && p->url_read))
+        return p->name;
     return avio_enum_protocols(opaque, output);
 }
 
@@ -307,7 +310,7 @@ int ffurl_write(URLContext *h, const unsigned char *buf, int size)
     if (h->max_packet_size && size > h->max_packet_size)
         return AVERROR(EIO);
 
-    return retry_transfer_wrapper(h, buf, size, size, h->prot->url_write);
+    return retry_transfer_wrapper(h, buf, size, size, (void*)h->prot->url_write);
 }
 
 int64_t ffurl_seek(URLContext *h, int64_t pos, int whence)

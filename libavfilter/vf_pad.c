@@ -21,7 +21,7 @@
 
 /**
  * @file
- * video padding filter and color source
+ * video padding filter
  */
 
 #include "avfilter.h"
@@ -32,12 +32,10 @@
 #include "libavutil/avassert.h"
 #include "libavutil/imgutils.h"
 #include "libavutil/parseutils.h"
+#include "libavutil/mathematics.h"
 #include "drawutils.h"
 
 static const char *var_names[] = {
-    "PI",
-    "PHI",
-    "E",
     "in_w",   "iw",
     "in_h",   "ih",
     "out_w",  "ow",
@@ -45,15 +43,14 @@ static const char *var_names[] = {
     "x",
     "y",
     "a",
+    "sar",
+    "dar",
     "hsub",
     "vsub",
     NULL
 };
 
 enum var_name {
-    VAR_PI,
-    VAR_PHI,
-    VAR_E,
     VAR_IN_W,   VAR_IW,
     VAR_IN_H,   VAR_IH,
     VAR_OUT_W,  VAR_OW,
@@ -61,6 +58,8 @@ enum var_name {
     VAR_X,
     VAR_Y,
     VAR_A,
+    VAR_SAR,
+    VAR_DAR,
     VAR_HSUB,
     VAR_VSUB,
     VARS_NB
@@ -83,7 +82,7 @@ static int query_formats(AVFilterContext *ctx)
         PIX_FMT_NONE
     };
 
-    avfilter_set_common_formats(ctx, avfilter_make_format_list(pix_fmts));
+    avfilter_set_common_pixel_formats(ctx, avfilter_make_format_list(pix_fmts));
     return 0;
 }
 
@@ -148,16 +147,16 @@ static int config_input(AVFilterLink *inlink)
     pad->hsub = pix_desc->log2_chroma_w;
     pad->vsub = pix_desc->log2_chroma_h;
 
-    var_values[VAR_PI]    = M_PI;
-    var_values[VAR_PHI]   = M_PHI;
-    var_values[VAR_E]     = M_E;
     var_values[VAR_IN_W]  = var_values[VAR_IW] = inlink->w;
     var_values[VAR_IN_H]  = var_values[VAR_IH] = inlink->h;
     var_values[VAR_OUT_W] = var_values[VAR_OW] = NAN;
     var_values[VAR_OUT_H] = var_values[VAR_OH] = NAN;
     var_values[VAR_A]     = (float) inlink->w / inlink->h;
+    var_values[VAR_SAR]   = inlink->sample_aspect_ratio.num ?
+        (float) inlink->sample_aspect_ratio.num / inlink->sample_aspect_ratio.den : 1;
+    var_values[VAR_DAR]   = var_values[VAR_A] * var_values[VAR_SAR];
     var_values[VAR_HSUB]  = 1<<pad->hsub;
-    var_values[VAR_VSUB]  = 2<<pad->vsub;
+    var_values[VAR_VSUB]  = 1<<pad->vsub;
 
     /* evaluate width and height */
     av_expr_parse_and_eval(&res, (expr = pad->w_expr),
@@ -252,9 +251,10 @@ static int config_output(AVFilterLink *outlink)
 static AVFilterBufferRef *get_video_buffer(AVFilterLink *inlink, int perms, int w, int h)
 {
     PadContext *pad = inlink->dst->priv;
+    int align = (perms&AV_PERM_ALIGN) ? AVFILTER_ALIGN : 1;
 
     AVFilterBufferRef *picref = avfilter_get_video_buffer(inlink->dst->outputs[0], perms,
-                                                       w + (pad->w - pad->in_w),
+                                                       w + (pad->w - pad->in_w) + 4*align,
                                                        h + (pad->h - pad->in_h));
     int plane;
 
@@ -265,7 +265,7 @@ static AVFilterBufferRef *get_video_buffer(AVFilterLink *inlink, int perms, int 
         int hsub = (plane == 1 || plane == 2) ? pad->hsub : 0;
         int vsub = (plane == 1 || plane == 2) ? pad->vsub : 0;
 
-        picref->data[plane] += (pad->x >> hsub) * pad->line_step[plane] +
+        picref->data[plane] += FFALIGN(pad->x >> hsub, align) * pad->line_step[plane] +
             (pad->y >> vsub) * picref->linesize[plane];
     }
 
