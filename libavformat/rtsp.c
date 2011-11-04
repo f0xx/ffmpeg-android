@@ -33,7 +33,6 @@
 #if HAVE_POLL_H
 #include <poll.h>
 #endif
-#include <strings.h>
 #include "internal.h"
 #include "network.h"
 #include "os_support.h"
@@ -65,6 +64,12 @@
     { name, longname, OFFSET(rtsp_flags), AV_OPT_TYPE_FLAGS, {0}, INT_MIN, INT_MAX, DEC, "rtsp_flags" }, \
     { "filter_src", "Only receive packets from the negotiated peer IP", 0, AV_OPT_TYPE_CONST, {RTSP_FLAG_FILTER_SRC}, 0, 0, DEC, "rtsp_flags" }
 
+#define RTSP_MEDIATYPE_OPTS(name, longname) \
+    { name, longname, OFFSET(media_type_mask), AV_OPT_TYPE_FLAGS, { (1 << (AVMEDIA_TYPE_DATA+1)) - 1 }, INT_MIN, INT_MAX, DEC, "allowed_media_types" }, \
+    { "video", "Video", 0, AV_OPT_TYPE_CONST, {1 << AVMEDIA_TYPE_VIDEO}, 0, 0, DEC, "allowed_media_types" }, \
+    { "audio", "Audio", 0, AV_OPT_TYPE_CONST, {1 << AVMEDIA_TYPE_AUDIO}, 0, 0, DEC, "allowed_media_types" }, \
+    { "data", "Data", 0, AV_OPT_TYPE_CONST, {1 << AVMEDIA_TYPE_DATA}, 0, 0, DEC, "allowed_media_types" }
+
 const AVOption ff_rtsp_options[] = {
     { "initial_pause",  "Don't start playing the stream immediately", OFFSET(initial_pause), AV_OPT_TYPE_INT, {0}, 0, 1, DEC },
     FF_RTP_FLAG_OPTS(RTSPState, rtp_muxer_flags),
@@ -74,11 +79,13 @@ const AVOption ff_rtsp_options[] = {
     { "udp_multicast", "UDP multicast", 0, AV_OPT_TYPE_CONST, {1 << RTSP_LOWER_TRANSPORT_UDP_MULTICAST}, 0, 0, DEC, "rtsp_transport" },
     { "http", "HTTP tunneling", 0, AV_OPT_TYPE_CONST, {(1 << RTSP_LOWER_TRANSPORT_HTTP)}, 0, 0, DEC, "rtsp_transport" },
     RTSP_FLAG_OPTS("rtsp_flags", "RTSP flags"),
+    RTSP_MEDIATYPE_OPTS("allowed_media_types", "Media types to accept from the server"),
     { NULL },
 };
 
 static const AVOption sdp_options[] = {
     RTSP_FLAG_OPTS("sdp_flags", "SDP flags"),
+    RTSP_MEDIATYPE_OPTS("allowed_media_types", "Media types to accept from the server"),
     { NULL },
 };
 
@@ -325,6 +332,7 @@ static void sdp_parse_line(AVFormatContext *s, SDPParseState *s1,
     case 'm':
         /* new stream */
         s1->skip_media = 0;
+        codec_type = AVMEDIA_TYPE_UNKNOWN;
         get_word(st_type, sizeof(st_type), &p);
         if (!strcmp(st_type, "audio")) {
             codec_type = AVMEDIA_TYPE_AUDIO;
@@ -332,7 +340,8 @@ static void sdp_parse_line(AVFormatContext *s, SDPParseState *s1,
             codec_type = AVMEDIA_TYPE_VIDEO;
         } else if (!strcmp(st_type, "application")) {
             codec_type = AVMEDIA_TYPE_DATA;
-        } else {
+        }
+        if (codec_type == AVMEDIA_TYPE_UNKNOWN || !(rt->media_type_mask & (1 << codec_type))) {
             s1->skip_media = 1;
             return;
         }
@@ -650,7 +659,7 @@ static void rtsp_parse_transport(RTSPMessageHeader *reply, const char *p)
 
         get_word_sep(transport_protocol, sizeof(transport_protocol),
                      "/", &p);
-        if (!strcasecmp (transport_protocol, "rtp")) {
+        if (!av_strcasecmp (transport_protocol, "rtp")) {
             get_word_sep(profile, sizeof(profile), "/;,", &p);
             lower_transport[0] = '\0';
             /* rtp/avp/<protocol> */
@@ -659,14 +668,14 @@ static void rtsp_parse_transport(RTSPMessageHeader *reply, const char *p)
                              ";,", &p);
             }
             th->transport = RTSP_TRANSPORT_RTP;
-        } else if (!strcasecmp (transport_protocol, "x-pn-tng") ||
-                   !strcasecmp (transport_protocol, "x-real-rdt")) {
+        } else if (!av_strcasecmp (transport_protocol, "x-pn-tng") ||
+                   !av_strcasecmp (transport_protocol, "x-real-rdt")) {
             /* x-pn-tng/<protocol> */
             get_word_sep(lower_transport, sizeof(lower_transport), "/;,", &p);
             profile[0] = '\0';
             th->transport = RTSP_TRANSPORT_RDT;
         }
-        if (!strcasecmp(lower_transport, "TCP"))
+        if (!av_strcasecmp(lower_transport, "TCP"))
             th->lower_transport = RTSP_LOWER_TRANSPORT_TCP;
         else
             th->lower_transport = RTSP_LOWER_TRANSPORT_UDP;
@@ -1545,7 +1554,7 @@ redirect:
         if (rt->server_type != RTSP_SERVER_REAL && reply->real_challenge[0]) {
             rt->server_type = RTSP_SERVER_REAL;
             continue;
-        } else if (!strncasecmp(reply->server, "WMServer/", 9)) {
+        } else if (!av_strncasecmp(reply->server, "WMServer/", 9)) {
             rt->server_type = RTSP_SERVER_WMS;
         } else if (rt->server_type == RTSP_SERVER_REAL)
             strcpy(real_challenge, reply->real_challenge);
