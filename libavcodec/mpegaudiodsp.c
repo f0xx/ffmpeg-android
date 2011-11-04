@@ -30,8 +30,7 @@ void ff_mpadsp_init(MPADSPContext *s)
     ff_dct_init(&dct, 5, DCT_II);
 #if CONFIG_FLOAT
     s->apply_window_float = ff_mpadsp_apply_window_float;
-#endif
-#if CONFIG_FIXED
+#else
     s->apply_window_fixed = ff_mpadsp_apply_window_fixed;
 #endif
 
