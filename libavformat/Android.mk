@@ -98,6 +98,7 @@ LIBAVFORMAT_SRC_FILES := \
 		gxf.c \
 		g723_1.c \
 		g729dec.c \
+		gsmdec.c \
 		h261dec.c \
 		h263dec.c \
 		h264dec.c \
