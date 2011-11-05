@@ -28,6 +28,8 @@ LIBAVFILTER_SRC_FILES := \
 		af_aformat.c \
 		af_aresample.c \
 		af_ashowinfo.c \
+		af_earwax.c \
+		af_volume.c \
 		allfilters.c \
 		asink_anullsink.c \
 		asrc_anullsrc.c \
