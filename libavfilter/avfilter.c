@@ -687,7 +687,7 @@ void avfilter_filter_samples(AVFilterLink *link, AVFilterBufferRef *samplesref)
     filter_samples(link, link->cur_buf);
 }
 
-#define MAX_REGISTERED_AVFILTERS_NB 64
+#define MAX_REGISTERED_AVFILTERS_NB 128
 
 static AVFilter *registered_avfilters[MAX_REGISTERED_AVFILTERS_NB + 1];
 
@@ -706,8 +706,13 @@ AVFilter *avfilter_get_by_name(const char *name)
 
 int avfilter_register(AVFilter *filter)
 {
-    if (next_registered_avfilter_idx == MAX_REGISTERED_AVFILTERS_NB)
-        return -1;
+    if (next_registered_avfilter_idx == MAX_REGISTERED_AVFILTERS_NB) {
+        av_log(NULL, AV_LOG_ERROR,
+               "Maximum number of registered filters %d reached, "
+               "impossible to register filter with name '%s'\n",
+               MAX_REGISTERED_AVFILTERS_NB, filter->name);
+        return AVERROR(ENOMEM);
+    }
 
     registered_avfilters[next_registered_avfilter_idx++] = filter;
     return 0;
