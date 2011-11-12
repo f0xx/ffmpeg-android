@@ -80,7 +80,7 @@ static void colored_fputs(int level, const char *str){
         set_color(level);
     }
 #ifdef ANDROID
-		__android_log_write(ANDROID_LOG_INFO, "ffmpeg_android", str);
+		__android_log_print(ANDROID_LOG_INFO, "ffmpeg_android", "[%d/%d] %s", getpid(), gettid(), str);
 #else
     fputs(str, stderr);
 #endif		

@@ -67,6 +67,7 @@ LIBAVFORMAT_SRC_FILES := \
 		bink.c \
 		bintext.c \
 		bit.c \
+		bmv.c \
 		c93.c \
 		cache.c \
 		caf.c \
@@ -147,6 +148,7 @@ LIBAVFORMAT_SRC_FILES := \
 		mxfdec.c \
 		mxg.c \
 		ncdec.c \
+		network.c \
 		nsvdec.c \
 		nut.c \
 		nutdec.c \
@@ -186,6 +188,7 @@ LIBAVFORMAT_SRC_FILES := \
 		rtpdec_amr.c \
 		rtpdec_asf.c \
 		rtpdec.c \
+		rtpdec_g726.c \
 		rtpdec_h263.c \
 		rtpdec_h264.c \
 		rtpdec_latm.c \

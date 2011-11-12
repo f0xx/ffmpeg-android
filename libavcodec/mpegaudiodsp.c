@@ -30,15 +30,13 @@ void ff_mpadsp_init(MPADSPContext *s)
     ff_dct_init(&dct, 5, DCT_II);
 #if CONFIG_FLOAT
     s->apply_window_float = ff_mpadsp_apply_window_float;
+    s->dct32_float = dct.dct32;
+    s->imdct36_float = ff_imdct36_float;
 #else
     s->apply_window_fixed = ff_mpadsp_apply_window_fixed;
-#endif
-
-    s->dct32_float = dct.dct32;
     s->dct32_fixed = ff_dct32_fixed;
-
-    s->imdct36_float = ff_imdct36_float;
     s->imdct36_fixed = ff_imdct36_fixed;
+#endif
 
     if (ARCH_ARM)     ff_mpadsp_init_arm(s);
     if (HAVE_MMX)     ff_mpadsp_init_mmx(s);

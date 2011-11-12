@@ -80,6 +80,7 @@ LIBAVFILTER_SRC_FILES := \
 		vsink_nullsink.c \
 		vsrc_buffer.c \
 		vsrc_color.c \
+		vsrc_mandelbrot.c \
 		vsrc_mptestsrc.c \
 		vsrc_testsrc.c \
 

@@ -85,6 +85,7 @@ LIBAVCODEC_SRC_FILES := \
 		bitstream.c \
 		bitstream_filter.c \
 		bmp.c \
+		bmv.c \
 		c93.c \
 		cabac.c \
 		cavs.c \
@@ -354,6 +355,7 @@ LIBAVCODEC_SRC_FILES := \
 		vorbis.c \
 		vorbis_data.c \
 		vorbisdec.c \
+		vble.c \
 		vp3.c \
 		vp3_parser.c \
 		vp3dsp.c \
