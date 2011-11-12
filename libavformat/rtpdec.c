@@ -83,6 +83,11 @@ void av_register_rtp_dynamic_payload_handlers(void)
     ff_register_dynamic_payload_handler(&ff_qt_rtp_vid_handler);
     ff_register_dynamic_payload_handler(&ff_quicktime_rtp_aud_handler);
     ff_register_dynamic_payload_handler(&ff_quicktime_rtp_vid_handler);
+
+    ff_register_dynamic_payload_handler(&ff_g726_16_dynamic_handler);
+    ff_register_dynamic_payload_handler(&ff_g726_24_dynamic_handler);
+    ff_register_dynamic_payload_handler(&ff_g726_32_dynamic_handler);
+    ff_register_dynamic_payload_handler(&ff_g726_40_dynamic_handler);
 }
 
 RTPDynamicProtocolHandler *ff_rtp_handler_find_by_name(const char *name,
@@ -421,7 +426,10 @@ static void finalize_packet(RTPDemuxContext *s, AVPacket *pkt, uint32_t timestam
 {
     if (pkt->pts != AV_NOPTS_VALUE || pkt->dts != AV_NOPTS_VALUE)
         return; /* Timestamp already set by depacketizer */
-    if (s->last_rtcp_ntp_time != AV_NOPTS_VALUE && timestamp != RTP_NOTS_VALUE) {
+    if (timestamp == RTP_NOTS_VALUE)
+        return;
+
+    if (s->last_rtcp_ntp_time != AV_NOPTS_VALUE) {
         int64_t addend;
         int delta_timestamp;
 
@@ -433,8 +441,7 @@ static void finalize_packet(RTPDemuxContext *s, AVPacket *pkt, uint32_t timestam
                    delta_timestamp;
         return;
     }
-    if (timestamp == RTP_NOTS_VALUE)
-        return;
+
     if (!s->base_timestamp)
         s->base_timestamp = timestamp;
     pkt->pts = s->range_start_offset + timestamp - s->base_timestamp;

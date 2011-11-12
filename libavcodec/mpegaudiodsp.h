@@ -29,6 +29,8 @@ typedef struct MPADSPContext {
                                int *dither_state, int16_t *samples, int incr);
     void (*dct32_float)(float *dst, const float *src);
     void (*dct32_fixed)(int *dst, const int *src);
+    void (*imdct36_float)(float *out, float *buf, float *in, float *win);
+    void (*imdct36_fixed)(int *out, int *buf, int *in, int *win);
 } MPADSPContext;
 
 av_export void ff_mpadsp_init(MPADSPContext *s);
@@ -61,5 +63,8 @@ av_export void ff_mpadsp_apply_window_float(float *synth_buf, float *window,
 av_export void ff_mpadsp_apply_window_fixed(int32_t *synth_buf, int32_t *window,
                                   int *dither_state, int16_t *samples,
                                   int incr);
+
+void ff_imdct36_fixed(int *out, int *buf, int *in, int *win);
+void ff_imdct36_float(float *out, float *buf, float *in, float *win);
 
 #endif /* AVCODEC_MPEGAUDIODSP_H */

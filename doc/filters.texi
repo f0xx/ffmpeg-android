@@ -110,7 +110,7 @@ The filter accepts a string of the form:
 the corresponding numeric value defined in @file{libavutil/samplefmt.h}.
 
 @var{channel_layout} specifies the channel layout, and can be a string
-or the corresponding number value defined in @file{libavutil/chlayout.h}.
+or the corresponding number value defined in @file{libavutil/audioconvert.h}.
 
 @var{packing_format} specifies the type of packing in output, can be one
 of "planar" or "packed", or the corresponding numeric values "0" or "1".
@@ -198,7 +198,7 @@ seconds
 
 @item pos
 position of the frame in the input stream, -1 if this information in
-unavailable and/or meanigless (for example in case of synthetic audio)
+unavailable and/or meaningless (for example in case of synthetic audio)
 
 @item fmt
 sample format name
@@ -240,7 +240,7 @@ Ported from SoX.
 Adjust the input audio volume.
 
 The filter accepts exactly one parameter @var{vol}, which expresses
-how the audio volume will be increased or decresed.
+how the audio volume will be increased or decreased.
 
 Output values are clipped to the maximum value.
 
@@ -820,7 +820,7 @@ A description of the accepted parameters follows.
 @table @option
 
 @item x, y, w, h
-Specify a rectangular area where to limit the sarch for motion
+Specify a rectangular area where to limit the search for motion
 vectors.
 If desired the search for motion vectors can be limited to a
 rectangular area of the frame defined by its top left corner, width
@@ -1139,7 +1139,7 @@ For more information about libfreetype, check:
 Apply fade-in/out effect to input video.
 
 It accepts the parameters:
-@var{type}:@var{start_frame}:@var{nb_frames}
+@var{type}:@var{start_frame}:@var{nb_frames}[:@var{options}]
 
 @var{type} specifies if the effect type, can be either "in" for
 fade-in, or "out" for a fade-out effect.
@@ -1151,6 +1151,25 @@ to apply the fade effect.
 effect has to last. At the end of the fade-in effect the output video
 will have the same intensity as the input video, at the end of the
 fade-out transition the output video will be completely black.
+
+@var{options} is an optional sequence of @var{key}=@var{value} pairs,
+separated by ":". The description of the accepted options follows.
+
+@table @option
+
+@item type, t
+See @var{type}.
+
+@item start_frame, s
+See @var{start_frame}.
+
+@item nb_frames, n
+See @var{nb_frames}.
+
+@item alpha
+If set to 1, fade only alpha channel, if one exists on the input.
+Default value is 0.
+@end table
 
 A few usage examples follow, usable too as test scenarios.
 @example
@@ -1165,6 +1184,9 @@ fade=in:0:25, fade=out:975:25
 
 # make first 5 frames black, then fade in from frame 5-24
 fade=in:5:20
+
+# fade in alpha over first 25 frames of video
+fade=in:0:25:alpha=1
 @end example
 
 @section fieldorder
@@ -1751,7 +1773,7 @@ movie=logo2.png [logo2];
 color=red@.3:WxH [over]; [in][over] overlay [out]
 @end example
 
-You can chain togheter more overlays but the efficiency of such
+You can chain together more overlays but the efficiency of such
 approach is yet to be tested.
 
 @section pad
@@ -2464,7 +2486,7 @@ through the interface defined in @file{libavfilter/vsrc_buffer.h}.
 It accepts the following parameters:
 @var{width}:@var{height}:@var{pix_fmt_string}:@var{timebase_num}:@var{timebase_den}:@var{sample_aspect_ratio_num}:@var{sample_aspect_ratio.den}:@var{scale_params}
 
-All the parameters but @var{scale_params} need to be explicitely
+All the parameters but @var{scale_params} need to be explicitly
 defined.
 
 Follows the list of the accepted parameters.

@@ -153,7 +153,9 @@ enum CodecID {
     CODEC_ID_TIERTEXSEQVIDEO,
     CODEC_ID_TIFF,
     CODEC_ID_GIF,
+#if LIBAVCODEC_VERSION_MAJOR == 53
     CODEC_ID_FFH264,
+#endif
     CODEC_ID_DXA,
     CODEC_ID_DNXHD,
     CODEC_ID_THP,
@@ -171,8 +173,10 @@ enum CodecID {
     CODEC_ID_INDEO5,
     CODEC_ID_MIMIC,
     CODEC_ID_RL2,
+#if LIBAVCODEC_VERSION_MAJOR == 53
     CODEC_ID_8SVX_EXP,
     CODEC_ID_8SVX_FIB,
+#endif
     CODEC_ID_ESCAPE124,
     CODEC_ID_DIRAC,
     CODEC_ID_BFI,
@@ -216,13 +220,15 @@ enum CodecID {
     CODEC_ID_G729_DEPRECATED,
 #endif
     CODEC_ID_UTVIDEO_DEPRECATED,
+    CODEC_ID_BMV_VIDEO,
+    CODEC_ID_VBLE,
     CODEC_ID_UTVIDEO = 0x800,
 
     CODEC_ID_G2M        = MKBETAG( 0 ,'G','2','M'),
 
     /* various PCM "codecs" */
     CODEC_ID_FIRST_AUDIO = 0x10000,     ///< A dummy id pointing at the start of audio codecs
-    CODEC_ID_PCM_S16LE= 0x10000,
+    CODEC_ID_PCM_S16LE = 0x10000,
     CODEC_ID_PCM_S16BE,
     CODEC_ID_PCM_U16LE,
     CODEC_ID_PCM_U16BE,
@@ -249,9 +255,10 @@ enum CodecID {
     CODEC_ID_PCM_BLURAY,
     CODEC_ID_PCM_LXF,
     CODEC_ID_S302M,
+    CODEC_ID_PCM_S8_PLANAR,
 
     /* various ADPCM codecs */
-    CODEC_ID_ADPCM_IMA_QT= 0x11000,
+    CODEC_ID_ADPCM_IMA_QT = 0x11000,
     CODEC_ID_ADPCM_IMA_WAV,
     CODEC_ID_ADPCM_IMA_DK3,
     CODEC_ID_ADPCM_IMA_DK4,
@@ -282,21 +289,21 @@ enum CodecID {
     CODEC_ID_ADPCM_G722,
 
     /* AMR */
-    CODEC_ID_AMR_NB= 0x12000,
+    CODEC_ID_AMR_NB = 0x12000,
     CODEC_ID_AMR_WB,
 
     /* RealAudio codecs*/
-    CODEC_ID_RA_144= 0x13000,
+    CODEC_ID_RA_144 = 0x13000,
     CODEC_ID_RA_288,
 
     /* various DPCM codecs */
-    CODEC_ID_ROQ_DPCM= 0x14000,
+    CODEC_ID_ROQ_DPCM = 0x14000,
     CODEC_ID_INTERPLAY_DPCM,
     CODEC_ID_XAN_DPCM,
     CODEC_ID_SOL_DPCM,
 
     /* audio codecs */
-    CODEC_ID_MP2= 0x15000,
+    CODEC_ID_MP2 = 0x15000,
     CODEC_ID_MP3, ///< preferred ID for decoding MPEG audio layer 1, 2 or 3
     CODEC_ID_AAC,
     CODEC_ID_AC3,
@@ -308,8 +315,10 @@ enum CodecID {
     CODEC_ID_MACE3,
     CODEC_ID_MACE6,
     CODEC_ID_VMDAUDIO,
+#if LIBAVCODEC_VERSION_MAJOR == 53
     CODEC_ID_SONIC,
     CODEC_ID_SONIC_LS,
+#endif
     CODEC_ID_FLAC,
     CODEC_ID_MP3ADU,
     CODEC_ID_MP3ON4,
@@ -354,14 +363,17 @@ enum CodecID {
 #if LIBAVCODEC_VERSION_MAJOR > 53
     CODEC_ID_G723_1_DEPRECATED,
     CODEC_ID_G729_DEPRECATED,
+    CODEC_ID_8SVX_EXP,
+    CODEC_ID_8SVX_FIB,
 #endif
+    CODEC_ID_BMV_AUDIO,
     CODEC_ID_G729 = 0x15800,
     CODEC_ID_G723_1= 0x15801,
     CODEC_ID_8SVX_RAW   = MKBETAG('8','S','V','X'),
 
     /* subtitle codecs */
     CODEC_ID_FIRST_SUBTITLE = 0x17000,          ///< A dummy ID pointing at the start of subtitle codecs.
-    CODEC_ID_DVD_SUBTITLE= 0x17000,
+    CODEC_ID_DVD_SUBTITLE = 0x17000,
     CODEC_ID_DVB_SUBTITLE,
     CODEC_ID_TEXT,  ///< raw UTF-8 text
     CODEC_ID_XSUB,
@@ -374,18 +386,18 @@ enum CodecID {
 
     /* other specific kind of codecs (generally used for attachments) */
     CODEC_ID_FIRST_UNKNOWN = 0x18000,           ///< A dummy ID pointing at the start of various fake codecs.
-    CODEC_ID_TTF= 0x18000,
+    CODEC_ID_TTF = 0x18000,
     CODEC_ID_BINTEXT    = MKBETAG('B','T','X','T'),
     CODEC_ID_XBIN       = MKBETAG('X','B','I','N'),
     CODEC_ID_IDF        = MKBETAG( 0 ,'I','D','F'),
 
-    CODEC_ID_PROBE= 0x19000, ///< codec_id is not known (like CODEC_ID_NONE) but lavf should attempt to identify it
+    CODEC_ID_PROBE = 0x19000, ///< codec_id is not known (like CODEC_ID_NONE) but lavf should attempt to identify it
 
-    CODEC_ID_MPEG2TS= 0x20000, /**< _FAKE_ codec to indicate a raw MPEG-2 TS
+    CODEC_ID_MPEG2TS = 0x20000, /**< _FAKE_ codec to indicate a raw MPEG-2 TS
                                 * stream (only used by libavformat) */
     CODEC_ID_MPEG4SYSTEMS = 0x20001, /**< _FAKE_ codec to indicate a MPEG-4 Systems
                                 * stream (only used by libavformat) */
-    CODEC_ID_FFMETADATA=0x21000,   ///< Dummy codec for streams containing only metadata information.
+    CODEC_ID_FFMETADATA = 0x21000,   ///< Dummy codec for streams containing only metadata information.
 };
 
 #if FF_API_OLD_SAMPLE_FMT
@@ -1356,10 +1368,12 @@ typedef struct AVCodecContext {
     int frame_number;   ///< audio or video frame number
 
     /**
-     * Number of frames the decoded output will be delayed relative to
-     * the encoded input.
+     * Encoding: Number of frames delay there will be from the encoder input to
+     *           the decoder output. (we assume the decoder matches the spec)
+     * Decoding: Number of frames delay in addition to what a standard decoder
+     *           as specified in the spec would produce.
      * - encoding: Set by libavcodec.
-     * - decoding: unused
+     * - decoding: Set by libavcodec.
      */
     int delay;
 

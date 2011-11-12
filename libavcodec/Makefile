@@ -100,6 +100,8 @@ OBJS-$(CONFIG_BINKAUDIO_RDFT_DECODER)  += binkaudio.o wma.o
 OBJS-$(CONFIG_BINTEXT_DECODER)         += bintext.o cga_data.o
 OBJS-$(CONFIG_BMP_DECODER)             += bmp.o msrledec.o
 OBJS-$(CONFIG_BMP_ENCODER)             += bmpenc.o
+OBJS-$(CONFIG_BMV_VIDEO_DECODER)       += bmv.o
+OBJS-$(CONFIG_BMV_AUDIO_DECODER)       += bmv.o
 OBJS-$(CONFIG_C93_DECODER)             += c93.o
 OBJS-$(CONFIG_CAVS_DECODER)            += cavs.o cavsdec.o cavsdsp.o \
                                           mpeg12data.o mpegvideo.o
@@ -411,6 +413,7 @@ OBJS-$(CONFIG_V210_DECODER)            += v210dec.o
 OBJS-$(CONFIG_V210_ENCODER)            += v210enc.o
 OBJS-$(CONFIG_V210X_DECODER)           += v210x.o
 OBJS-$(CONFIG_VB_DECODER)              += vb.o
+OBJS-$(CONFIG_VBLE_DECODER)            += vble.o
 OBJS-$(CONFIG_VC1_DECODER)             += vc1dec.o vc1.o vc1data.o vc1dsp.o \
                                           msmpeg4.o msmpeg4data.o           \
                                           intrax8.o intrax8dsp.o
@@ -483,6 +486,7 @@ OBJS-$(CONFIG_PCM_MULAW_DECODER)          += pcm.o
 OBJS-$(CONFIG_PCM_MULAW_ENCODER)          += pcm.o
 OBJS-$(CONFIG_PCM_S8_DECODER)             += pcm.o
 OBJS-$(CONFIG_PCM_S8_ENCODER)             += pcm.o
+OBJS-$(CONFIG_PCM_S8_PLANAR_DECODER)      += 8svx.o
 OBJS-$(CONFIG_PCM_S16BE_DECODER)          += pcm.o
 OBJS-$(CONFIG_PCM_S16BE_ENCODER)          += pcm.o
 OBJS-$(CONFIG_PCM_S16LE_DECODER)          += pcm.o

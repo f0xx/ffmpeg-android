@@ -26,6 +26,7 @@
 #include "libavutil/parseutils.h"
 #include "libavutil/random_seed.h"
 #include "libavutil/dict.h"
+#include "libavutil/opt.h"
 #include "avformat.h"
 #include "avio_internal.h"
 
@@ -171,8 +172,11 @@ static void init_rtp_handler(RTPDynamicProtocolHandler *handler,
         return;
     codec->codec_id          = handler->codec_id;
     rtsp_st->dynamic_handler = handler;
-    if (handler->alloc)
+    if (handler->alloc) {
         rtsp_st->dynamic_protocol_context = handler->alloc();
+        if (!rtsp_st->dynamic_protocol_context)
+            rtsp_st->dynamic_handler = NULL;
+    }
 }
 
 /* parse the rtpmap description: <codec_name>/<clock_rate>[/<other params>] */
@@ -1458,7 +1462,7 @@ redirect:
                  "Pragma: no-cache\r\n"
                  "Cache-Control: no-cache\r\n",
                  sessioncookie);
-        ff_http_set_headers(rt->rtsp_hd, headers);
+        av_opt_set(rt->rtsp_hd->priv_data, "headers", headers, 0);
 
         /* complete the connection */
         if (ffurl_connect(rt->rtsp_hd)) {
@@ -1481,8 +1485,8 @@ redirect:
                  "Content-Length: 32767\r\n"
                  "Expires: Sun, 9 Jan 1972 00:00:00 GMT\r\n",
                  sessioncookie);
-        ff_http_set_headers(rt->rtsp_hd_out, headers);
-        ff_http_set_chunked_transfer_encoding(rt->rtsp_hd_out, 0);
+        av_opt_set(rt->rtsp_hd_out->priv_data, "headers", headers, 0);
+        av_opt_set(rt->rtsp_hd_out->priv_data, "chunked_post", "0", 0);
 
         /* Initialize the authentication state for the POST session. The HTTP
          * protocol implementation doesn't properly handle multi-pass

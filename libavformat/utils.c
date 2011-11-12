@@ -1004,11 +1004,6 @@ static void compute_pkt_fields(AVFormatContext *s, AVStream *st,
     delay= st->codec->has_b_frames;
     presentation_delayed = 0;
 
-    // ignore delay caused by frame threading so that the mpeg2-without-dts
-    // warning will not trigger
-    if (delay && st->codec->active_thread_type&FF_THREAD_FRAME)
-        delay -= st->codec->thread_count-1;
-
     /* XXX: need has_b_frame, but cannot get it if the codec is
         not initialized */
     if (delay &&
@@ -1434,7 +1429,7 @@ void ff_read_frame_flush(AVFormatContext *s)
 #if FF_API_SEEK_PUBLIC
 void av_update_cur_dts(AVFormatContext *s, AVStream *ref_st, int64_t timestamp)
 {
-    return ff_update_cur_dts(s, ref_st, timestamp);
+    ff_update_cur_dts(s, ref_st, timestamp);
 }
 #endif
 
@@ -3183,9 +3178,6 @@ static int compute_pkt_fields2(AVFormatContext *s, AVStream *st, AVPacket *pkt){
     av_dlog(s, "compute_pkt_fields2: pts:%"PRId64" dts:%"PRId64" cur_dts:%"PRId64" b:%d size:%d st:%d\n",
             pkt->pts, pkt->dts, st->cur_dts, delay, pkt->size, pkt->stream_index);
 
-/*    if(pkt->pts == AV_NOPTS_VALUE && pkt->dts == AV_NOPTS_VALUE)
-        return AVERROR(EINVAL);*/
-
     /* duration field */
     if (pkt->duration == 0) {
         compute_frame_duration(&num, &den, st, NULL, pkt);
@@ -3265,12 +3257,14 @@ int av_write_frame(AVFormatContext *s, AVPacket *pkt)
     return ret;
 }
 
-void ff_interleave_add_packet(AVFormatContext *s, AVPacket *pkt,
+int ff_interleave_add_packet(AVFormatContext *s, AVPacket *pkt,
                               int (*compare)(AVFormatContext *, AVPacket *, AVPacket *))
 {
     AVPacketList **next_point, *this_pktl;
 
     this_pktl = av_mallocz(sizeof(AVPacketList));
+    if (!this_pktl)
+        return AVERROR(ENOMEM);
     this_pktl->pkt= *pkt;
     pkt->destruct= NULL;             // do not free original but only the copy
     av_dup_packet(&this_pktl->pkt);  // duplicate the packet if it uses non-alloced memory
@@ -3299,6 +3293,7 @@ next_non_null:
 
     s->streams[pkt->stream_index]->last_in_packet_buffer=
     *next_point= this_pktl;
+    return 0;
 }
 
 static int ff_interleave_compare_dts(AVFormatContext *s, AVPacket *next, AVPacket *pkt)
@@ -3317,10 +3312,12 @@ int av_interleave_packet_per_dts(AVFormatContext *s, AVPacket *out, AVPacket *pk
     AVPacketList *pktl;
     int stream_count=0, noninterleaved_count=0;
     int64_t delta_dts_max = 0;
-    int i;
+    int i, ret;
 
     if(pkt){
-        ff_interleave_add_packet(s, pkt, ff_interleave_compare_dts);
+        ret = ff_interleave_add_packet(s, pkt, ff_interleave_compare_dts);
+        if (ret < 0)
+            return ret;
     }
 
     for(i=0; i < s->nb_streams; i++) {
@@ -4185,4 +4182,25 @@ int avformat_query_codec(AVOutputFormat *ofmt, enum CodecID codec_id, int std_co
             return 1;
     }
     return AVERROR_PATCHWELCOME;
+}
+
+int avformat_network_init(void)
+{
+#if CONFIG_NETWORK
+    int ret;
+    ff_network_inited_globally = 1;
+    if ((ret = ff_network_init()) < 0)
+        return ret;
+    ff_tls_init();
+#endif
+    return 0;
+}
+
+int avformat_network_deinit(void)
+{
+#if CONFIG_NETWORK
+    ff_network_close();
+    ff_tls_deinit();
+#endif
+    return 0;
 }

@@ -290,7 +290,7 @@ static AVPacket flush_pkt;
 
 static SDL_Surface *screen;
 
-void exit_program(int ret)
+void av_noreturn exit_program(int ret)
 {
     exit(ret);
 }
@@ -914,6 +914,7 @@ static void do_exit(VideoState *is)
 #if CONFIG_AVFILTER
     avfilter_uninit();
 #endif
+    avformat_network_deinit();
     if (show_status)
         printf("\n");
     SDL_Quit();
@@ -2225,7 +2226,12 @@ static int stream_component_open(VideoState *is, int stream_index)
 
     avctx->workaround_bugs = workaround_bugs;
     avctx->lowres = lowres;
-    if(lowres) avctx->flags |= CODEC_FLAG_EMU_EDGE;
+    if(avctx->lowres > codec->max_lowres){
+        av_log(avctx, AV_LOG_WARNING, "The maximum value for lowres supported by the decoder is %d\n",
+                codec->max_lowres);
+        avctx->lowres= codec->max_lowres;
+    }
+    if(avctx->lowres) avctx->flags |= CODEC_FLAG_EMU_EDGE;
     avctx->idct_algo= idct;
     if(fast) avctx->flags2 |= CODEC_FLAG2_FAST;
     avctx->skip_frame= skip_frame;
@@ -2347,6 +2353,8 @@ static void stream_component_close(VideoState *is, int stream_index)
         if (is->rdft) {
             av_rdft_end(is->rdft);
             av_freep(&is->rdft_data);
+            is->rdft = NULL;
+            is->rdft_bits = 0;
         }
         break;
     case AVMEDIA_TYPE_VIDEO:
@@ -2546,7 +2554,7 @@ static int read_thread(void *arg)
 #if CONFIG_RTSP_DEMUXER || CONFIG_MMSH_PROTOCOL
         if (is->paused &&
                 (!strcmp(ic->iformat->name, "rtsp") ||
-                 (ic->pb && !strcmp(url_fileno(ic->pb)->prot->name, "mmsh")))) {
+                 (ic->pb && !strncmp(input_filename, "mmsh:", 5)))) {
             /* wait 10 ms to avoid trying to get another packet */
             /* XXX: horrible */
             SDL_Delay(10);
@@ -3143,6 +3151,7 @@ int main(int argc, char **argv)
     avfilter_register_all();
 #endif
     av_register_all();
+    avformat_network_init();
 
     init_opts();
 
