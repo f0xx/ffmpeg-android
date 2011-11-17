@@ -38,7 +38,7 @@
 static const AVOption options[]={
 {"ich",  "input channel count", OFFSET( in.ch_count   ), AV_OPT_TYPE_INT, {.dbl=2}, 1, SWR_CH_MAX, 0},
 {"och", "output channel count", OFFSET(out.ch_count   ), AV_OPT_TYPE_INT, {.dbl=2}, 1, SWR_CH_MAX, 0},
-{"uch",   "used channel count", OFFSET(used_ch_count  ), AV_OPT_TYPE_INT, {.dbl=2}, 1, SWR_CH_MAX, 0},
+{"uch",   "used channel count", OFFSET(used_ch_count  ), AV_OPT_TYPE_INT, {.dbl=0}, 0, SWR_CH_MAX, 0},
 {"isr",  "input sample rate"  , OFFSET( in_sample_rate), AV_OPT_TYPE_INT, {.dbl=48000}, 1, INT_MAX, 0},
 {"osr", "output sample rate"  , OFFSET(out_sample_rate), AV_OPT_TYPE_INT, {.dbl=48000}, 1, INT_MAX, 0},
 //{"ip" ,  "input planar"       , OFFSET( in.planar     ), AV_OPT_TYPE_INT, {.dbl=0},    0,       1, 0},
@@ -61,7 +61,14 @@ static const char* context_to_name(void* ptr) {
     return "SWR";
 }
 
-static const AVClass av_class = { "SwrContext", context_to_name, options, LIBAVUTIL_VERSION_INT, OFFSET(log_level_offset), OFFSET(log_ctx) };
+static const AVClass av_class = {
+    .class_name                = "SwrContext",
+    .item_name                 = context_to_name,
+    .option                    = options,
+    .version                   = LIBAVUTIL_VERSION_INT,
+    .log_level_offset_offset   = OFFSET(log_level_offset),
+    .parent_log_context_offset = OFFSET(log_ctx),
+};
 
 static int resample(SwrContext *s, AudioData *out_param, int out_count,
                              const AudioData * in_param, int in_count);
@@ -70,7 +77,7 @@ SwrContext *swr_alloc(void){
     SwrContext *s= av_mallocz(sizeof(SwrContext));
     if(s){
         s->av_class= &av_class;
-        av_opt_set_defaults2(s, 0, 0);
+        av_opt_set_defaults(s);
     }
     return s;
 }
@@ -84,18 +91,17 @@ SwrContext *swr_alloc2(struct SwrContext *s, int64_t out_ch_layout, enum AVSampl
     s->log_level_offset= log_offset;
     s->log_ctx= log_ctx;
 
-    av_set_int(s, "ocl", out_ch_layout);
-    av_set_int(s, "osf", out_sample_fmt);
-    av_set_int(s, "osr", out_sample_rate);
-    av_set_int(s, "icl", in_ch_layout);
-    av_set_int(s, "isf", in_sample_fmt);
-    av_set_int(s, "isr", in_sample_rate);
+    av_opt_set_int(s, "ocl", out_ch_layout,   0);
+    av_opt_set_int(s, "osf", out_sample_fmt,  0);
+    av_opt_set_int(s, "osr", out_sample_rate, 0);
+    av_opt_set_int(s, "icl", in_ch_layout,    0);
+    av_opt_set_int(s, "isf", in_sample_fmt,   0);
+    av_opt_set_int(s, "isr", in_sample_rate,  0);
 
     s->channel_map = channel_map;
     s-> in.ch_count= av_get_channel_layout_nb_channels(s-> in_ch_layout);
     s->out.ch_count= av_get_channel_layout_nb_channels(s->out_ch_layout);
     s->int_sample_fmt = AV_SAMPLE_FMT_S16;
-    s->used_ch_count= s-> in.ch_count;
 
     return s;
 }
@@ -198,9 +204,9 @@ av_assert0(s->used_ch_count);
 av_assert0(s->out.ch_count);
     s->resample_first= RSC*s->out.ch_count/s->in.ch_count - RSC < s->out_sample_rate/(float)s-> in_sample_rate - 1.0;
 
-    s-> in.bps= av_get_bits_per_sample_fmt(s-> in_sample_fmt)/8;
-    s->int_bps= av_get_bits_per_sample_fmt(s->int_sample_fmt)/8;
-    s->out.bps= av_get_bits_per_sample_fmt(s->out_sample_fmt)/8;
+    s-> in.bps= av_get_bytes_per_sample(s-> in_sample_fmt);
+    s->int_bps= av_get_bytes_per_sample(s->int_sample_fmt);
+    s->out.bps= av_get_bytes_per_sample(s->out_sample_fmt);
 
     if(!s->resample && !s->rematrix && !s->channel_map){
         s->full_convert = swr_audio_convert_alloc(s->out_sample_fmt,
