@@ -219,7 +219,7 @@ LIBAVFORMAT_SRC_FILES := \
 		tcp.c \
 		thp.c \
 		tiertexseq.c \
-		timecode_v2.c \
+		mkvtimestamp_v2.c \
 		tmv.c \
 		tta.c \
 		tty.c \
