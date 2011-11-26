@@ -61,10 +61,12 @@ The format option may be needed for raw input files.
 @chapter Stream selection
 @c man begin STREAM SELECTION
 
-By default ffmpeg tries to pick the "best" stream of each type present in input
-files and add them to each output file. For video, this means the highest
-resolution, for audio the highest channel count. For subtitle it's simply the
-first subtitle stream.
+By default ffmpeg includes only one stream of each type (video, audio, subtitle)
+present in the input files and adds them to each output file.  It picks the
+"best" of each based upon the following criteria; for video it is the stream
+with the highest resolution, for audio the stream with the most channels, for
+subtitle it's the first subtitle stream. In the case where several streams of
+the same type rate equally, the lowest numbered stream is chosen.
 
 You can disable some of those defaults by using @code{-vn/-an/-sn} options. For
 full manual control, use the @code{-map} option, which disables the defaults just
@@ -91,6 +93,9 @@ input file name
 
 @item -y (@emph{global})
 Overwrite output files without asking.
+
+@item -n (@emph{global})
+Do not overwrite output files but exit if file exists.
 
 @item -c[:@var{stream_specifier}] @var{codec} (@emph{input/output,per-stream})
 @itemx -codec[:@var{stream_specifier}] @var{codec} (@emph{input/output,per-stream})
@@ -753,6 +758,12 @@ following command extract each channel of the audio stream (file 0, stream 0)
 to the respective @var{OUTPUT_CH0} and @var{OUTPUT_CH1}:
 @example
 ffmpeg -i INPUT -map_channel 0.0.0 OUTPUT_CH0 -map_channel 0.0.1 OUTPUT_CH1
+@end example
+
+The following example split the channels of a stereo input into streams:
+
+@example
+ffmpeg -i stereo.wav -map 0:0 -map 0:0 -map_channel 0.0.0:0.0 -map_channel 0.0.1:0.1 -y out.ogg
 @end example
 
 Note that "-map_channel" is currently limited to the scope of one input for

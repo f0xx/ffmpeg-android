@@ -40,6 +40,7 @@ void avfilter_register_all(void)
     REGISTER_FILTER (ARESAMPLE,   aresample,   af);
     REGISTER_FILTER (ASHOWINFO,   ashowinfo,   af);
     REGISTER_FILTER (EARWAX,      earwax,      af);
+    REGISTER_FILTER (PAN,         pan,         af);
     REGISTER_FILTER (VOLUME,      volume,      af);
 
     REGISTER_FILTER (ABUFFER,     abuffer,     asrc);
@@ -50,6 +51,7 @@ void avfilter_register_all(void)
     REGISTER_FILTER (ABUFFERSINK, abuffersink, asink);
     REGISTER_FILTER (ANULLSINK,   anullsink,   asink);
 
+    REGISTER_FILTER (ASS,         ass,  vf);
     REGISTER_FILTER (BLACKFRAME,  blackframe,  vf);
     REGISTER_FILTER (BOXBLUR,     boxblur,     vf);
     REGISTER_FILTER (COPY,        copy,        vf);

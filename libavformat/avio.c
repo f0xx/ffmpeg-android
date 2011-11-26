@@ -83,9 +83,11 @@ const AVClass ffurl_context_class = {
 };
 /*@}*/
 
-static int default_interrupt_cb(void);
 
+#if FF_API_OLD_INTERRUPT_CB
+static int default_interrupt_cb(void);
 int (*url_interrupt_cb)(void) = default_interrupt_cb;
+#endif
 
 URLProtocol *av_protocol_next(URLProtocol *p)
 {
@@ -143,8 +145,31 @@ static int url_alloc_for_protocol (URLContext **puc, struct URLProtocol *up,
     if (up->priv_data_size) {
         uc->priv_data = av_mallocz(up->priv_data_size);
         if (up->priv_data_class) {
+            char *start = strchr(uc->filename, ',');
             *(const AVClass**)uc->priv_data = up->priv_data_class;
             av_opt_set_defaults(uc->priv_data);
+            if(start){
+                int ret= 0;
+                char *p= start;
+                char sep= *++p;
+                char *key, *val;
+                p++;
+                while(ret >= 0 && (key= strchr(p, sep)) && p<key && (val = strchr(key+1, sep))){
+                    *val= *key= 0;
+                    ret= av_opt_set(uc->priv_data, p, key+1, 0);
+                    if (ret == AVERROR_OPTION_NOT_FOUND)
+                        av_log(uc, AV_LOG_ERROR, "Key '%s' not found.\n", p);
+                    *val= *key= sep;
+                    p= val+1;
+                }
+                if(ret<0 || p!=key){
+                    av_log(uc, AV_LOG_ERROR, "Error parsing options string %s\n", start);
+                    av_freep(&uc->priv_data);
+                    av_freep(&uc);
+                    goto fail;
+                }
+                memmove(start, key+1, strlen(key));
+            }
         }
     }
     if (int_cb)
@@ -270,11 +295,13 @@ int ffurl_alloc(URLContext **puc, const char *filename, int flags,
                                      "Missing call to av_register_all()?\n");
     }
 
-    if (filename[proto_len] != ':' || is_dos_path(filename))
+    if (filename[proto_len] != ':' &&  filename[proto_len] != ',' || is_dos_path(filename))
         strcpy(proto_str, "file");
     else
         av_strlcpy(proto_str, filename, FFMIN(proto_len+1, sizeof(proto_str)));
 
+    if ((ptr = strchr(proto_str, ',')))
+        *ptr = '\0';
     av_strlcpy(proto_nested, proto_str, sizeof(proto_nested));
     if ((ptr = strchr(proto_nested, '+')))
         *ptr = '\0';
@@ -444,6 +471,7 @@ int ffurl_get_file_handle(URLContext *h)
     return h->prot->url_get_file_handle(h);
 }
 
+#if FF_API_OLD_INTERRUPT_CB
 static int default_interrupt_cb(void)
 {
     return 0;
@@ -455,13 +483,18 @@ void avio_set_interrupt_cb(int (*interrupt_cb)(void))
         interrupt_cb = default_interrupt_cb;
     url_interrupt_cb = interrupt_cb;
 }
+#endif
 
 int ff_check_interrupt(AVIOInterruptCB *cb)
 {
     int ret;
     if (cb && cb->callback && (ret = cb->callback(cb->opaque)))
         return ret;
+#if FF_API_OLD_INTERRUPT_CB
     return url_interrupt_cb();
+#else
+    return 0;
+#endif
 }
 
 #if FF_API_OLD_AVIO

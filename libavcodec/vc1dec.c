@@ -3293,7 +3293,7 @@ static int vc1_decode_p_block(VC1Context *v, DCTELEM block[64], int n,
             i += skip;
             if (i > 63)
                 break;
-            if (!v->interlace)
+            if (v->fcm != 1)
                 idx = v->zz_8x8[0][i++];
             else
                 idx = v->zzi_8x8[i++];
@@ -3321,7 +3321,7 @@ static int vc1_decode_p_block(VC1Context *v, DCTELEM block[64], int n,
                 i += skip;
                 if (i > 15)
                     break;
-                if (!v->interlace)
+                if (v->fcm != 1)
                     idx = ff_vc1_simple_progressive_4x4_zz[i++];
                 else
                     idx = ff_vc1_adv_interlaced_4x4_zz[i++];
@@ -3348,7 +3348,7 @@ static int vc1_decode_p_block(VC1Context *v, DCTELEM block[64], int n,
                 i += skip;
                 if (i > 31)
                     break;
-                if (!v->interlace)
+                if (v->fcm != 1)
                     idx = v->zz_8x4[i++] + off;
                 else
                     idx = ff_vc1_adv_interlaced_8x4_zz[i++] + off;
@@ -3375,7 +3375,7 @@ static int vc1_decode_p_block(VC1Context *v, DCTELEM block[64], int n,
                 i += skip;
                 if (i > 31)
                     break;
-                if (!v->interlace)
+                if (v->fcm != 1)
                     idx = v->zz_4x8[i++] + off;
                 else
                     idx = ff_vc1_adv_interlaced_4x8_zz[i++] + off;
@@ -4817,7 +4817,7 @@ static void vc1_decode_b_blocks(VC1Context *v)
                 vc1_decode_b_mb(v);
             if (get_bits_count(&s->gb) > v->bits || get_bits_count(&s->gb) < 0) {
                 // TODO: may need modification to handle slice coding
-                ff_er_add_slice(s, 0, s->start_mb_y, s->mb_x, s->mb_y, (AC_END|DC_END|MV_END));
+                ff_er_add_slice(s, 0, s->start_mb_y, s->mb_x, s->mb_y, (AC_ERROR|DC_ERROR|MV_ERROR));
                 av_log(s->avctx, AV_LOG_ERROR, "Bits overconsumption: %i > %i at %ix%i\n",
                        get_bits_count(&s->gb), v->bits, s->mb_x, s->mb_y);
                 return;
@@ -5719,6 +5719,8 @@ static int vc1_decode_frame(AVCodecContext *avctx, void *data,
 //av_log(s->avctx, AV_LOG_INFO, "Consumed %i/%i bits\n", get_bits_count(&s->gb), s->gb.size_in_bits);
 //  if (get_bits_count(&s->gb) > buf_size * 8)
 //      return -1;
+        if(s->error_occurred && s->pict_type == AV_PICTURE_TYPE_B)
+            goto err;
         ff_er_frame_end(s);
     }
 
