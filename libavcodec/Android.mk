@@ -318,6 +318,7 @@ LIBAVCODEC_SRC_FILES := \
 		smacker.c \
 		smc.c \
 		snow.c \
+		snowdec.c \
 		sonic.c \
 		srtdec.c \
 		sp5xdec.c \
