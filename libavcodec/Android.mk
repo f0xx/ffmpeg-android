@@ -54,7 +54,9 @@ LIBAVCODEC_SRC_FILES := \
 		acelp_vectors.c \
 		adpcm.c \
 		adpcm_data.c \
+		adx.c \
 		adxdec.c \
+		adx_parser.c \
 		alac.c \
 		allcodecs.c \
 		alsdec.c \

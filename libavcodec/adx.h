@@ -62,6 +62,7 @@ typedef struct {
  * @param bits         number of bits used to quantize coefficients
  * @param[out] coeff   2 quantized LPC coefficients
  */
+av_export 
 void ff_adx_calculate_coeffs(int cutoff, int sample_rate, int bits, int *coeff);
 
 /**
@@ -75,6 +76,7 @@ void ff_adx_calculate_coeffs(int cutoff, int sample_rate, int bits, int *coeff);
  * @param[out] coeff        2 LPC coefficients, can be NULL
  * @return data offset or negative error code if header is invalid
  */
+av_export 
 int avpriv_adx_decode_header(AVCodecContext *avctx, const uint8_t *buf,
                              int bufsize, int *header_size, int *coeff);
 

@@ -40,6 +40,7 @@ LIBAVFORMAT_SRC_FILES := \
 		act.c \
 		ac3dec.c \
 		aea.c \
+		adxdec.c \
 		aiffdec.c \
 		allformats.c \
 		amr.c \
@@ -56,7 +57,6 @@ LIBAVFORMAT_SRC_FILES := \
 		au.c \
 		audiointerleave.c \
 		avc.c \
-		avi.c \
 		avidec.c \
 		aviobuf.c \
 		avio.c \
@@ -105,6 +105,7 @@ LIBAVFORMAT_SRC_FILES := \
 		h264dec.c \
 		httpauth.c \
 		http.c \
+		icodec.c \
 		id3v1.c \
 		id3v2.c \
 		idcin.c \
