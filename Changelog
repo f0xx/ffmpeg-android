@@ -125,6 +125,9 @@ easier to use. The changes are:
 - pan audio filter
 - IFF Amiga Continuous Bitmap (ACBM) decoder
 - ass filter
+- CRI ADX audio format demuxer
+- Playstation Portable PMP format demuxer
+- Microsoft Windows ICO demuxer
 
 
 version 0.8:

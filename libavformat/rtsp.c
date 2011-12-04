@@ -228,7 +228,7 @@ static int sdp_parse_rtpmap(AVFormatContext *s,
         codec->channels = RTSP_DEFAULT_NB_AUDIO_CHANNELS;
         if (i > 0) {
             codec->sample_rate = i;
-            av_set_pts_info(st, 32, 1, codec->sample_rate);
+            avpriv_set_pts_info(st, 32, 1, codec->sample_rate);
             get_word_sep(buf, sizeof(buf), "/", &p);
             i = atoi(buf);
             if (i > 0)
@@ -246,11 +246,14 @@ static int sdp_parse_rtpmap(AVFormatContext *s,
     case AVMEDIA_TYPE_VIDEO:
         av_log(s, AV_LOG_DEBUG, "video codec set to: %s\n", c_name);
         if (i > 0)
-            av_set_pts_info(st, 32, 1, i);
+            avpriv_set_pts_info(st, 32, 1, i);
         break;
     default:
         break;
     }
+    if (rtsp_st->dynamic_handler && rtsp_st->dynamic_handler->init)
+        rtsp_st->dynamic_handler->init(s, st->index,
+                                       rtsp_st->dynamic_protocol_context);
     return 0;
 }
 
@@ -382,11 +385,14 @@ static void sdp_parse_line(AVFormatContext *s, SDPParseState *s1,
                 ff_rtp_get_codec_info(st->codec, rtsp_st->sdp_payload_type);
                 if (st->codec->codec_type == AVMEDIA_TYPE_AUDIO &&
                     st->codec->sample_rate > 0)
-                    av_set_pts_info(st, 32, 1, st->codec->sample_rate);
+                    avpriv_set_pts_info(st, 32, 1, st->codec->sample_rate);
                 /* Even static payload types may need a custom depacketizer */
                 handler = ff_rtp_handler_find_by_id(
                               rtsp_st->sdp_payload_type, st->codec->codec_type);
                 init_rtp_handler(handler, rtsp_st, st->codec);
+                if (handler && handler->init)
+                    handler->init(s, st->index,
+                                  rtsp_st->dynamic_protocol_context);
             }
         }
         /* put a default control url */
@@ -1928,6 +1934,7 @@ static int rtp_read_header(AVFormatContext *s,
     struct sockaddr_storage addr;
     AVIOContext pb;
     socklen_t addrlen = sizeof(addr);
+    RTSPState *rt = s->priv_data;
 
     if (!ff_network_init())
         return AVERROR(EIO);
@@ -1990,6 +1997,8 @@ static int rtp_read_header(AVFormatContext *s,
 
     /* sdp_read_header initializes this again */
     ff_network_close();
+
+    rt->media_type_mask = (1 << (AVMEDIA_TYPE_DATA+1)) - 1;
 
     ret = sdp_read_header(s, ap);
     s->pb = NULL;

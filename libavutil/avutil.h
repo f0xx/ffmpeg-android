@@ -32,7 +32,7 @@
  * @section libav_intro Introduction
  *
  * This document describe the usage of the different libraries
- * provided by Libav.
+ * provided by FFmpeg.
  *
  * @li @ref libavc "libavcodec" encoding/decoding library
  * @li @subpage libavfilter graph based frame editing library
@@ -47,7 +47,7 @@
  * @defgroup lavu Common utility functions
  *
  * @brief
- * libavutil contains the code shared across all the other Libav
+ * libavutil contains the code shared across all the other FFmpeg
  * libraries
  *
  * @note In order to use the functions provided by avutil you must include
@@ -153,8 +153,8 @@
  */
 
 #define LIBAVUTIL_VERSION_MAJOR 51
-#define LIBAVUTIL_VERSION_MINOR 29
-#define LIBAVUTIL_VERSION_MICRO  1
+#define LIBAVUTIL_VERSION_MINOR 30
+#define LIBAVUTIL_VERSION_MICRO  0
 
 #define LIBAVUTIL_VERSION_INT   AV_VERSION_INT(LIBAVUTIL_VERSION_MAJOR, \
                                                LIBAVUTIL_VERSION_MINOR, \
@@ -264,7 +264,7 @@ const char *av_get_media_type_string(enum AVMediaType media_type);
  * @}
  * @defgroup lavu_time Timestamp specific
  *
- * Libav internal timebase and timestamp definitions
+ * FFmpeg internal timebase and timestamp definitions
  *
  * @{
  */
@@ -324,14 +324,6 @@ char av_get_picture_type_char(enum AVPictureType pict_type);
  * @}
  */
 
-/**
- * Return x default pointer in case p is NULL.
- */
-static inline const void *av_x_if_null(const void *p, const void *x)
-{
-    return p ? p : x;
-}
-
 #include "common.h"
 #include "error.h"
 #include "mathematics.h"
@@ -339,6 +331,14 @@ static inline const void *av_x_if_null(const void *p, const void *x)
 #include "intfloat_readwrite.h"
 #include "log.h"
 #include "pixfmt.h"
+
+/**
+ * Return x default pointer in case p is NULL.
+ */
+static inline void *av_x_if_null(const void *p, const void *x)
+{
+    return (void *)(intptr_t)(p ? p : x);
+}
 
 /**
  * @}

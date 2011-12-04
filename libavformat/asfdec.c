@@ -28,6 +28,7 @@
 #include "libavutil/mathematics.h"
 #include "libavcodec/mpegaudio.h"
 #include "avformat.h"
+#include "internal.h"
 #include "avio_internal.h"
 #include "riff.h"
 #include "asf.h"
@@ -227,7 +228,7 @@ static int asf_read_stream_properties(AVFormatContext *s, int64_t size)
     st = avformat_new_stream(s, NULL);
     if (!st)
         return AVERROR(ENOMEM);
-    av_set_pts_info(st, 32, 1, 1000); /* 32 bit pts in ms */
+    avpriv_set_pts_info(st, 32, 1, 1000); /* 32 bit pts in ms */
     asf_st = av_mallocz(sizeof(ASFStream));
     if (!asf_st)
         return AVERROR(ENOMEM);
@@ -1181,7 +1182,7 @@ static int64_t asf_read_pts(AVFormatContext *s, int stream_index, int64_t *ppos,
             return AV_NOPTS_VALUE;
         }
 
-        pts= pkt->dts;
+        pts = pkt->dts;
 
         av_free_packet(pkt);
         if(pkt->flags&AV_PKT_FLAG_KEY){

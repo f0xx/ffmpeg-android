@@ -31,6 +31,7 @@
 #include "libavutil/avstring.h"
 #include "libavutil/dict.h"
 #include "avformat.h"
+#include "internal.h"
 #include "avio_internal.h"
 #include "riff.h"
 #include "isom.h"
@@ -90,7 +91,7 @@ static int mov_metadata_int8_bypass_padding(MOVContext *c, AVIOContext *pb,
     avio_r8(pb);
     avio_r8(pb);
 
-    snprintf(buf, sizeof(buf), "%hu", avio_r8(pb));
+    snprintf(buf, sizeof(buf), "%d", avio_r8(pb));
     av_dict_set(&c->fc->metadata, key, buf, 0);
 
     return 0;
@@ -101,7 +102,7 @@ static int mov_metadata_int8_no_padding(MOVContext *c, AVIOContext *pb,
 {
     char buf[16];
 
-    snprintf(buf, sizeof(buf), "%hu", avio_r8(pb));
+    snprintf(buf, sizeof(buf), "%d", avio_r8(pb));
     av_dict_set(&c->fc->metadata, key, buf, 0);
 
     return 0;
@@ -1740,7 +1741,8 @@ static void mov_build_index(MOVContext *mov, AVStream *st)
             unsigned count, chunk_count;
 
             chunk_samples = sc->stsc_data[i].count;
-            if (sc->samples_per_frame && chunk_samples % sc->samples_per_frame) {
+            if (i != sc->stsc_count - 1 &&
+                sc->samples_per_frame && chunk_samples % sc->samples_per_frame) {
                 av_log(mov->fc, AV_LOG_ERROR, "error unaligned chunk\n");
                 return;
             }
@@ -1895,7 +1897,7 @@ static int mov_read_trak(MOVContext *c, AVIOContext *pb, MOVAtom atom)
             sc->time_scale = 1;
     }
 
-    av_set_pts_info(st, 64, 1, sc->time_scale);
+    avpriv_set_pts_info(st, 64, 1, sc->time_scale);
 
     if (st->codec->codec_type == AVMEDIA_TYPE_AUDIO &&
         !st->codec->frame_size && sc->stts_count == 1) {
