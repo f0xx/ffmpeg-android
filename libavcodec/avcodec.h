@@ -4206,6 +4206,7 @@ attribute_deprecated int avcodec_decode_audio3(AVCodecContext *avctx, int16_t *s
  *         decoding, otherwise the number of bytes consumed from the input
  *         AVPacket is returned.
  */
+av_export
 int avcodec_decode_audio4(AVCodecContext *avctx, AVFrame *frame,
                           int *got_frame_ptr, AVPacket *avpkt);
 

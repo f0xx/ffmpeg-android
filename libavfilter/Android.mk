@@ -84,6 +84,8 @@ LIBAVFILTER_SRC_FILES := \
 		vsrc_mandelbrot.c \
 		vsrc_mptestsrc.c \
 		vsrc_testsrc.c \
+		vsrc_cellauto.c \
+		vsrc_life.c \
 
 #		vf_drawtext.c \
 #		vf_frei0r.c \

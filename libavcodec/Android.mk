@@ -131,6 +131,7 @@ LIBAVCODEC_SRC_FILES := \
 		dvdsubdec.c \
 		dwt.c \
 		dxa.c \
+		dxtory.c \
 		eac3_data.c \
 		eac3dec.c \
 		eacmv.c \
@@ -141,6 +142,7 @@ LIBAVCODEC_SRC_FILES := \
 		eatqi.c \
 		error_resilience.c \
 		escape124.c \
+		escape130.c \
 		faanidct.c \
 		faxcompr.c \
 		fft_fixed.c \

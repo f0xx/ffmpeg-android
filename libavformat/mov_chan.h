@@ -37,6 +37,7 @@
  * @param[out] bitmap  channel bitmap (only used if needed)
  * @return             channel layout
  */
+av_export
 uint64_t ff_mov_get_channel_layout(uint32_t tag, uint32_t bitmap);
 
 /**

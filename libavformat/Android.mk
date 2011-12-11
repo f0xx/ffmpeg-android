@@ -135,6 +135,7 @@ LIBAVFORMAT_SRC_FILES := \
 		mmsh.c \
 		mmst.c \
 		mov.c \
+		mov_chan.c \
 		mp3dec.c \
 		mpc8.c \
 		mpc.c \
