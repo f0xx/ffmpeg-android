@@ -92,7 +92,8 @@ static int bmp_decode_frame(AVCodecContext *avctx,
     }
 
     switch(ihsize){
-    case  40: // windib v3
+    case  40: // windib
+    case  56: // windib v3
     case  64: // OS/2 v2
     case 108: // windib v4
     case 124: // windib v5
@@ -115,7 +116,7 @@ static int bmp_decode_frame(AVCodecContext *avctx,
 
     depth = bytestream_get_le16(&buf);
 
-    if(ihsize == 40 || ihsize == 64)
+    if(ihsize == 40 || ihsize == 64 || ihsize == 56)
         comp = bytestream_get_le32(&buf);
     else
         comp = BMP_RGB;
@@ -263,9 +264,9 @@ static int bmp_decode_frame(AVCodecContext *avctx,
     }else{
         switch(depth){
         case 1:
-            for(i = 0; i < avctx->height; i++){
+            for (i = 0; i < avctx->height; i++) {
                 int j;
-                for(j = 0; j < n; j++){
+                for (j = 0; j < n; j++) {
                     ptr[j*8+0] =  buf[j] >> 7;
                     ptr[j*8+1] = (buf[j] >> 6) & 1;
                     ptr[j*8+2] = (buf[j] >> 5) & 1;
