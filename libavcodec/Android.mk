@@ -147,6 +147,7 @@ LIBAVCODEC_SRC_FILES := \
 		faxcompr.c \
 		fft_fixed.c \
 		ffv1.c \
+		ffwavesynth.c \
 		flac.c \
 		flacdata.c \
 		flacdec.c \
@@ -194,6 +195,7 @@ LIBAVCODEC_SRC_FILES := \
 		imx_dump_header_bsf.c \
 		indeo2.c \
 		indeo3.c \
+		indeo4.c \
 		indeo5.c \
 		intelh263dec.c \
 		interplayvideo.c \
@@ -361,6 +363,7 @@ LIBAVCODEC_SRC_FILES := \
 		vorbis_data.c \
 		vorbisdec.c \
 		vble.c \
+		v410dec.c \
 		vp3.c \
 		vp3_parser.c \
 		vp3dsp.c \
@@ -387,6 +390,7 @@ LIBAVCODEC_SRC_FILES := \
 		xl.c \
 		xsubdec.c \
 		xxan.c \
+		y41pdec.c \
 		zmbv.c \
 		dcadsp.c \
 		pthread.c \

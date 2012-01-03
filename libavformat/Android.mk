@@ -165,6 +165,7 @@ LIBAVFORMAT_SRC_FILES := \
 		oggparsevorbis.c \
 		oggparsecelt.c \
 		oma.c \
+		omadec.c \
 		options.c \
 		os_support.c \
 		pcm.c \
@@ -206,6 +207,8 @@ LIBAVFORMAT_SRC_FILES := \
 		rtspdec.c \
 		sapdec.c \
 		sauce.c \
+		sbgdec.c \
+		smjpeg.c \
 		sdp.c \
 		seek.c \
 		segafilm.c \

@@ -26,6 +26,9 @@ LIBAVFILTER_SRC_FILES := \
 		af_anull.c \
 		af_aconvert.c \
 		af_aformat.c \
+		af_amerge.c \
+		af_asplit.c \
+		af_astreamsync.c \
 		af_aresample.c \
 		af_ashowinfo.c \
 		af_earwax.c \
@@ -75,6 +78,8 @@ LIBAVFILTER_SRC_FILES := \
 		vf_split.c \
 		vf_slicify.c \
 		vf_transpose.c \
+		vf_thumbnail.c \
+		vf_tinterlace.c \
 		vf_unsharp.c \
 		vf_vflip.c \
 		vf_yadif.c \
