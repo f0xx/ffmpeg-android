@@ -32,7 +32,7 @@
 #include "libavcodec/put_bits.h"
 #include "internal.h"
 #include "libavutil/avstring.h"
-#include "libavutil/intfloat_readwrite.h"
+#include "libavutil/intfloat.h"
 #include "libavutil/mathematics.h"
 #include "libavutil/opt.h"
 #include "libavutil/dict.h"
@@ -49,6 +49,9 @@ static const AVOption options[] = {
     { "frag_size", "maximum fragment size", offsetof(MOVMuxContext, max_fragment_size), AV_OPT_TYPE_INT, {.dbl = 0}, 0, INT_MAX, AV_OPT_FLAG_ENCODING_PARAM, 0 },
     { "frag_duration", "maximum fragment duration", offsetof(MOVMuxContext, max_fragment_duration), AV_OPT_TYPE_INT, {.dbl = 0}, 0, INT_MAX, AV_OPT_FLAG_ENCODING_PARAM, 0 },
     FF_RTP_FLAG_OPTS(MOVMuxContext, rtp_flags),
+    { "skip_iods", "Skip writing iods atom.", offsetof(MOVMuxContext, iods_skip), AV_OPT_TYPE_INT, {.dbl = 1}, 0, 1, AV_OPT_FLAG_ENCODING_PARAM},
+    { "iods_audio_profile", "iods audio profile atom.", offsetof(MOVMuxContext, iods_audio_profile), AV_OPT_TYPE_INT, {.dbl = -1}, -1, 255, AV_OPT_FLAG_ENCODING_PARAM},
+    { "iods_video_profile", "iods video profile atom.", offsetof(MOVMuxContext, iods_video_profile), AV_OPT_TYPE_INT, {.dbl = -1}, -1, 255, AV_OPT_FLAG_ENCODING_PARAM},
     { NULL },
 };
 
@@ -250,7 +253,7 @@ static int mov_write_ac3_tag(AVIOContext *pb, MOVTrack *track)
 
 /**
  * This function writes extradata "as is".
- * Extradata must be formated like a valid atom (with size and tag)
+ * Extradata must be formatted like a valid atom (with size and tag).
  */
 static int mov_write_extradata_tag(AVIOContext *pb, MOVTrack *track)
 {
@@ -484,7 +487,7 @@ static int mov_write_audio_tag(AVIOContext *pb, MOVTrack *track)
         avio_wb16(pb, 0);
         avio_wb32(pb, 0x00010000);
         avio_wb32(pb, 72);
-        avio_wb64(pb, av_dbl2int(track->timescale));
+        avio_wb64(pb, av_double2int(track->timescale));
         avio_wb32(pb, track->enc->channels);
         avio_wb32(pb, 0x7F000000);
         avio_wb32(pb, av_get_bits_per_sample(track->enc->codec_id));
@@ -796,6 +799,23 @@ static int mov_write_uuid_tag_ipod(AVIOContext *pb)
     return 28;
 }
 
+static const uint16_t fiel_data[] = {
+    0x0000, 0x0100, 0x0201, 0x0206, 0x0209, 0x020e
+};
+
+static int mov_write_fiel_tag(AVIOContext *pb, MOVTrack *track)
+{
+    unsigned mov_field_order = 0;
+    if (track->enc->field_order < FF_ARRAY_ELEMS(fiel_data))
+        mov_field_order = fiel_data[track->enc->field_order];
+    else
+        return 0;
+    avio_wb32(pb, 10);
+    ffio_wfourcc(pb, "fiel");
+    avio_wb16(pb, mov_field_order);
+    return 10;
+}
+
 static int mov_write_subtitle_tag(AVIOContext *pb, MOVTrack *track)
 {
     int64_t pos = avio_tell(pb);
@@ -882,7 +902,9 @@ static int mov_write_video_tag(AVIOContext *pb, MOVTrack *track)
         mov_write_avcc_tag(pb, track);
         if(track->mode == MODE_IPOD)
             mov_write_uuid_tag_ipod(pb);
-    } else if(track->vosLen > 0)
+    } else if (track->enc->field_order != AV_FIELD_UNKNOWN)
+        mov_write_fiel_tag(pb, track);
+    else if(track->vosLen > 0)
         mov_write_glbl_tag(pb, track);
 
     if (track->enc->sample_aspect_ratio.den && track->enc->sample_aspect_ratio.num &&
@@ -1302,7 +1324,7 @@ static int mov_write_tapt_tag(AVIOContext *pb, MOVTrack *track)
     avio_wb32(pb, track->enc->height << 16);
 
     return updateSize(pb, pos);
-};
+}
 
 // This box seems important for the psp playback ... without it the movie seems to hang
 static int mov_write_edts_tag(AVIOContext *pb, MOVTrack *track)
@@ -1447,7 +1469,16 @@ static int mov_write_trun_tag(AVIOContext *pb, MOVTrack *track)
     int tr_flags=0;
     int i;
 
-    tr_flags |= 0xF00; //FIXME
+    for(i=track->cluster_write_index; i<track->entry; i++){
+        int64_t duration = i + 1 == track->entry ?
+                track->trackDuration - track->cluster[i].dts + track->cluster[0].dts : /* readjusting */
+                track->cluster[i+1].dts - track->cluster[i].dts;
+        if(duration         != 1) tr_flags |= 0x100;
+        if(track->trex_size != track->cluster[i].size) tr_flags |= 0x200;
+        if(track->trex_flags != ((track->cluster[i].flags&MOV_SYNC_SAMPLE) ? 0x02000000 : 0x01010000))
+                                  tr_flags |= 0x400;
+        if(track->cluster[i].cts) tr_flags |= 0x800;
+    }
 
     avio_wb32(pb, 0);
     ffio_wfourcc(pb, "trun");
@@ -1480,21 +1511,34 @@ static int mov_write_traf_tag(AVIOContext *pb, MOVTrack *track, AVStream *st)
     return updateSize(pb, pos);
 }
 
-#if 0
-/* TODO: Not sorted out, but not necessary either */
 static int mov_write_iods_tag(AVIOContext *pb, MOVMuxContext *mov)
 {
-    avio_wb32(pb, 0x15); /* size */
+    int i, has_audio = 0, has_video = 0;
+    int64_t pos = avio_tell(pb);
+    int audio_profile = mov->iods_audio_profile;
+    int video_profile = mov->iods_video_profile;
+    for (i = 0; i < mov->nb_streams; i++) {
+        if(mov->tracks[i].entry > 0) {
+            has_audio |= mov->tracks[i].enc->codec_type == AVMEDIA_TYPE_AUDIO;
+            has_video |= mov->tracks[i].enc->codec_type == AVMEDIA_TYPE_VIDEO;
+        }
+    }
+    if (audio_profile < 0)
+        audio_profile = 0xFF - has_audio;
+    if (video_profile < 0)
+        video_profile = 0xFF - has_video;
+    avio_wb32(pb, 0x0); /* size */
     ffio_wfourcc(pb, "iods");
     avio_wb32(pb, 0);    /* version & flags */
-    avio_wb16(pb, 0x1007);
-    avio_w8(pb, 0);
-    avio_wb16(pb, 0x4fff);
-    avio_wb16(pb, 0xfffe);
-    avio_wb16(pb, 0x01ff);
-    return 0x15;
+    putDescr(pb, 0x10, 7);
+    avio_wb16(pb, 0x004f);
+    avio_w8(pb, 0xff);
+    avio_w8(pb, 0xff);
+    avio_w8(pb, audio_profile);
+    avio_w8(pb, video_profile);
+    avio_w8(pb, 0xff);
+    return updateSize(pb, pos);
 }
-#endif
 
 static int mov_write_mvhd_tag(AVIOContext *pb, MOVMuxContext *mov)
 {
@@ -1904,8 +1948,10 @@ static int mov_write_trex_tag(AVIOContext *pb, MOVTrack *track, AVStream *st)
     avio_wb32(pb, track->trackID);
     avio_wb32(pb, 1); // stsd_id
     avio_wb32(pb, 1); // duration
-    avio_wb32(pb, 1/*Size*/);
-    avio_wb32(pb, 1<<16);
+    track->trex_size= track->entry ? track->cluster[FFMIN(1, track->entry-1)].size : 1;
+    avio_wb32(pb, track->trex_size);
+    track->trex_flags= st->codec->codec_type != AVMEDIA_TYPE_VIDEO ?  0x02000000 : 0x01010000;
+    avio_wb32(pb, track->trex_flags);
     return updateSize(pb, pos);
 }
 
@@ -1957,7 +2003,8 @@ static int mov_write_moov_tag(AVIOContext *pb, MOVMuxContext *mov,
     }
 
     mov_write_mvhd_tag(pb, mov);
-    //mov_write_iods_tag(pb, mov);
+    if (mov->mode != MODE_MOV && !mov->iods_skip)
+        mov_write_iods_tag(pb, mov);
     for (i=0; i<mov->nb_streams; i++) {
         if(mov->tracks[i].entry > 0) {
             mov_write_trak_tag(pb, mov, &(mov->tracks[i]), i < s->nb_streams ? s->streams[i] : NULL);
@@ -1977,7 +2024,6 @@ static int mov_write_moov_tag(AVIOContext *pb, MOVMuxContext *mov,
 
 static int mov_write_mfhd_tag(AVIOContext *pb, MOVMuxContext *mov)
 {
-    int i;
     int64_t pos = avio_tell(pb);
     avio_wb32(pb, 0); /* size placeholder*/
     ffio_wfourcc(pb, "mfhd");
@@ -2206,6 +2252,7 @@ int ff_mov_write_packet(AVFormatContext *s, AVPacket *pkt)
     AVCodecContext *enc = trk->enc;
     unsigned int samplesInChunk = 0;
     int size= pkt->size;
+    uint8_t *reformatted_data = NULL;
 
     if (!s->pb->seekable) return 0; /* Can't handle that */
     if (!size) return 0; /* Discard 0 sized packets */
@@ -2255,13 +2302,23 @@ int ff_mov_write_packet(AVFormatContext *s, AVPacket *pkt)
         if(mov->frag_seq_num>0){
             uint8_t *buf=NULL;
             size= pkt->size;
+
             if(ff_avc_parse_nal_units_buf(pkt->data, &buf, &size) < 0){
                 av_log(s, AV_LOG_ERROR, "malformated H264 bitstream\n");
                 return -1;
             }
             trk->cluster[trk->entry].data= buf;
-        }else
+            if (trk->hint_track >= 0 && trk->hint_track < mov->nb_streams) {
+                reformatted_data= av_malloc(size);
+                memcpy(reformatted_data, buf, size);
+            }
+        }else if (trk->hint_track >= 0 && trk->hint_track < mov->nb_streams) {
+            ff_avc_parse_nal_units_buf(pkt->data, &reformatted_data,
+                                       &size);
+            avio_write(pb, reformatted_data, size);
+        } else {
             size = ff_avc_parse_nal_units(pb, pkt->data, pkt->size);
+        }
     } else if (enc->codec_id == CODEC_ID_AAC && pkt->size > 2 &&
                (AV_RB16(pkt->data) & 0xfff0) == 0xfff0) {
         av_log(s, AV_LOG_ERROR, "malformated aac bitstream, use -absf aac_adtstoasc\n");
@@ -2320,7 +2377,9 @@ int ff_mov_write_packet(AVFormatContext *s, AVPacket *pkt)
     avio_flush(pb);
 
     if (trk->hint_track >= 0 && trk->hint_track < mov->nb_streams)
-        ff_mov_add_hinted_packet(s, pkt, trk->hint_track, trk->entry);
+        ff_mov_add_hinted_packet(s, pkt, trk->hint_track, trk->entry,
+                                 reformatted_data, size);
+    av_free(reformatted_data);
     return 0;
 }
 
@@ -2540,7 +2599,6 @@ static int update_first_fragment(AVFormatContext *s)
 {
     MOVMuxContext *mov = s->priv_data;
     AVIOContext *pb = s->pb;
-    int res = 0;
     int i;
 
     int64_t moov_pos = avio_tell(pb);
@@ -2562,7 +2620,7 @@ static int update_first_fragment(AVFormatContext *s)
     if(mov->reserved_moov_size){
         int64_t size=  mov->reserved_moov_size - (avio_tell(pb) - mov->reserved_moov_pos);
         if(size < 8){
-            av_log(s, AV_LOG_ERROR, "reserved_moov_size is too small, needed %Ld additional\n", 8-size);
+            av_log(s, AV_LOG_ERROR, "reserved_moov_size is too small, needed %"PRId64" additional\n", 8-size);
             return -1;
         }
         avio_wb32(pb, size);

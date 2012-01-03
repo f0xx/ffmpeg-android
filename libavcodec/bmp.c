@@ -206,7 +206,7 @@ static int bmp_decode_frame(AVCodecContext *avctx,
     dsize = buf_size - hsize;
 
     /* Line size in file multiple of 4 */
-    n = ((avctx->width * depth) / 8 + 3) & ~3;
+    n = ((avctx->width * depth + 31) / 8) & ~3;
 
     if(n * avctx->height > dsize && comp != BMP_RLE4 && comp != BMP_RLE8){
         av_log(avctx, AV_LOG_ERROR, "not enough data (%d < %d)\n",
@@ -247,7 +247,7 @@ static int bmp_decode_frame(AVCodecContext *avctx,
                 ((uint32_t*)p->data[1])[i] = (0xff<<24) | bytestream_get_le24(&buf);
         }else{
             for(i = 0; i < colors; i++)
-                ((uint32_t*)p->data[1])[i] = bytestream_get_le32(&buf);
+                ((uint32_t*)p->data[1])[i] = 0xFFU << 24 | bytestream_get_le32(&buf);
         }
         buf = buf0 + hsize;
     }

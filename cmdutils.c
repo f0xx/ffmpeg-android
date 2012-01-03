@@ -33,6 +33,7 @@
 #include "libavfilter/avfilter.h"
 #include "libavdevice/avdevice.h"
 #include "libswscale/swscale.h"
+#include "libswresample/swresample.h"
 #include "libpostproc/postprocess.h"
 #include "libavutil/avstring.h"
 #include "libavutil/mathematics.h"
@@ -53,7 +54,7 @@
 struct SwsContext *sws_opts;
 AVDictionary *format_opts, *codec_opts;
 
-static const int this_year = 2011;
+static const int this_year = 2012;
 
 static FILE *report_file;
 
@@ -509,6 +510,20 @@ int opt_report(const char *opt)
     return 0;
 }
 
+int opt_max_alloc(const char *opt, const char *arg)
+{
+    char *tail;
+    size_t max;
+
+    max = strtol(arg, &tail, 10);
+    if (*tail) {
+        av_log(NULL, AV_LOG_FATAL, "Invalid max_alloc \"%s\".\n", arg);
+        exit_program(1);
+    }
+    av_max_alloc(max);
+    return 0;
+}
+
 int opt_codec_debug(const char *opt, const char *arg)
 {
     av_log_set_level(AV_LOG_DEBUG);
@@ -549,7 +564,7 @@ static int warned_cfg = 0;
         const char *indent = flags & INDENT? "  " : "";                 \
         if (flags & SHOW_VERSION) {                                     \
             unsigned int version = libname##_version();                 \
-            av_log(NULL, level, "%slib%-9s %2d.%3d.%2d / %2d.%3d.%2d\n",\
+            av_log(NULL, level, "%slib%-11s %2d.%3d.%3d / %2d.%3d.%3d\n",\
                    indent, #libname,                                    \
                    LIB##LIBNAME##_VERSION_MAJOR,                        \
                    LIB##LIBNAME##_VERSION_MINOR,                        \
@@ -579,11 +594,16 @@ static void print_all_libs_info(int flags, int level)
     PRINT_LIB_INFO(avdevice, AVDEVICE, flags, level);
     PRINT_LIB_INFO(avfilter, AVFILTER, flags, level);
     PRINT_LIB_INFO(swscale,  SWSCALE,  flags, level);
+    PRINT_LIB_INFO(swresample,SWRESAMPLE,  flags, level);
     PRINT_LIB_INFO(postproc, POSTPROC, flags, level);
 }
 
-void show_banner(void)
+void show_banner(int argc, char **argv, const OptionDef *options)
 {
+    int idx = locate_option(argc, argv, options, "version");
+    if (idx)
+        return;
+
     av_log(NULL, AV_LOG_INFO, "%s version " FFMPEG_VERSION ", Copyright (c) %d-%d the FFmpeg developers\n",
            program_name, program_birth_year, this_year);
     av_log(NULL, AV_LOG_INFO, "  built on %s %s with %s %s\n",
@@ -1014,8 +1034,9 @@ int check_stream_specifier(AVFormatContext *s, AVStream *st, const char *spec)
 
             if (*endptr++ == ':') {
                 int stream_idx = strtol(endptr, NULL, 0);
-                return (stream_idx >= 0 && stream_idx < s->programs[i]->nb_stream_indexes &&
-                        st->index == s->programs[i]->stream_index[stream_idx]);
+                return stream_idx >= 0 &&
+                    stream_idx < s->programs[i]->nb_stream_indexes &&
+                    st->index == s->programs[i]->stream_index[stream_idx];
             }
 
             for (j = 0; j < s->programs[i]->nb_stream_indexes; j++)

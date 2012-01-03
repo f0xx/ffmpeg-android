@@ -53,7 +53,7 @@ static void ts_str(char buffer[60], int64_t ts, AVRational base)
         return;
     }
     ts= av_rescale_q(ts, base, (AVRational){1, 1000000});
-    snprintf(buffer, 60, "%c%Ld.%06Ld", ts<0 ? '-' : ' ', FFABS(ts)/1000000, FFABS(ts)%1000000);
+    snprintf(buffer, 60, "%c%"PRId64".%06"PRId64"", ts<0 ? '-' : ' ', FFABS(ts)/1000000, FFABS(ts)%1000000);
 }
 
 int main(int argc, char **argv)
@@ -126,7 +126,7 @@ int main(int argc, char **argv)
         printf("ret:%-10s st:%2d flags:%d  ts:%s\n", ret_str(ret), stream_id, i&1, ts_buf);
     }
 
-    av_close_input_file(ic);
+    avformat_close_input(&ic);
 
     return 0;
 }

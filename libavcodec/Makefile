@@ -156,6 +156,7 @@ OBJS-$(CONFIG_FFV1_DECODER)            += ffv1.o rangecoder.o
 OBJS-$(CONFIG_FFV1_ENCODER)            += ffv1.o rangecoder.o
 OBJS-$(CONFIG_FFVHUFF_DECODER)         += huffyuv.o
 OBJS-$(CONFIG_FFVHUFF_ENCODER)         += huffyuv.o
+OBJS-$(CONFIG_FFWAVESYNTH_DECODER)     += ffwavesynth.o
 OBJS-$(CONFIG_FLAC_DECODER)            += flacdec.o flacdata.o flac.o vorbis_data.o
 OBJS-$(CONFIG_FLAC_ENCODER)            += flacenc.o flacdata.o flac.o vorbis_data.o
 OBJS-$(CONFIG_FLASHSV_DECODER)         += flashsv.o
@@ -207,6 +208,7 @@ OBJS-$(CONFIG_IFF_ILBM_DECODER)        += iff.o
 OBJS-$(CONFIG_IMC_DECODER)             += imc.o
 OBJS-$(CONFIG_INDEO2_DECODER)          += indeo2.o
 OBJS-$(CONFIG_INDEO3_DECODER)          += indeo3.o
+OBJS-$(CONFIG_INDEO4_DECODER)          += indeo4.o ivi_common.o ivi_dsp.o
 OBJS-$(CONFIG_INDEO5_DECODER)          += indeo5.o ivi_common.o ivi_dsp.o
 OBJS-$(CONFIG_INTERPLAY_DPCM_DECODER)  += dpcm.o
 OBJS-$(CONFIG_INTERPLAY_VIDEO_DECODER) += interplayvideo.o
@@ -413,6 +415,8 @@ OBJS-$(CONFIG_ULTI_DECODER)            += ulti.o
 OBJS-$(CONFIG_UTVIDEO_DECODER)         += utvideo.o
 OBJS-$(CONFIG_V210_DECODER)            += v210dec.o
 OBJS-$(CONFIG_V210_ENCODER)            += v210enc.o
+OBJS-$(CONFIG_V410_DECODER)            += v410dec.o
+OBJS-$(CONFIG_V410_ENCODER)            += v410enc.o
 OBJS-$(CONFIG_V210X_DECODER)           += v210x.o
 OBJS-$(CONFIG_VB_DECODER)              += vb.o
 OBJS-$(CONFIG_VBLE_DECODER)            += vble.o
@@ -463,6 +467,8 @@ OBJS-$(CONFIG_XBIN_DECODER)            += bintext.o cga_data.o
 OBJS-$(CONFIG_XL_DECODER)              += xl.o
 OBJS-$(CONFIG_XSUB_DECODER)            += xsubdec.o
 OBJS-$(CONFIG_XSUB_ENCODER)            += xsubenc.o
+OBJS-$(CONFIG_Y41P_DECODER)            += y41pdec.o
+OBJS-$(CONFIG_Y41P_ENCODER)            += y41penc.o
 OBJS-$(CONFIG_YOP_DECODER)             += yop.o
 OBJS-$(CONFIG_ZLIB_DECODER)            += lcldec.o
 OBJS-$(CONFIG_ZLIB_ENCODER)            += lclenc.o
@@ -522,14 +528,14 @@ OBJS-$(CONFIG_PCM_ZORK_DECODER)           += pcm.o
 
 OBJS-$(CONFIG_ADPCM_4XM_DECODER)          += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_ADX_DECODER)          += adxdec.o adx.o
-OBJS-$(CONFIG_ADPCM_ADX_ENCODER)          += adxenc.o
+OBJS-$(CONFIG_ADPCM_ADX_ENCODER)          += adxenc.o adx.o
 OBJS-$(CONFIG_ADPCM_CT_DECODER)           += adpcm.o adpcm_data.o
-OBJS-$(CONFIG_ADPCM_EA_DECODER)           += adpcm.o
-OBJS-$(CONFIG_ADPCM_EA_MAXIS_XA_DECODER)  += adpcm.o
-OBJS-$(CONFIG_ADPCM_EA_R1_DECODER)        += adpcm.o
-OBJS-$(CONFIG_ADPCM_EA_R2_DECODER)        += adpcm.o
-OBJS-$(CONFIG_ADPCM_EA_R3_DECODER)        += adpcm.o
-OBJS-$(CONFIG_ADPCM_EA_XAS_DECODER)       += adpcm.o
+OBJS-$(CONFIG_ADPCM_EA_DECODER)           += adpcm.o adpcm_data.o
+OBJS-$(CONFIG_ADPCM_EA_MAXIS_XA_DECODER)  += adpcm.o adpcm_data.o
+OBJS-$(CONFIG_ADPCM_EA_R1_DECODER)        += adpcm.o adpcm_data.o
+OBJS-$(CONFIG_ADPCM_EA_R2_DECODER)        += adpcm.o adpcm_data.o
+OBJS-$(CONFIG_ADPCM_EA_R3_DECODER)        += adpcm.o adpcm_data.o
+OBJS-$(CONFIG_ADPCM_EA_XAS_DECODER)       += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_G722_DECODER)         += g722.o g722dec.o
 OBJS-$(CONFIG_ADPCM_G722_ENCODER)         += g722.o g722enc.o
 OBJS-$(CONFIG_ADPCM_G726_DECODER)         += g726.o
@@ -548,13 +554,13 @@ OBJS-$(CONFIG_ADPCM_IMA_WAV_ENCODER)      += adpcmenc.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_IMA_WS_DECODER)       += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_MS_DECODER)           += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_MS_ENCODER)           += adpcmenc.o adpcm_data.o
-OBJS-$(CONFIG_ADPCM_SBPRO_2_DECODER)      += adpcm.o
-OBJS-$(CONFIG_ADPCM_SBPRO_3_DECODER)      += adpcm.o
-OBJS-$(CONFIG_ADPCM_SBPRO_4_DECODER)      += adpcm.o
+OBJS-$(CONFIG_ADPCM_SBPRO_2_DECODER)      += adpcm.o adpcm_data.o
+OBJS-$(CONFIG_ADPCM_SBPRO_3_DECODER)      += adpcm.o adpcm_data.o
+OBJS-$(CONFIG_ADPCM_SBPRO_4_DECODER)      += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_SWF_DECODER)          += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_SWF_ENCODER)          += adpcmenc.o adpcm_data.o
-OBJS-$(CONFIG_ADPCM_THP_DECODER)          += adpcm.o
-OBJS-$(CONFIG_ADPCM_XA_DECODER)           += adpcm.o
+OBJS-$(CONFIG_ADPCM_THP_DECODER)          += adpcm.o adpcm_data.o
+OBJS-$(CONFIG_ADPCM_XA_DECODER)           += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_YAMAHA_DECODER)       += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_YAMAHA_ENCODER)       += adpcmenc.o adpcm_data.o
 
@@ -731,8 +737,6 @@ HOSTPROGS = aac_tablegen aacps_tablegen cbrt_tablegen cos_tablegen      \
 DIRS = alpha arm bfin mlib ppc ps2 sh4 sparc x86
 
 CLEANFILES = *_tables.c *_tables.h *_tablegen$(HOSTEXESUF)
-
-include $(SRC_PATH)/subdir.mak
 
 $(SUBDIR)dct-test$(EXESUF): $(SUBDIR)dctref.o
 

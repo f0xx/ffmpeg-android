@@ -8,6 +8,7 @@ vpath %.S    $(SRC_PATH)
 vpath %.asm  $(SRC_PATH)
 vpath %.v    $(SRC_PATH)
 vpath %.texi $(SRC_PATH)
+vpath %/fate_config.sh.template $(SRC_PATH)
 
 PROGS-$(CONFIG_FFMPEG)   += ffmpeg
 PROGS-$(CONFIG_AVCONV)   += avconv
@@ -38,7 +39,7 @@ FFLIBS-$(CONFIG_SWSCALE)  += swscale
 
 FFLIBS := avutil
 
-DATA_FILES := $(wildcard $(SRC_PATH)/presets/*.ffpreset)
+DATA_FILES := $(wildcard $(SRC_PATH)/presets/*.ffpreset) $(SRC_PATH)/doc/ffprobe.xsd
 
 SKIPHEADERS = cmdutils_common_opts.h
 
@@ -47,7 +48,7 @@ include $(SRC_PATH)/common.mak
 FF_EXTRALIBS := $(FFEXTRALIBS)
 FF_DEP_LIBS  := $(DEP_LIBS)
 
-all: $(filter-out avconv, $(PROGS))
+all: $(PROGS)
 
 $(PROGS): %$(EXESUF): %$(PROGSSUF)_g$(EXESUF)
 	$(CP) $< $@$(PROGSSUF)
@@ -77,6 +78,7 @@ define DOSUBDIR
 $(foreach V,$(SUBDIR_VARS),$(eval $(call RESET,$(V))))
 SUBDIR := $(1)/
 include $(SRC_PATH)/$(1)/Makefile
+include $(SRC_PATH)/library.mak
 endef
 
 $(foreach D,$(FFLIBS),$(eval $(call DOSUBDIR,lib$(D))))

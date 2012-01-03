@@ -101,8 +101,9 @@ static av_cold int adpcm_decode_init(AVCodecContext * avctx)
         max_channels = 6;
         break;
     }
-    if(avctx->channels > max_channels){
-        return -1;
+    if (avctx->channels <= 0 || avctx->channels > max_channels) {
+        av_log(avctx, AV_LOG_ERROR, "Invalid number of channels\n");
+        return AVERROR(EINVAL);
     }
 
     switch(avctx->codec->id) {
@@ -817,6 +818,9 @@ static int adpcm_decode_frame(AVCodecContext *avctx, void *data,
         /* Each EA ADPCM frame has a 12-byte header followed by 30-byte pieces,
            each coding 28 stereo samples. */
 
+        if(avctx->channels != 2)
+            return AVERROR_INVALIDDATA;
+
         src += 4; // skip sample count (already read)
 
         current_left_sample   = (int16_t)bytestream_get_le16(&src);
@@ -1003,11 +1007,15 @@ static int adpcm_decode_frame(AVCodecContext *avctx, void *data,
         break;
     case CODEC_ID_ADPCM_IMA_AMV:
     case CODEC_ID_ADPCM_IMA_SMJPEG:
-        c->status[0].predictor = (int16_t)bytestream_get_le16(&src);
-        c->status[0].step_index = bytestream_get_le16(&src);
-
-        if (avctx->codec->id == CODEC_ID_ADPCM_IMA_AMV)
-            src+=4;
+        if (avctx->codec->id == CODEC_ID_ADPCM_IMA_AMV) {
+            c->status[0].predictor = sign_extend(bytestream_get_le16(&src), 16);
+            c->status[0].step_index = bytestream_get_le16(&src);
+            src += 4;
+        } else {
+            c->status[0].predictor = sign_extend(bytestream_get_be16(&src), 16);
+            c->status[0].step_index = bytestream_get_byte(&src);
+            src += 1;
+        }
 
         for (n = nb_samples >> (1 - st); n > 0; n--, src++) {
             char hi, lo;

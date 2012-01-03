@@ -93,6 +93,8 @@ typedef struct MOVIndex {
     int         height; ///< active picture (w/o VBI) height for D-10/IMX
     uint32_t    tref_tag;
     int         tref_id; ///< trackID of the referenced track
+    uint32_t    trex_flags;
+    int         trex_size;
 
     int         hint_track;   ///< the track that hints this track, -1 if no hint track is set
     int         src_track;    ///< the track that this hint track describes
@@ -123,6 +125,10 @@ typedef struct MOVMuxContext {
     int64_t reserved_moov_pos;
     int max_fragment_duration;
     int max_fragment_size;
+
+    int iods_skip;
+    int iods_video_profile;
+    int iods_audio_profile;
 } MOVMuxContext;
 
 #define FF_MOV_FLAG_RTP_HINT 1
@@ -131,7 +137,8 @@ int ff_mov_write_packet(AVFormatContext *s, AVPacket *pkt);
 
 int ff_mov_init_hinting(AVFormatContext *s, int index, int src_index);
 int ff_mov_add_hinted_packet(AVFormatContext *s, AVPacket *pkt,
-                             int track_index, int sample);
+                             int track_index, int sample,
+                             uint8_t *sample_data, int sample_size);
 void ff_mov_close_hinting(MOVTrack *track);
 
 #endif /* AVFORMAT_MOVENC_H */

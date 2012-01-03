@@ -770,7 +770,8 @@ static int parse_bintree(Indeo3DecodeContext *ctx, AVCodecContext *avctx,
                 /* get motion vector index and setup the pointer to the mv set */
                 if (!ctx->need_resync)
                     ctx->next_cell_data = &ctx->gb.buffer[(get_bits_count(&ctx->gb) + 7) >> 3];
-                curr_cell.mv_ptr = &ctx->mc_vectors[*(ctx->next_cell_data++) << 1];
+                if(ctx->mc_vectors)
+                    curr_cell.mv_ptr = &ctx->mc_vectors[*(ctx->next_cell_data++) << 1];
                 curr_cell.tree   = 1; /* enter the VQ tree */
                 UPDATE_BITPOS(8);
             } else { /* VQ tree DATA code */
@@ -884,7 +885,8 @@ static int decode_frame_headers(Indeo3DecodeContext *ctx, AVCodecContext *avctx,
         ctx->height = height;
 
         free_frame_buffers(ctx);
-        allocate_frame_buffers(ctx, avctx);
+        if(allocate_frame_buffers(ctx, avctx) < 0)
+            return AVERROR_INVALIDDATA;
         avcodec_set_dimensions(avctx, width, height);
     }
 
@@ -984,9 +986,7 @@ static av_cold int decode_init(AVCodecContext *avctx)
 
     dsputil_init(&ctx->dsp, avctx);
 
-    allocate_frame_buffers(ctx, avctx);
-
-    return 0;
+    return allocate_frame_buffers(ctx, avctx);
 }
 
 

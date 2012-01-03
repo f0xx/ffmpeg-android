@@ -132,7 +132,7 @@ static void free_variant_list(AppleHTTPContext *c)
             ffurl_close(var->input);
         if (var->ctx) {
             var->ctx->pb = NULL;
-            av_close_input_file(var->ctx);
+            avformat_close_input(&var->ctx);
         }
         av_free(var);
     }
@@ -204,7 +204,7 @@ static int parse_playlist(AppleHTTPContext *c, const char *url,
     enum KeyType key_type = KEY_NONE;
     uint8_t iv[16] = "";
     int has_iv = 0;
-    char key[MAX_URL_SIZE];
+    char key[MAX_URL_SIZE] = "";
     char line[1024];
     const char *ptr;
     int close_in = 0;
@@ -376,13 +376,23 @@ static int read_data(void *opaque, uint8_t *buf, int buf_size)
 
 restart:
     if (!v->input) {
-reload:
-        /* If this is a live stream and target_duration has elapsed since
+        /* If this is a live stream and the reload interval has elapsed since
          * the last playlist reload, reload the variant playlists now. */
+        int64_t reload_interval = v->n_segments > 0 ?
+                                  v->segments[v->n_segments - 1]->duration :
+                                  v->target_duration;
+        reload_interval *= 1000000;
+
+reload:
         if (!v->finished &&
-            av_gettime() - v->last_load_time >= v->target_duration*1000000 &&
-            (ret = parse_playlist(c, v->url, v, NULL)) < 0)
+            av_gettime() - v->last_load_time >= reload_interval) {
+            if ((ret = parse_playlist(c, v->url, v, NULL)) < 0)
                 return ret;
+            /* If we need to reload the playlist again below (if
+             * there's still no more segments), switch to a reload
+             * interval of half the target duration. */
+            reload_interval = v->target_duration * 500000;
+        }
         if (v->cur_seq_no < v->start_seq_no) {
             av_log(NULL, AV_LOG_WARNING,
                    "skipping %d segments ahead, expired from playlists\n",
@@ -392,8 +402,7 @@ reload:
         if (v->cur_seq_no >= v->start_seq_no + v->n_segments) {
             if (v->finished)
                 return AVERROR_EOF;
-            while (av_gettime() - v->last_load_time <
-                   v->target_duration*1000000) {
+            while (av_gettime() - v->last_load_time < reload_interval) {
                 if (ff_check_interrupt(c->interrupt_callback))
                     return AVERROR_EXIT;
                 usleep(100*1000);
@@ -503,8 +512,15 @@ static int applehttp_read_header(AVFormatContext *s, AVFormatParameters *ap)
         v->pb.seekable = 0;
         ret = av_probe_input_buffer(&v->pb, &in_fmt, v->segments[0]->url,
                                     NULL, 0, 0);
-        if (ret < 0)
+        if (ret < 0) {
+            /* Free the ctx - it isn't initialized properly at this point,
+             * so avformat_close_input shouldn't be called. If
+             * avformat_open_input fails below, it frees and zeros the
+             * context, so it doesn't need any special treatment like this. */
+            avformat_free_context(v->ctx);
+            v->ctx = NULL;
             goto fail;
+        }
         v->ctx->pb       = &v->pb;
         ret = avformat_open_input(&v->ctx, v->segments[0]->url, in_fmt, NULL);
         if (ret < 0)

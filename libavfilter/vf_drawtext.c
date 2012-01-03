@@ -29,6 +29,9 @@
 #include <sys/time.h>
 #include <time.h>
 
+#include "config.h"
+#include "libavcodec/timecode.h"
+#include "libavutil/avstring.h"
 #include "libavutil/colorspace.h"
 #include "libavutil/file.h"
 #include "libavutil/eval.h"
@@ -154,6 +157,8 @@ typedef struct {
     AVExpr *d_pexpr;
     int draw;                       ///< set to zero to prevent drawing
     AVLFG  prng;                    ///< random
+    struct ff_timecode tc;
+    int frame_id;
 } DrawTextContext;
 
 #define OFFSET(x) offsetof(DrawTextContext, x)
@@ -174,6 +179,9 @@ static const AVOption drawtext_options[]= {
 {"tabsize",  "set tab size",         OFFSET(tabsize),            AV_OPT_TYPE_INT,    {.dbl=4},     0,        INT_MAX  },
 {"basetime", "set base time",        OFFSET(basetime),           AV_OPT_TYPE_INT64,  {.dbl=AV_NOPTS_VALUE},     INT64_MIN,        INT64_MAX  },
 {"draw",     "if false do not draw", OFFSET(d_expr),             AV_OPT_TYPE_STRING, {.str="1"},   CHAR_MIN, CHAR_MAX },
+{"timecode", "set initial timecode", OFFSET(tc.str),             AV_OPT_TYPE_STRING, {.str=NULL},  CHAR_MIN, CHAR_MAX },
+{"r",        "set rate (timecode only)", OFFSET(tc.rate),        AV_OPT_TYPE_RATIONAL, {.dbl=0},          0,  INT_MAX },
+{"rate",     "set rate (timecode only)", OFFSET(tc.rate),        AV_OPT_TYPE_RATIONAL, {.dbl=0},          0,  INT_MAX },
 
 /* FT_LOAD_* flags */
 {"ft_load_flags", "set font loading flags for libfreetype",   OFFSET(ft_load_flags),  AV_OPT_TYPE_FLAGS,  {.dbl=FT_LOAD_DEFAULT|FT_LOAD_RENDER}, 0, INT_MAX, 0, "ft_load_flags" },
@@ -333,9 +341,22 @@ static av_cold int init(AVFilterContext *ctx, const char *args, void *opaque)
         av_file_unmap(textbuf, textbuf_size);
     }
 
+    if (dtext->tc.str) {
+#if CONFIG_AVCODEC
+        if (avpriv_init_smpte_timecode(ctx, &dtext->tc) < 0)
+            return AVERROR(EINVAL);
+        if (!dtext->text)
+            dtext->text = av_strdup("");
+#else
+        av_log(ctx, AV_LOG_ERROR,
+               "Timecode options are only available if libavfilter is built with libavcodec enabled.\n");
+        return AVERROR(EINVAL);
+#endif
+    }
+
     if (!dtext->text) {
         av_log(ctx, AV_LOG_ERROR,
-               "Either text or a valid file must be provided\n");
+               "Either text, a valid file or a timecode must be provided\n");
         return AVERROR(EINVAL);
     }
 
@@ -447,7 +468,7 @@ static av_cold void uninit(AVFilterContext *ctx)
 
 static inline int is_newline(uint32_t c)
 {
-    return (c == '\n' || c == '\r' || c == '\f' || c == '\v');
+    return c == '\n' || c == '\r' || c == '\f' || c == '\v';
 }
 
 static int config_input(AVFilterLink *inlink)
@@ -708,6 +729,14 @@ static int draw_text(AVFilterContext *ctx, AVFilterBufferRef *picref,
         buf_size *= 2;
     } while ((buf = av_realloc(buf, buf_size)));
 
+#if CONFIG_AVCODEC
+    if (dtext->tc.str) {
+        char tcbuf[sizeof("hh:mm:ss.ff")];
+        avpriv_timecode_to_string(tcbuf, &dtext->tc, dtext->frame_id++);
+        buf = av_asprintf("%s%s", dtext->text, tcbuf);
+    }
+#endif
+
     if (!buf)
         return AVERROR(ENOMEM);
     text = dtext->expanded_text = buf;
@@ -805,7 +834,7 @@ static int draw_text(AVFilterContext *ctx, AVFilterBufferRef *picref,
     /* draw box */
     if (dtext->draw_box)
         drawbox(picref, dtext->x, dtext->y, box_w, box_h,
-                dtext->box_line, dtext->pixel_step, dtext->boxcolor_rgba,
+                dtext->box_line, dtext->pixel_step, dtext->is_packed_rgb ? dtext->boxcolor_rgba : dtext->boxcolor,
                 dtext->hsub, dtext->vsub, dtext->is_packed_rgb, dtext->rgba_map);
 
     if (dtext->shadowx || dtext->shadowy) {

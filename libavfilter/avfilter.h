@@ -27,10 +27,11 @@
 #include "libavutil/samplefmt.h"
 #include "libavutil/pixfmt.h"
 #include "libavutil/rational.h"
+#include "libavcodec/avcodec.h"
 
 #define LIBAVFILTER_VERSION_MAJOR  2
-#define LIBAVFILTER_VERSION_MINOR 53
-#define LIBAVFILTER_VERSION_MICRO  0
+#define LIBAVFILTER_VERSION_MINOR 57
+#define LIBAVFILTER_VERSION_MICRO 101
 
 #define LIBAVFILTER_VERSION_INT AV_VERSION_INT(LIBAVFILTER_VERSION_MAJOR, \
                                                LIBAVFILTER_VERSION_MINOR, \

@@ -24,6 +24,8 @@
  * MPEG Audio decoder
  */
 
+#define UNCHECKED_BITSTREAM_READER 1
+
 #include "libavutil/audioconvert.h"
 #include "avcodec.h"
 #include "get_bits.h"
@@ -1437,6 +1439,7 @@ static int mp_decode_layer3(MPADecodeContext *s)
     }
 
     if (!s->adu_mode) {
+        int skip;
         const uint8_t *ptr = s->gb.buffer + (get_bits_count(&s->gb)>>3);
         assert((get_bits_count(&s->gb) & 7) == 0);
         /* now we get bits from the main_data_begin offset */
@@ -1446,6 +1449,9 @@ static int mp_decode_layer3(MPADecodeContext *s)
         memcpy(s->last_buf + s->last_buf_size, ptr, EXTRABYTES);
         s->in_gb = s->gb;
         init_get_bits(&s->gb, s->last_buf, s->last_buf_size*8);
+#if !UNCHECKED_BITSTREAM_READER
+        s->gb.size_in_bits_plus8 += EXTRABYTES * 8;
+#endif
         skip_bits_long(&s->gb, 8*(s->last_buf_size - main_data_begin));
     }
 

@@ -112,12 +112,9 @@ av_cold int ff_mjpeg_decode_init(AVCodecContext *avctx)
             build_basic_mjpeg_vlc(s);
         }
     }
-    if (avctx->extradata_size > 9 &&
-        AV_RL32(avctx->extradata + 4) == MKTAG('f','i','e','l')) {
-        if (avctx->extradata[9] == 6) { /* quicktime icefloe 019 */
-            s->interlace_polarity = 1; /* bottom field first */
-            av_log(avctx, AV_LOG_DEBUG, "mjpeg bottom field first\n");
-        }
+    if (avctx->field_order == AV_FIELD_BB) { /* quicktime icefloe 019 */
+        s->interlace_polarity = 1; /* bottom field first */
+        av_log(avctx, AV_LOG_DEBUG, "mjpeg bottom field first\n");
     }
     if (avctx->codec->id == CODEC_ID_AMV)
         s->flipped = 1;
@@ -233,6 +230,11 @@ int ff_mjpeg_decode_sof(MJpegDecodeContext *s)
         return -1;
     }
 
+    if(s->lossless && s->avctx->lowres){
+        av_log(s->avctx, AV_LOG_ERROR, "lowres is not possible with lossless jpeg\n");
+        return -1;
+    }
+
     height = get_bits(&s->gb, 16);
     width = get_bits(&s->gb, 16);
 
@@ -277,7 +279,7 @@ int ff_mjpeg_decode_sof(MJpegDecodeContext *s)
         return -1;
     }
 
-    if(s->v_max==1 && s->h_max==1 && s->lossless==1) s->rgb=1;
+    if(s->v_max==1 && s->h_max==1 && s->lossless==1 && nb_components==3) s->rgb=1;
 
     /* if different size, realloc/alloc picture */
     /* XXX: also check h_count and v_count */
@@ -335,12 +337,22 @@ int ff_mjpeg_decode_sof(MJpegDecodeContext *s)
         }
         assert(s->nb_components==3);
         break;
+    case 0x12121100:
+        s->avctx->pix_fmt = s->cs_itu601 ? PIX_FMT_YUV444P : PIX_FMT_YUVJ444P;
+        s->avctx->color_range = s->cs_itu601 ? AVCOL_RANGE_MPEG : AVCOL_RANGE_JPEG;
+        s->yuv442 = 1;
+        break;
     case 0x11000000:
-        s->avctx->pix_fmt = PIX_FMT_GRAY8;
+        if(s->bits <= 8)
+            s->avctx->pix_fmt = PIX_FMT_GRAY8;
+        else
+            s->avctx->pix_fmt = PIX_FMT_GRAY16;
         break;
     case 0x12111100:
+    case 0x22211100:
         s->avctx->pix_fmt = s->cs_itu601 ? PIX_FMT_YUV440P : PIX_FMT_YUVJ440P;
         s->avctx->color_range = s->cs_itu601 ? AVCOL_RANGE_MPEG : AVCOL_RANGE_JPEG;
+        s->yuv421 = pix_fmt_id == 0x22211100;
         break;
     case 0x21111100:
         s->avctx->pix_fmt = s->cs_itu601 ? PIX_FMT_YUV422P : PIX_FMT_YUVJ422P;
@@ -640,7 +652,7 @@ static int decode_block_refinement(MJpegDecodeContext *s, DCTELEM *block, uint8_
 #undef REFINE_BIT
 #undef ZERO_RUN
 
-static int ljpeg_decode_rgb_scan(MJpegDecodeContext *s, int predictor, int point_transform){
+static int ljpeg_decode_rgb_scan(MJpegDecodeContext *s, int nb_components, int predictor, int point_transform){
     int i, mb_x, mb_y;
     uint16_t (*buffer)[4];
     int left[3], top[3], topleft[3];
@@ -651,7 +663,7 @@ static int ljpeg_decode_rgb_scan(MJpegDecodeContext *s, int predictor, int point
     buffer= s->ljpeg_buffer;
 
     for(i=0; i<3; i++){
-        buffer[0][i]= 1 << (s->bits + point_transform - 1);
+        buffer[0][i]= 1 << (s->bits - 1);
     }
     for(mb_y = 0; mb_y < s->mb_height; mb_y++) {
         const int modified_predictor= mb_y ? predictor : 1;
@@ -667,16 +679,20 @@ static int ljpeg_decode_rgb_scan(MJpegDecodeContext *s, int predictor, int point
             if (s->restart_interval && !s->restart_count)
                 s->restart_count = s->restart_interval;
 
-            for(i=0;i<3;i++) {
-                int pred;
+            for(i=0;i<nb_components;i++) {
+                int pred, dc;
 
                 topleft[i]= top[i];
                 top[i]= buffer[mb_x][i];
 
                 PREDICT(pred, topleft[i], top[i], left[i], modified_predictor);
 
+                dc = mjpeg_decode_dc(s, s->dc_index[i]);
+                if(dc == 0xFFFF)
+                    return -1;
+
                 left[i]=
-                buffer[mb_x][i]= mask & (pred + (mjpeg_decode_dc(s, s->dc_index[i]) << point_transform));
+                buffer[mb_x][i]= mask & (pred + (dc << point_transform));
             }
 
             if (s->restart_interval && !--s->restart_count) {
@@ -698,10 +714,11 @@ static int ljpeg_decode_rgb_scan(MJpegDecodeContext *s, int predictor, int point
                 ptr[3*mb_x+2] = buffer[mb_x][2] + ptr[3*mb_x+1];
             }
         }else{
-            for(mb_x = 0; mb_x < s->mb_width; mb_x++) {
-                ptr[3*mb_x+0] = buffer[mb_x][2];
-                ptr[3*mb_x+1] = buffer[mb_x][1];
-                ptr[3*mb_x+2] = buffer[mb_x][0];
+            for(i=0;i<nb_components;i++) {
+                int c= s->comp_index[i];
+                for(mb_x = 0; mb_x < s->mb_width; mb_x++) {
+                    ptr[3*mb_x+2-c] = buffer[mb_x][i];
+                }
             }
         }
     }
@@ -710,7 +727,12 @@ static int ljpeg_decode_rgb_scan(MJpegDecodeContext *s, int predictor, int point
 
 static int ljpeg_decode_yuv_scan(MJpegDecodeContext *s, int predictor, int point_transform){
     int i, mb_x, mb_y;
-    const int nb_components=3;
+    const int nb_components=s->nb_components;
+    int bits= (s->bits+7)&~7;
+
+    point_transform += bits - s->bits;
+
+    av_assert0(nb_components==1 || nb_components==3);
 
     for(mb_y = 0; mb_y < s->mb_height; mb_y++) {
         for(mb_x = 0; mb_x < s->mb_width; mb_x++) {
@@ -720,6 +742,7 @@ static int ljpeg_decode_yuv_scan(MJpegDecodeContext *s, int predictor, int point
             if(mb_x==0 || mb_y==0 || s->interlaced){
                 for(i=0;i<nb_components;i++) {
                     uint8_t *ptr;
+                    uint16_t *ptr16;
                     int n, h, v, x, y, c, j, linesize;
                     n = s->nb_blocks[i];
                     c = s->comp_index[i];
@@ -729,13 +752,19 @@ static int ljpeg_decode_yuv_scan(MJpegDecodeContext *s, int predictor, int point
                     y = 0;
                     linesize= s->linesize[c];
 
-                    for(j=0; j<n; j++) {
-                        int pred;
+                    if(bits>8) linesize /= 2;
 
+                    for(j=0; j<n; j++) {
+                        int pred, dc;
+
+                        dc = mjpeg_decode_dc(s, s->dc_index[i]);
+                        if(dc == 0xFFFF)
+                            return -1;
+                        if(bits<=8){
                         ptr = s->picture.data[c] + (linesize * (v * mb_y + y)) + (h * mb_x + x); //FIXME optimize this crap
                         if(y==0 && mb_y==0){
                             if(x==0 && mb_x==0){
-                                pred= 128 << point_transform;
+                                pred= 1 << (bits - 1);
                             }else{
                                 pred= ptr[-1];
                             }
@@ -749,8 +778,27 @@ static int ljpeg_decode_yuv_scan(MJpegDecodeContext *s, int predictor, int point
 
                         if (s->interlaced && s->bottom_field)
                             ptr += linesize >> 1;
-                        *ptr= pred + (mjpeg_decode_dc(s, s->dc_index[i]) << point_transform);
+                        *ptr= pred + (dc << point_transform);
+                        }else{
+                            ptr16 = s->picture.data[c] + 2*(linesize * (v * mb_y + y)) + 2*(h * mb_x + x); //FIXME optimize this crap
+                            if(y==0 && mb_y==0){
+                                if(x==0 && mb_x==0){
+                                    pred= 1 << (bits - 1);
+                                }else{
+                                    pred= ptr16[-1];
+                                }
+                            }else{
+                                if(x==0 && mb_x==0){
+                                    pred= ptr16[-linesize];
+                                }else{
+                                    PREDICT(pred, ptr16[-linesize-1], ptr16[-linesize], ptr16[-1], predictor);
+                                }
+                            }
 
+                            if (s->interlaced && s->bottom_field)
+                                ptr16 += linesize >> 1;
+                            *ptr16= pred + (dc << point_transform);
+                        }
                         if (++x == h) {
                             x = 0;
                             y++;
@@ -760,7 +808,8 @@ static int ljpeg_decode_yuv_scan(MJpegDecodeContext *s, int predictor, int point
             }else{
                 for(i=0;i<nb_components;i++) {
                     uint8_t *ptr;
-                    int n, h, v, x, y, c, j, linesize;
+                    uint16_t *ptr16;
+                    int n, h, v, x, y, c, j, linesize, dc;
                     n = s->nb_blocks[i];
                     c = s->comp_index[i];
                     h = s->h_scount[i];
@@ -769,12 +818,25 @@ static int ljpeg_decode_yuv_scan(MJpegDecodeContext *s, int predictor, int point
                     y = 0;
                     linesize= s->linesize[c];
 
+                    if(bits>8) linesize /= 2;
+
                     for(j=0; j<n; j++) {
                         int pred;
 
+                        dc = mjpeg_decode_dc(s, s->dc_index[i]);
+                        if(dc == 0xFFFF)
+                            return -1;
+                        if(bits<=8){
                         ptr = s->picture.data[c] + (linesize * (v * mb_y + y)) + (h * mb_x + x); //FIXME optimize this crap
                         PREDICT(pred, ptr[-linesize-1], ptr[-linesize], ptr[-1], predictor);
-                        *ptr= pred + (mjpeg_decode_dc(s, s->dc_index[i]) << point_transform);
+
+                        *ptr= pred + (dc << point_transform);
+                        }else{
+                            ptr16 = s->picture.data[c] + 2*(linesize * (v * mb_y + y)) + 2*(h * mb_x + x); //FIXME optimize this crap
+                            PREDICT(pred, ptr16[-linesize-1], ptr16[-linesize], ptr16[-1], predictor);
+
+                            *ptr16= pred + (dc << point_transform);
+                        }
                         if (++x == h) {
                             x = 0;
                             y++;
@@ -1060,7 +1122,7 @@ int ff_mjpeg_decode_sos(MJpegDecodeContext *s,
                 return -1;
         }else{
             if(s->rgb){
-                if(ljpeg_decode_rgb_scan(s, predictor, point_transform) < 0)
+                if(ljpeg_decode_rgb_scan(s, nb_components, predictor, point_transform) < 0)
                     return -1;
             }else{
                 if(ljpeg_decode_yuv_scan(s, predictor, point_transform) < 0)
@@ -1076,6 +1138,27 @@ int ff_mjpeg_decode_sos(MJpegDecodeContext *s,
             if(mjpeg_decode_scan(s, nb_components, prev_shift, point_transform,
                                  mb_bitmask, reference) < 0)
                 return -1;
+        }
+    }
+    if (s->yuv421) {
+        uint8_t *line = s->picture_ptr->data[2];
+        for (i = 0; i < s->height / 2; i++) {
+            for (index = s->width - 1; index; index--)
+                line[index] = (line[index / 2] + line[(index + 1) / 2]) >> 1;
+            line += s->linesize[2];
+        }
+    } else if (s->yuv442) {
+        uint8_t *dst = &((uint8_t *)s->picture_ptr->data[2])[(s->height - 1) * s->linesize[2]];
+        for (i = s->height - 1; i; i--) {
+            uint8_t *src1 = &((uint8_t *)s->picture_ptr->data[2])[i / 2 * s->linesize[2]];
+            uint8_t *src2 = &((uint8_t *)s->picture_ptr->data[2])[(i + 1) / 2 * s->linesize[2]];
+            if (src1 == src2) {
+                memcpy(dst, src1, s->width);
+            } else {
+                for (index = 0; index < s->width; index++)
+                    dst[index] = (src1[index] + src2[index]) >> 1;
+            }
+            dst -= s->linesize[2];
         }
     }
     emms_c();
@@ -1114,9 +1197,9 @@ static int mjpeg_decode_app(MJpegDecodeContext *s)
         av_log(s->avctx, AV_LOG_DEBUG, "APPx %8X\n", id);
     }
 
-    /* buggy AVID, it puts EOI only at every 10th frame */
-    /* also this fourcc is used by non-avid files too, it holds some
-       informations, but it's always present in AVID creates files */
+    /* Buggy AVID, it puts EOI only at every 10th frame. */
+    /* Also, this fourcc is used by non-avid files too, it holds some
+       information, but it's always present in AVID-created files. */
     if (id == AV_RL32("AVI1"))
     {
         /* structure:

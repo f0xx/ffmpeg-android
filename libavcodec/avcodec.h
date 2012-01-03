@@ -254,6 +254,8 @@ enum CodecID {
     CODEC_ID_BMV_VIDEO,
     CODEC_ID_VBLE,
     CODEC_ID_DXTORY,
+    CODEC_ID_V410,
+    CODEC_ID_Y41P       = MKBETAG('Y','4','1','P'),
     CODEC_ID_UTVIDEO = 0x800,
     CODEC_ID_ESCAPE130  = MKBETAG('E','1','3','0'),
 
@@ -402,6 +404,7 @@ enum CodecID {
     CODEC_ID_BMV_AUDIO,
     CODEC_ID_G729 = 0x15800,
     CODEC_ID_G723_1= 0x15801,
+    CODEC_ID_FFWAVESYNTH = MKBETAG('F','F','W','S'),
     CODEC_ID_8SVX_RAW   = MKBETAG('8','S','V','X'),
 
     /* subtitle codecs */
@@ -790,6 +793,14 @@ typedef struct RcOverride{
  */
 #define CODEC_CAP_SLICE_THREADS    0x2000
 /**
+ * Codec supports changed parameters at any point.
+ */
+#define CODEC_CAP_PARAM_CHANGE     0x4000
+/**
+ * Codec supports avctx->thread_count == 0 (auto).
+ */
+#define CODEC_CAP_AUTO_THREADS     0x8000
+/**
  * Codec is lossless.
  */
 #define CODEC_CAP_LOSSLESS         0x80000000
@@ -875,6 +886,8 @@ typedef struct AVPanScan{
 
 enum AVPacketSideDataType {
     AV_PKT_DATA_PALETTE,
+    AV_PKT_DATA_NEW_EXTRADATA,
+    AV_PKT_DATA_PARAM_CHANGE,
 };
 
 typedef struct AVPacket {
@@ -942,6 +955,27 @@ typedef struct AVPacket {
 } AVPacket;
 #define AV_PKT_FLAG_KEY     0x0001 ///< The packet contains a keyframe
 #define AV_PKT_FLAG_CORRUPT 0x0002 ///< The packet content is corrupted
+
+/**
+ * An AV_PKT_DATA_PARAM_CHANGE side data packet is laid out as follows:
+ * u32le param_flags
+ * if (param_flags & AV_SIDE_DATA_PARAM_CHANGE_CHANNEL_COUNT)
+ *     s32le channel_count
+ * if (param_flags & AV_SIDE_DATA_PARAM_CHANGE_CHANNEL_LAYOUT)
+ *     u64le channel_layout
+ * if (param_flags & AV_SIDE_DATA_PARAM_CHANGE_SAMPLE_RATE)
+ *     s32le sample_rate
+ * if (param_flags & AV_SIDE_DATA_PARAM_CHANGE_DIMENSIONS)
+ *     s32le width
+ *     s32le height
+ */
+
+enum AVSideDataParamChangeFlags {
+    AV_SIDE_DATA_PARAM_CHANGE_CHANNEL_COUNT  = 0x0001,
+    AV_SIDE_DATA_PARAM_CHANGE_CHANNEL_LAYOUT = 0x0002,
+    AV_SIDE_DATA_PARAM_CHANGE_SAMPLE_RATE    = 0x0004,
+    AV_SIDE_DATA_PARAM_CHANGE_DIMENSIONS     = 0x0008,
+};
 
 /**
  * Audio Video Frame.
@@ -1027,13 +1061,12 @@ typedef struct AVFrame {
      */
     int quality;
 
+#if FF_API_AVFRAME_AGE
     /**
-     * buffer age (1->was last buffer and dint change, 2->..., ...).
-     * Set to INT_MAX if the buffer has not been used yet.
-     * - encoding: unused
-     * - decoding: MUST be set by get_buffer() for video.
+     * @deprecated unused
      */
-    int age;
+    attribute_deprecated int age;
+#endif
 
     /**
      * is this picture used as reference
@@ -1257,6 +1290,29 @@ typedef struct AVFrame {
     uint8_t **extended_data;
 
     /**
+     * sample aspect ratio for the video frame, 0/1 if unknown\unspecified
+     * - encoding: unused
+     * - decoding: Read by user.
+     */
+    AVRational sample_aspect_ratio;
+
+    /**
+     * width and height of the video frame
+     * - encoding: unused
+     * - decoding: Read by user.
+     */
+    int width, height;
+
+    /**
+     * format of the frame, -1 if unknown or unset
+     * Values correspond to enum PixelFormat for video frames,
+     * enum AVSampleFormat for audio)
+     * - encoding: unused
+     * - decoding: Read by user.
+     */
+    int format;
+
+    /**
      * frame timestamp estimated using various heuristics, in stream time base
      * Code outside libavcodec should access this field using:
      *  av_opt_ptr(avcodec_get_frame_class(), frame, "best_effort_timestamp");
@@ -1274,38 +1330,18 @@ typedef struct AVFrame {
      */
     int64_t pkt_pos;
 
-    /**
-     * reordered sample aspect ratio for the video frame, 0/1 if unknown\unspecified
-     * Code outside libavcodec should access this field using:
-     *  av_opt_ptr(avcodec_get_frame_class(), frame, "sample_aspect_ratio");
-     * - encoding: unused
-     * - decoding: Read by user.
-     */
-    AVRational sample_aspect_ratio;
-
-    /**
-     * width and height of the video frame
-     * Code outside libavcodec should access this field using:
-     *  av_opt_ptr(avcodec_get_frame_class(), frame, "width");
-     * - encoding: unused
-     * - decoding: Read by user.
-     */
-    int width, height;
-
-    /**
-     * format of the frame, -1 if unknown or unset
-     * It should be cast to the corresponding enum (enum PixelFormat
-     * for video, enum AVSampleFormat for audio)
-     * Code outside libavcodec should access this field using:
-     *  av_opt_ptr(avcodec_get_frame_class(), frame, "format");
-     * - encoding: unused
-     * - decoding: Read by user.
-     */
-    int format;
-
 } AVFrame;
 
 struct AVCodecInternal;
+
+enum AVFieldOrder {
+    AV_FIELD_UNKNOWN,
+    AV_FIELD_PROGRESSIVE,
+    AV_FIELD_TT,          //< Top coded_first, top displayed first
+    AV_FIELD_BB,          //< Bottom coded first, bottom displayed first
+    AV_FIELD_TB,          //< Top coded first, bottom displayed first
+    AV_FIELD_BT,          //< Bottom coded first, top displayed first
+};
 
 /**
  * main external API structure.
@@ -1348,7 +1384,7 @@ typedef struct AVCodecContext {
      * Some codecs need additional format info. It is stored here.
      * If any muxer uses this then ALL demuxers/parsers AND encoders for the
      * specific codec MUST set it correctly otherwise stream copy breaks.
-     * In general use of this field by muxers is not recommanded.
+     * In general use of this field by muxers is not recommended.
      * - encoding: Set by libavcodec.
      * - decoding: Set by libavcodec. (FIXME: Is this OK?)
      */
@@ -2667,7 +2703,7 @@ typedef struct AVCodecContext {
 
 #if FF_API_X264_GLOBAL_OPTS
     /**
-     * Influences how often B-frames are used.
+     * Influence how often B-frames are used.
      * - encoding: Set by user.
      * - decoding: unused
      */
@@ -2748,7 +2784,7 @@ typedef struct AVCodecContext {
     int mv0_threshold;
 
     /**
-     * Adjusts sensitivity of b_frame_strategy 1.
+     * Adjust sensitivity of b_frame_strategy 1.
      * - encoding: Set by user.
      * - decoding: unused
      */
@@ -3032,7 +3068,7 @@ typedef struct AVCodecContext {
 
 #if FF_API_FLAC_GLOBAL_OPTS
     /**
-     * Determines which LPC analysis algorithm to use.
+     * Determine which LPC analysis algorithm to use.
      * - encoding: Set by user
      * - decoding: unused
      */
@@ -3162,6 +3198,12 @@ typedef struct AVCodecContext {
      * libavcodec functions.
      */
     struct AVCodecInternal *internal;
+
+    /** Field order
+     * - encoding: set by libavcodec
+     * - decoding: Set by libavcodec
+     */
+    enum AVFieldOrder field_order;
 
     /**
      * Current statistics for PTS correction.
@@ -3550,7 +3592,7 @@ typedef struct ReSampleContext ReSampleContext;
  * @param linear           if 1 then the used FIR filter will be linearly interpolated
                            between the 2 closest, if 0 the closest will be used
  * @param cutoff           cutoff frequency, 1.0 corresponds to half the output sampling rate
- * @return allocated ReSampleContext, NULL if error occured
+ * @return allocated ReSampleContext, NULL if error occurred
  */
 av_export ReSampleContext *av_audio_resample_init(int output_channels, int input_channels,
                                         int output_rate, int input_rate,
@@ -4276,7 +4318,7 @@ av_export int avcodec_decode_subtitle2(AVCodecContext *avctx, AVSubtitle *sub,
                             AVPacket *avpkt);
 
 /**
- * Frees all allocated data in the given subtitle struct.
+ * Free all allocated data in the given subtitle struct.
  *
  * @param sub AVSubtitle to free.
  */
@@ -4641,7 +4683,7 @@ av_export int av_picture_pad(AVPicture *dst, const AVPicture *src, int height, i
 av_export unsigned int av_xiphlacing(unsigned char *s, unsigned int v);
 
 /**
- * Logs a generic warning message about a missing feature. This function is
+ * Log a generic warning message about a missing feature. This function is
  * intended to be used internally by FFmpeg (libavcodec, libavformat, etc.)
  * only, and would normally not be used by applications.
  * @param[in] avc a pointer to an arbitrary struct of which the first field is
