@@ -10,7 +10,7 @@ FFLIBS-$(CONFIG_MOVIE_FILTER) += avformat avcodec
 FFLIBS-$(CONFIG_SCALE_FILTER) += swscale
 FFLIBS-$(CONFIG_MP_FILTER) += avcodec
 
-HEADERS = avcodec.h avfilter.h avfiltergraph.h buffersink.h vsrc_buffer.h
+HEADERS = avcodec.h avfilter.h avfiltergraph.h buffersink.h version.h vsrc_buffer.h
 
 OBJS = allfilters.o                                                     \
        avfilter.o                                                       \
@@ -34,6 +34,7 @@ OBJS-$(CONFIG_ASPLIT_FILTER)                 += af_asplit.o
 OBJS-$(CONFIG_ASTREAMSYNC_FILTER)            += af_astreamsync.o
 OBJS-$(CONFIG_EARWAX_FILTER)                 += af_earwax.o
 OBJS-$(CONFIG_PAN_FILTER)                    += af_pan.o
+OBJS-$(CONFIG_SILENCEDETECT_FILTER)          += af_silencedetect.o
 OBJS-$(CONFIG_VOLUME_FILTER)                 += af_volume.o
 
 OBJS-$(CONFIG_ABUFFER_FILTER)                += asrc_abuffer.o

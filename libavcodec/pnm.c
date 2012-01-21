@@ -111,20 +111,28 @@ int ff_pnm_decode_header(AVCodecContext *avctx, PNMContext * const s)
         avctx->height = h;
         s->maxval     = maxval;
         if (depth == 1) {
-            if (maxval == 1)
+            if (maxval == 1) {
                 avctx->pix_fmt = PIX_FMT_MONOWHITE;
-            else
+            } else if (maxval == 255) {
                 avctx->pix_fmt = PIX_FMT_GRAY8;
+            } else {
+                avctx->pix_fmt = PIX_FMT_GRAY16BE;
+            }
+        } else if (depth == 2) {
+            if (maxval == 255)
+                avctx->pix_fmt = PIX_FMT_GRAY8A;
         } else if (depth == 3) {
             if (maxval < 256) {
             avctx->pix_fmt = PIX_FMT_RGB24;
             } else {
-                av_log(avctx, AV_LOG_ERROR, "16-bit components are only supported for grayscale\n");
-                avctx->pix_fmt = PIX_FMT_NONE;
-                return -1;
+                avctx->pix_fmt = PIX_FMT_RGB48BE;
             }
         } else if (depth == 4) {
-            avctx->pix_fmt = PIX_FMT_RGB32;
+            if (maxval < 256) {
+                avctx->pix_fmt = PIX_FMT_RGBA;
+            } else {
+                avctx->pix_fmt = PIX_FMT_RGBA64BE;
+            }
         } else {
             return -1;
         }

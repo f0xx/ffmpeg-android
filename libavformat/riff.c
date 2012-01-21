@@ -135,6 +135,8 @@ const AVCodecTag ff_codec_bmp_tags[] = {
     { CODEC_ID_MPEG2VIDEO,   MKTAG('E', 'M', '2', 'V') },
     { CODEC_ID_MPEG2VIDEO,   MKTAG('M', '7', '0', '1') }, /* Matrox MPEG2 intra-only */
     { CODEC_ID_MPEG2VIDEO,   MKTAG('m', 'p', 'g', 'v') },
+    { CODEC_ID_MPEG1VIDEO,   MKTAG('B', 'W', '1', '0') },
+    { CODEC_ID_MPEG1VIDEO,   MKTAG('X', 'M', 'P', 'G') }, /* Xing MPEG intra only */
     { CODEC_ID_MJPEG,        MKTAG('M', 'J', 'P', 'G') },
     { CODEC_ID_MJPEG,        MKTAG('L', 'J', 'P', 'G') },
     { CODEC_ID_MJPEG,        MKTAG('d', 'm', 'b', '1') },
@@ -199,7 +201,9 @@ const AVCodecTag ff_codec_bmp_tags[] = {
     { CODEC_ID_R10K,         MKTAG('R', '1', '0', 'k') },
     { CODEC_ID_R210,         MKTAG('r', '2', '1', '0') },
     { CODEC_ID_V210,         MKTAG('v', '2', '1', '0') },
+    { CODEC_ID_V308,         MKTAG('v', '3', '0', '8') },
     { CODEC_ID_V410,         MKTAG('v', '4', '1', '0') },
+    { CODEC_ID_YUV4,         MKTAG('y', 'u', 'v', '4') },
     { CODEC_ID_INDEO3,       MKTAG('I', 'V', '3', '1') },
     { CODEC_ID_INDEO3,       MKTAG('I', 'V', '3', '2') },
     { CODEC_ID_INDEO4,       MKTAG('I', 'V', '4', '1') },
@@ -236,6 +240,7 @@ const AVCodecTag ff_codec_bmp_tags[] = {
     { CODEC_ID_SNOW,         MKTAG('S', 'N', 'O', 'W') },
     { CODEC_ID_4XM,          MKTAG('4', 'X', 'M', 'V') },
     { CODEC_ID_FLV1,         MKTAG('F', 'L', 'V', '1') },
+    { CODEC_ID_FLV1,         MKTAG('S', '2', '6', '3') },
     { CODEC_ID_FLASHSV,      MKTAG('F', 'S', 'V', '1') },
     { CODEC_ID_SVQ1,         MKTAG('s', 'v', 'q', '1') },
     { CODEC_ID_TSCC,         MKTAG('t', 's', 'c', 'c') },
@@ -671,7 +676,8 @@ void ff_parse_specific_params(AVCodecContext *stream, int *au_rate, int *au_ssiz
 void ff_get_guid(AVIOContext *s, ff_asf_guid *g)
 {
     assert(sizeof(*g) == 16);
-    avio_read(s, *g, sizeof(*g));
+    if (avio_read(s, *g, sizeof(*g)) < (int)sizeof(*g))
+        memset(*g, 0, sizeof(*g));
 }
 
 enum CodecID ff_codec_guid_get_id(const AVCodecGuid *guids, ff_asf_guid guid)

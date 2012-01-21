@@ -30,6 +30,8 @@
 #include "libavutil/imgutils.h"
 #include "libavutil/opt.h"
 #include "internal.h"
+#include "cabac.h"
+#include "cabac_functions.h"
 #include "dsputil.h"
 #include "avcodec.h"
 #include "mpegvideo.h"
@@ -42,8 +44,6 @@
 #include "thread.h"
 #include "vdpau_internal.h"
 #include "libavutil/avassert.h"
-
-#include "cabac.h"
 
 //#undef NDEBUG
 #include <assert.h>
@@ -1818,7 +1818,7 @@ static av_always_inline void hl_decode_mb_predict_luma(H264Context *h, int mb_ty
                                     idct_dc_add(ptr, h->mb + (i*16+p*256 << pixel_shift), linesize);
                                 else
                                     idct_add   (ptr, h->mb + (i*16+p*256 << pixel_shift), linesize);
-                            }else if(CONFIG_SVQ3_DECODER)
+                            } else if (CONFIG_SVQ3_DECODER)
                                 ff_svq3_add_idct_c(ptr, h->mb + i*16+p*256, linesize, qscale, 0);
                         }
                     }
@@ -1838,7 +1838,7 @@ static av_always_inline void hl_decode_mb_predict_luma(H264Context *h, int mb_ty
                         dctcoef_set(h->mb+(p*256 << pixel_shift), pixel_shift, dc_mapping[i], dctcoef_get(h->mb_luma_dc[p], pixel_shift, i));
                 }
             }
-        }else if(CONFIG_SVQ3_DECODER)
+        } else if (CONFIG_SVQ3_DECODER)
             ff_svq3_luma_dc_dequant_idct_c(h->mb+p*256, h->mb_luma_dc[p], qscale);
     }
 }
@@ -1882,7 +1882,7 @@ static av_always_inline void hl_decode_mb_idct_luma(H264Context *h, int mb_type,
                     }
                 }
             }
-        }else if(CONFIG_SVQ3_DECODER) {
+        } else if (CONFIG_SVQ3_DECODER) {
             for(i=0; i<16; i++){
                 if(h->non_zero_count_cache[ scan8[i+p*16] ] || h->mb[i*16+p*256]){ //FIXME benchmark weird rule, & below
                     uint8_t * const ptr= dest_y + block_offset[i];
@@ -2076,9 +2076,7 @@ static av_always_inline void hl_decode_mb_internal(H264Context *h, int simple, i
                     h->h264dsp.h264_idct_add8(dest, block_offset,
                                               h->mb, uvlinesize,
                                               h->non_zero_count_cache);
-                }
-#if CONFIG_SVQ3_DECODER
-                else{
+                } else if (CONFIG_SVQ3_DECODER) {
                     h->h264dsp.h264_chroma_dc_dequant_idct(h->mb + 16*16*1, h->dequant4_coeff[IS_INTRA(mb_type) ? 1:4][h->chroma_qp[0]][0]);
                     h->h264dsp.h264_chroma_dc_dequant_idct(h->mb + 16*16*2, h->dequant4_coeff[IS_INTRA(mb_type) ? 2:5][h->chroma_qp[1]][0]);
                     for(j=1; j<3; j++){
@@ -2090,7 +2088,6 @@ static av_always_inline void hl_decode_mb_internal(H264Context *h, int simple, i
                         }
                     }
                 }
-#endif
             }
         }
     }
@@ -4051,7 +4048,7 @@ static int decode_frame(AVCodecContext *avctx,
     H264Context *h = avctx->priv_data;
     MpegEncContext *s = &h->s;
     AVFrame *pict = data;
-    int buf_index;
+    int buf_index = 0;
     Picture *out;
     int i, out_idx;
 
@@ -4081,7 +4078,7 @@ static int decode_frame(AVCodecContext *avctx,
             *pict= *(AVFrame*)out;
         }
 
-        return buf_size;
+        return buf_index;
     }
     if(h->is_avc && buf_size >= 9 && buf[0]==1 && buf[2]==0 && (buf[4]&0xFC)==0xFC && (buf[5]&0x1F) && buf[8]==0x67){
         int cnt= buf[5]&0x1f;
@@ -4112,7 +4109,6 @@ not_extra:
 
     if (!s->current_picture_ptr && h->nal_unit_type == NAL_END_SEQUENCE) {
         av_assert0(buf_index <= buf_size);
-        buf_size = buf_index;
         goto out;
     }
 
@@ -4174,7 +4170,6 @@ int main(void){
     uint8_t temp[SIZE];
     PutBitContext pb;
     GetBitContext gb;
-//    int int_temp[10000];
     DSPContext dsp;
     AVCodecContext avctx;
 
@@ -4193,9 +4188,7 @@ int main(void){
 
     init_get_bits(&gb, temp, 8*SIZE);
     for(i=0; i<COUNT; i++){
-        int j, s;
-
-        s= show_bits(&gb, 24);
+        int j, s = show_bits(&gb, 24);
 
         {START_TIMER
         j= get_ue_golomb(&gb);
@@ -4218,9 +4211,7 @@ int main(void){
 
     init_get_bits(&gb, temp, 8*SIZE);
     for(i=0; i<COUNT; i++){
-        int j, s;
-
-        s= show_bits(&gb, 24);
+        int j, s = show_bits(&gb, 24);
 
         {START_TIMER
         j= get_se_golomb(&gb);

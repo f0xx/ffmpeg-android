@@ -253,7 +253,7 @@ Advanced options (experts only):
   --disable-armvfp         disable ARM VFP optimizations
   --disable-iwmmxt         disable iwmmxt optimizations
   --disable-mmi            disable MMI optimizations
-  --disable-neon           disable neon optimizations
+  --disable-neon           disable NEON optimizations
   --disable-vis            disable VIS optimizations
   --disable-yasm           disable use of yasm assembler
   --enable-pic             build position-independent code
@@ -269,6 +269,9 @@ Developer options (useful when working on FFmpeg itself):
   --disable-optimizations  disable compiler optimizations
   --enable-extra-warnings  enable more compiler warnings
   --disable-stripping      disable stripping of executables and shared libraries
+  --valgrind=VALGRIND      run "make fate" tests through valgrind to detect memory
+                           leaks and errors, using the specified valgrind binary.
+                           Cannot be combined with --target-exec
   --samples=PATH           location of test samples for FATE, if not set use
                            \$FATE_SAMPLES at make invocation time.
 
@@ -1175,9 +1178,9 @@ HAVE_LIST="
     fork
     getaddrinfo
     gethrtime
+    GetProcessAffinityMask
     GetProcessMemoryInfo
     GetProcessTimes
-    GetSystemInfo
     getrusage
     gnu_as
     ibm_asm
@@ -1226,6 +1229,7 @@ HAVE_LIST="
     struct_sockaddr_in6
     struct_sockaddr_sa_len
     struct_sockaddr_storage
+    struct_v4l2_frmivalenum_discrete
     symver
     symver_asm_label
     symver_gnu_asm
@@ -1314,6 +1318,7 @@ CMDLINE_SET="
     target_exec
     target_os
     target_path
+    valgrind
 "
 
 CMDLINE_APPEND="
@@ -3016,8 +3021,8 @@ check_func_headers windows.h PeekNamedPipe
 check_func_headers io.h setmode
 check_func_headers lzo/lzo1x.h lzo1x_999_compress
 check_lib2 "windows.h psapi.h" GetProcessMemoryInfo -lpsapi
+check_func_headers windows.h GetProcessAffinityMask
 check_func_headers windows.h GetProcessTimes
-check_func_headers windows.h GetSystemInfo
 check_func_headers windows.h MapViewOfFile
 check_func_headers windows.h VirtualAlloc
 
@@ -3102,7 +3107,7 @@ enabled frei0r     && { check_header frei0r.h || die "ERROR: frei0r.h header not
 enabled gnutls     && require_pkg_config gnutls gnutls/gnutls.h gnutls_global_init
 enabled libaacplus && require  "libaacplus >= 2.0.0" aacplus.h aacplusEncOpen -laacplus
 enabled libass     && require_pkg_config libass ass/ass.h ass_library_init
-enabled libcelt    && require libcelt celt/celt.h celt_decode -lcelt0
+enabled libcelt    && require libcelt celt/celt.h celt_decoder_create_custom -lcelt0
 enabled libdc1394  && require_pkg_config libdc1394-2 dc1394/dc1394.h dc1394_new
 enabled libdirac   && require_pkg_config dirac                          \
     "libdirac_decoder/dirac_parser.h libdirac_encoder/dirac_encoder.h"  \
@@ -3174,6 +3179,8 @@ makeinfo --version > /dev/null 2>&1 && enable makeinfo  || disable makeinfo
 check_header linux/fb.h
 check_header linux/videodev.h
 check_header linux/videodev2.h
+check_struct linux/videodev2.h "struct v4l2_frmivalenum" discrete
+
 check_header sys/videoio.h
 
 check_func_headers "windows.h vfw.h" capCreateCaptureWindow "$vfwcap_indev_extralibs"
@@ -3236,6 +3243,7 @@ fi
 
 enabled debug && add_cflags -g"$debuglevel" && add_asflags -g"$debuglevel"
 enabled coverage && add_cflags "-fprofile-arcs -ftest-coverage" && add_ldflags "-fprofile-arcs -ftest-coverage"
+test -n "$valgrind" && target_exec="$valgrind --error-exitcode=1 --malloc-fill=0x2a --track-origins=yes --leak-check=full --gen-suppressions=all --suppressions=tests/fate-valgrind.supp"
 
 # add some useful compiler flags if supported
 check_cflags -Wdeclaration-after-statement
@@ -3587,7 +3595,7 @@ get_version(){
 
 get_version LIBAVCODEC  libavcodec/version.h
 get_version LIBAVDEVICE libavdevice/avdevice.h
-get_version LIBAVFILTER libavfilter/avfilter.h
+get_version LIBAVFILTER libavfilter/version.h
 get_version LIBAVFORMAT libavformat/version.h
 get_version LIBAVUTIL   libavutil/avutil.h
 get_version LIBPOSTPROC libpostproc/postprocess.h

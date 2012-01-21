@@ -27,6 +27,7 @@
 #include <inttypes.h>
 #include <math.h>
 #include <limits.h>
+#include <signal.h>
 #include "libavutil/avstring.h"
 #include "libavutil/colorspace.h"
 #include "libavutil/mathematics.h"
@@ -923,6 +924,11 @@ static void do_exit(VideoState *is)
     SDL_Quit();
     av_log(NULL, AV_LOG_QUIET, "%s", "");
     exit(0);
+}
+
+static void sigterm_handler(int sig)
+{
+    exit(123);
 }
 
 static int video_open(VideoState *is, int force_set_video_mode)
@@ -1964,25 +1970,19 @@ static void update_sample_display(VideoState *is, short *samples, int samples_si
     }
 }
 
-/* return the new audio buffer size (samples can be added or deleted
-   to get better sync if video or external master clock) */
-static int synchronize_audio(VideoState *is, short *samples,
-                             int samples_size1, double pts)
+/* return the wanted number of samples to get better sync if sync_type is video
+ * or external master clock */
+static int synchronize_audio(VideoState *is, int nb_samples)
 {
-    int n, samples_size;
-    double ref_clock;
-
-    n = av_get_bytes_per_sample(is->audio_tgt_fmt) * is->audio_tgt_channels;
-    samples_size = samples_size1;
+    int wanted_nb_samples = nb_samples;
 
     /* if not master, then we try to remove or add samples to correct the clock */
     if (((is->av_sync_type == AV_SYNC_VIDEO_MASTER && is->video_st) ||
          is->av_sync_type == AV_SYNC_EXTERNAL_CLOCK)) {
         double diff, avg_diff;
-        int wanted_size, min_size, max_size, nb_samples;
+        int min_nb_samples, max_nb_samples;
 
-        ref_clock = get_master_clock(is);
-        diff = get_audio_clock(is) - ref_clock;
+        diff = get_audio_clock(is) - get_master_clock(is);
 
         if (diff < AV_NOSYNC_THRESHOLD) {
             is->audio_diff_cum = diff + is->audio_diff_avg_coef * is->audio_diff_cum;
@@ -1994,38 +1994,13 @@ static int synchronize_audio(VideoState *is, short *samples,
                 avg_diff = is->audio_diff_cum * (1.0 - is->audio_diff_avg_coef);
 
                 if (fabs(avg_diff) >= is->audio_diff_threshold) {
-                    wanted_size = samples_size + ((int)(diff * is->audio_tgt_freq) * n);
-                    nb_samples = samples_size / n;
-
-                    min_size = ((nb_samples * (100 - SAMPLE_CORRECTION_PERCENT_MAX)) / 100) * n;
-                    max_size = ((nb_samples * (100 + SAMPLE_CORRECTION_PERCENT_MAX)) / 100) * n;
-                    if (wanted_size < min_size)
-                        wanted_size = min_size;
-                    else if (wanted_size > FFMIN3(max_size, samples_size, sizeof(is->audio_buf2)))
-                        wanted_size = FFMIN3(max_size, samples_size, sizeof(is->audio_buf2));
-
-                    /* add or remove samples to correction the synchro */
-                    if (wanted_size < samples_size) {
-                        /* remove samples */
-                        samples_size = wanted_size;
-                    } else if (wanted_size > samples_size) {
-                        uint8_t *samples_end, *q;
-                        int nb;
-
-                        /* add samples */
-                        nb = (samples_size - wanted_size);
-                        samples_end = (uint8_t *)samples + samples_size - n;
-                        q = samples_end + n;
-                        while (nb > 0) {
-                            memcpy(q, samples_end, n);
-                            q += n;
-                            nb -= n;
-                        }
-                        samples_size = wanted_size;
-                    }
+                    wanted_nb_samples = nb_samples + (int)(diff * is->audio_src_freq);
+                    min_nb_samples = ((nb_samples * (100 - SAMPLE_CORRECTION_PERCENT_MAX) / 100));
+                    max_nb_samples = ((nb_samples * (100 + SAMPLE_CORRECTION_PERCENT_MAX) / 100));
+                    wanted_nb_samples = FFMIN(FFMAX(wanted_nb_samples, min_nb_samples), max_nb_samples);
                 }
                 av_dlog(NULL, "diff=%f adiff=%f sample_diff=%d apts=%0.3f vpts=%0.3f %f\n",
-                        diff, avg_diff, samples_size - samples_size1,
+                        diff, avg_diff, wanted_nb_samples - nb_samples,
                         is->audio_clock, is->video_clock, is->audio_diff_threshold);
             }
         } else {
@@ -2036,7 +2011,7 @@ static int synchronize_audio(VideoState *is, short *samples,
         }
     }
 
-    return samples_size;
+    return wanted_nb_samples;
 }
 
 /* decode one audio frame and returns its uncompressed size */
@@ -2051,6 +2026,7 @@ static int audio_decode_frame(VideoState *is, double *pts_ptr)
     double pts;
     int new_packet = 0;
     int flush_complete = 0;
+    int wanted_nb_samples;
 
     for (;;) {
         /* NOTE: the audio packet can contain several frames */
@@ -2085,8 +2061,12 @@ static int audio_decode_frame(VideoState *is, double *pts_ptr)
                                                    dec->sample_fmt, 1);
 
             dec_channel_layout = (dec->channel_layout && dec->channels == av_get_channel_layout_nb_channels(dec->channel_layout)) ? dec->channel_layout : av_get_default_channel_layout(dec->channels);
+            wanted_nb_samples = synchronize_audio(is, is->frame->nb_samples);
 
-            if (dec->sample_fmt != is->audio_src_fmt || dec_channel_layout != is->audio_src_channel_layout || dec->sample_rate != is->audio_src_freq) {
+            if (dec->sample_fmt != is->audio_src_fmt ||
+                dec_channel_layout != is->audio_src_channel_layout ||
+                dec->sample_rate != is->audio_src_freq ||
+                (wanted_nb_samples != is->frame->nb_samples && !is->swr_ctx)) {
                 if (is->swr_ctx)
                     swr_free(&is->swr_ctx);
                 is->swr_ctx = swr_alloc_set_opts(NULL,
@@ -2113,8 +2093,15 @@ static int audio_decode_frame(VideoState *is, double *pts_ptr)
             if (is->swr_ctx) {
                 const uint8_t *in[] = { is->frame->data[0] };
                 uint8_t *out[] = {is->audio_buf2};
+                if (wanted_nb_samples != is->frame->nb_samples) {
+                    if (swr_set_compensation(is->swr_ctx, (wanted_nb_samples - is->frame->nb_samples) * is->audio_tgt_freq / dec->sample_rate,
+                                                wanted_nb_samples * is->audio_tgt_freq / dec->sample_rate) < 0) {
+                        fprintf(stderr, "swr_set_compensation() failed\n");
+                        break;
+                    }
+                }
                 len2 = swr_convert(is->swr_ctx, out, sizeof(is->audio_buf2) / is->audio_tgt_channels / av_get_bytes_per_sample(is->audio_tgt_fmt),
-                                                in, data_size / dec->channels / av_get_bytes_per_sample(dec->sample_fmt));
+                                                in, is->frame->nb_samples);
                 if (len2 < 0) {
                     fprintf(stderr, "audio_resample() failed\n");
                     break;
@@ -2176,6 +2163,7 @@ static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
     VideoState *is = opaque;
     int audio_size, len1;
     int bytes_per_sec;
+    int frame_size = av_samples_get_buffer_size(NULL, is->audio_tgt_channels, 1, is->audio_tgt_fmt, 1);
     double pts;
 
     audio_callback_time = av_gettime();
@@ -2186,12 +2174,10 @@ static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
            if (audio_size < 0) {
                 /* if error, just output silence */
                is->audio_buf      = is->silence_buf;
-               is->audio_buf_size = sizeof(is->silence_buf);
+               is->audio_buf_size = sizeof(is->silence_buf) / frame_size * frame_size;
            } else {
                if (is->show_mode != SHOW_MODE_VIDEO)
                    update_sample_display(is, (int16_t *)is->audio_buf, audio_size);
-               audio_size = synchronize_audio(is, (int16_t *)is->audio_buf, audio_size,
-                                              pts);
                is->audio_buf_size = audio_size;
            }
            is->audio_buf_index = 0;
@@ -2221,6 +2207,8 @@ static int stream_component_open(VideoState *is, int stream_index)
     AVDictionary *opts;
     AVDictionaryEntry *t = NULL;
     int64_t wanted_channel_layout = 0;
+    int wanted_nb_channels;
+    const char *env;
 
     if (stream_index < 0 || stream_index >= ic->nb_streams)
         return -1;
@@ -2257,8 +2245,19 @@ static int stream_component_open(VideoState *is, int stream_index)
         avctx->flags |= CODEC_FLAG_EMU_EDGE;
 
     if (avctx->codec_type == AVMEDIA_TYPE_AUDIO) {
-        wanted_channel_layout = (avctx->channel_layout && avctx->channels == av_get_channel_layout_nb_channels(avctx->channels)) ? avctx->channel_layout : av_get_default_channel_layout(avctx->channels);
-        wanted_channel_layout &= ~AV_CH_LAYOUT_STEREO_DOWNMIX;
+        env = SDL_getenv("SDL_AUDIO_CHANNELS");
+        if (env)
+            wanted_channel_layout = av_get_default_channel_layout(SDL_atoi(env));
+        if (!wanted_channel_layout) {
+            wanted_channel_layout = (avctx->channel_layout && avctx->channels == av_get_channel_layout_nb_channels(avctx->channel_layout)) ? avctx->channel_layout : av_get_default_channel_layout(avctx->channels);
+            wanted_channel_layout &= ~AV_CH_LAYOUT_STEREO_DOWNMIX;
+            wanted_nb_channels = av_get_channel_layout_nb_channels(wanted_channel_layout);
+            /* SDL only supports 1, 2, 4 or 6 channels at the moment, so we have to make sure not to request anything else. */
+            while (wanted_nb_channels > 0 && (wanted_nb_channels == 3 || wanted_nb_channels == 5 || wanted_nb_channels > 6)) {
+                wanted_nb_channels--;
+                wanted_channel_layout = av_get_default_channel_layout(wanted_nb_channels);
+            }
+        }
         wanted_spec.channels = av_get_channel_layout_nb_channels(wanted_channel_layout);
         wanted_spec.freq = avctx->sample_rate;
         if (wanted_spec.freq <= 0 || wanted_spec.channels <= 0) {
@@ -2770,7 +2769,7 @@ static void stream_cycle_channel(VideoState *is, int codec_type)
 
 static void toggle_full_screen(VideoState *is)
 {
-    int i;
+    av_unused int i;
     is_full_screen = !is_full_screen;
 #if defined(__APPLE__) && SDL_VERSION_ATLEAST(1, 2, 14)
     /* OS X needs to reallocate the SDL overlays */
@@ -3092,9 +3091,9 @@ static const OptionDef options[] = {
 
 static void show_usage(void)
 {
-    printf("Simple media player\n");
-    printf("usage: %s [options] input_file\n", program_name);
-    printf("\n");
+    av_log(NULL, AV_LOG_INFO, "Simple media player\n");
+    av_log(NULL, AV_LOG_INFO, "usage: %s [options] input_file\n", program_name);
+    av_log(NULL, AV_LOG_INFO, "\n");
 }
 
 static int opt_help(const char *opt, const char *arg)
@@ -3168,6 +3167,9 @@ int main(int argc, char **argv)
     avformat_network_init();
 
     init_opts();
+
+    signal(SIGINT , sigterm_handler); /* Interrupt (ANSI).    */
+    signal(SIGTERM, sigterm_handler); /* Termination (ANSI).  */
 
     show_banner(argc, argv, options);
 
