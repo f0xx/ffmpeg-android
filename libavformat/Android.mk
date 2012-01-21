@@ -215,6 +215,7 @@ LIBAVFORMAT_SRC_FILES := \
 		sierravmd.c \
 		siff.c \
 		smacker.c \
+		smjpegdec.c \
 		sol.c \
 		soxdec.c \
 		spdif.c \

@@ -32,13 +32,11 @@ void ff_mpadsp_init(MPADSPContext *s)
     ff_init_mpadsp_tabs_float();
     s->apply_window_float = ff_mpadsp_apply_window_float;
     s->dct32_float = dct.dct32;
-    s->imdct36_float = ff_imdct36_float;
     s->imdct36_blocks_float = ff_imdct36_blocks_float;
 #else
     ff_init_mpadsp_tabs_fixed();
     s->apply_window_fixed = ff_mpadsp_apply_window_fixed;
     s->dct32_fixed = ff_dct32_fixed;
-    s->imdct36_fixed = ff_imdct36_fixed;
     s->imdct36_blocks_fixed = ff_imdct36_blocks_fixed;
 #endif
 

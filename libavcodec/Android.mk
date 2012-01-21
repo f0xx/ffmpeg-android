@@ -165,6 +165,7 @@ LIBAVCODEC_SRC_FILES := \
 		g729postfilter.c \
 		gifdec.c \
 		golomb.c \
+		gsm_parser.c \
 		gsmdec.c \
 		gsmdec_data.c \
 		h261.c \
@@ -336,6 +337,7 @@ LIBAVCODEC_SRC_FILES := \
 		synth_filter.c \
 		targa.c \
 		tiertexseqv.c \
+		timecode.c \
 		tiff.c \
 		tmv.c \
 		truemotion1.c \
@@ -363,6 +365,7 @@ LIBAVCODEC_SRC_FILES := \
 		vorbis_data.c \
 		vorbisdec.c \
 		vble.c \
+		v308dec.c \
 		v410dec.c \
 		vp3.c \
 		vp3_parser.c \
@@ -391,6 +394,7 @@ LIBAVCODEC_SRC_FILES := \
 		xsubdec.c \
 		xxan.c \
 		y41pdec.c \
+		yuv4dec.c \
 		zmbv.c \
 		dcadsp.c \
 		pthread.c \

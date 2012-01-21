@@ -34,6 +34,7 @@ LIBAVFILTER_SRC_FILES := \
 		af_earwax.c \
 		af_pan.c \
 		af_volume.c \
+		af_silencedetect.c \
 		allfilters.c \
 		asink_anullsink.c \
 		asrc_anullsrc.c \
