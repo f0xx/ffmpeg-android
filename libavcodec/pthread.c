@@ -375,6 +375,7 @@ static attribute_align_arg void *frame_worker_thread(void *arg)
 		}
 
     while (1) {
+        int i;
         if (p->state == STATE_INPUT_READY && !fctx->die) {
             pthread_mutex_lock(&p->mutex);
             while (p->state == STATE_INPUT_READY && !fctx->die)
@@ -397,6 +398,12 @@ static attribute_align_arg void *frame_worker_thread(void *arg)
         p->state = STATE_INPUT_READY;
 
         pthread_mutex_lock(&p->progress_mutex);
+        for (i = 0; i < MAX_BUFFERS; i++)
+            if (p->progress_used[i]) {
+                p->progress[i][0] = INT_MAX;
+                p->progress[i][1] = INT_MAX;
+            }
+        pthread_cond_broadcast(&p->progress_cond);
         pthread_cond_signal(&p->output_cond);
         pthread_mutex_unlock(&p->progress_mutex);
 
@@ -429,7 +436,6 @@ static int update_context_from_thread(AVCodecContext *dst, AVCodecContext *src, 
 
         dst->has_b_frames = src->has_b_frames;
         dst->idct_algo    = src->idct_algo;
-        dst->slice_count  = src->slice_count;
 
         dst->bits_per_coded_sample = src->bits_per_coded_sample;
         dst->sample_aspect_ratio   = src->sample_aspect_ratio;
@@ -464,8 +470,9 @@ static int update_context_from_thread(AVCodecContext *dst, AVCodecContext *src, 
  *
  * @param dst The destination context.
  * @param src The source context.
+ * @return 0 on success, negative error code on failure
  */
-static void update_context_from_user(AVCodecContext *dst, AVCodecContext *src)
+static int update_context_from_user(AVCodecContext *dst, AVCodecContext *src)
 {
 #define copy_fields(s, e) memcpy(&dst->s, &src->s, (char*)&dst->e - (char*)&dst->s);
     dst->flags          = src->flags;
@@ -487,6 +494,22 @@ static void update_context_from_user(AVCodecContext *dst, AVCodecContext *src)
     dst->frame_number     = src->frame_number;
     dst->reordered_opaque = src->reordered_opaque;
     dst->thread_safe_callbacks = src->thread_safe_callbacks;
+
+    if (src->slice_count && src->slice_offset) {
+        if (dst->slice_count < src->slice_count) {
+            int *tmp = av_realloc(dst->slice_offset, src->slice_count *
+                                  sizeof(*dst->slice_offset));
+            if (!tmp) {
+                av_free(dst->slice_offset);
+                return AVERROR(ENOMEM);
+            }
+            dst->slice_offset = tmp;
+        }
+        memcpy(dst->slice_offset, src->slice_offset,
+               src->slice_count * sizeof(*dst->slice_offset));
+    }
+    dst->slice_count = src->slice_count;
+    return 0;
 #undef copy_fields
 }
 
@@ -597,7 +620,8 @@ int ff_thread_decode_frame(AVCodecContext *avctx,
      */
 
     p = &fctx->threads[fctx->next_decoding];
-    update_context_from_user(p->avctx, avctx);
+    err = update_context_from_user(p->avctx, avctx);
+    if (err) return err;
     err = submit_packet(p, avpkt);
     if (err) return err;
 
@@ -726,6 +750,7 @@ static void park_frame_worker_threads(FrameThreadContext *fctx, int thread_count
                 pthread_cond_wait(&p->output_cond, &p->progress_mutex);
             pthread_mutex_unlock(&p->progress_mutex);
         }
+        p->got_frame = 0;
     }
 }
 
@@ -776,6 +801,7 @@ static void frame_thread_free(AVCodecContext *avctx, int thread_count)
         if (i) {
             av_freep(&p->avctx->priv_data);
             av_freep(&p->avctx->internal);
+            av_freep(&p->avctx->slice_offset);
         }
 
         av_freep(&p->avctx);
@@ -954,7 +980,7 @@ int ff_thread_get_buffer(AVCodecContext *avctx, AVFrame *f)
         p->requested_frame = f;
         p->state = STATE_GET_BUFFER;
         pthread_mutex_lock(&p->progress_mutex);
-        pthread_cond_signal(&p->progress_cond);
+        pthread_cond_broadcast(&p->progress_cond);
 
         while (p->state != STATE_SETTING_UP)
             pthread_cond_wait(&p->progress_cond, &p->progress_mutex);

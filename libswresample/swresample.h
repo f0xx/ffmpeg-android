@@ -55,6 +55,7 @@ struct SwrContext;
  * @see swr_alloc_set_opts(), swr_init(), swr_free()
  * @return NULL on error, allocated context otherwise
  */
+av_export
 struct SwrContext *swr_alloc(void);
 
 /**
@@ -62,6 +63,7 @@ struct SwrContext *swr_alloc(void);
  *
  * @return AVERROR error code in case of failure.
  */
+av_export
 int swr_init(struct SwrContext *s);
 
 /**
@@ -84,6 +86,7 @@ int swr_init(struct SwrContext *s);
  * @see swr_init(), swr_free()
  * @return NULL on error, allocated context otherwise
  */
+av_export
 struct SwrContext *swr_alloc_set_opts(struct SwrContext *s,
                                       int64_t out_ch_layout, enum AVSampleFormat out_sample_fmt, int out_sample_rate,
                                       int64_t  in_ch_layout, enum AVSampleFormat  in_sample_fmt, int  in_sample_rate,
@@ -92,6 +95,7 @@ struct SwrContext *swr_alloc_set_opts(struct SwrContext *s,
 /**
  * Free the given SwrContext and set the pointer to NULL.
  */
+av_export
 void swr_free(struct SwrContext **s);
 
 /**
@@ -108,12 +112,14 @@ void swr_free(struct SwrContext **s);
  *
  * @return number of samples output per channel
  */
+av_export
 int swr_convert(struct SwrContext *s, uint8_t *out[SWR_CH_MAX], int out_count,
                                 const uint8_t *in [SWR_CH_MAX], int in_count);
 
 /**
  * Activate resampling compensation.
  */
+av_export
 int swr_set_compensation(struct SwrContext *s, int sample_delta, int compensation_distance);
 
 /**
@@ -124,21 +130,25 @@ int swr_set_compensation(struct SwrContext *s, int sample_delta, int compensatio
  *                    indexes, -1 for a muted channel)
  * @return AVERROR error code in case of failure.
  */
+av_export
 int swr_set_channel_mapping(struct SwrContext *s, const int *channel_map);
 
 /**
  * Return the LIBSWRESAMPLE_VERSION_INT constant.
  */
+av_export
 unsigned swresample_version(void);
 
 /**
  * Return the swr build-time configuration.
  */
+av_export
 const char *swresample_configuration(void);
 
 /**
  * Return the swr license.
  */
+av_export
 const char *swresample_license(void);
 
 #endif

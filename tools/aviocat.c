@@ -19,13 +19,10 @@
  */
 
 #include <stdio.h>
-#include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
-#include <sys/stat.h>
+
 #include "libavformat/avformat.h"
-#include "libavformat/riff.h"
-#include "libavutil/intreadwrite.h"
-#include "libavutil/mathematics.h"
 
 static int usage(const char *argv0, int ret)
 {
@@ -84,12 +81,14 @@ int main(int argc, char **argv)
         stream_pos += n;
         if (bps) {
             avio_flush(output);
-            while ((av_gettime() - start_time)*bps/AV_TIME_BASE < stream_pos)
-                usleep(50*1000);
+            while ((av_gettime() - start_time) * bps / AV_TIME_BASE < stream_pos)
+                usleep(50 * 1000);
         }
     }
 
+    avio_flush(output);
     avio_close(output);
+
 fail:
     avio_close(input);
     avformat_network_deinit();

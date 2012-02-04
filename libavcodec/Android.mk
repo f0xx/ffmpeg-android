@@ -280,6 +280,7 @@ LIBAVCODEC_SRC_FILES := \
 		pictordec.c \
 		png.c \
 		pngdec.c \
+		pngdsp.c \
 		pnm.c \
 		pnm_parser.c \
 		pnmdec.c \
@@ -317,6 +318,7 @@ LIBAVCODEC_SRC_FILES := \
 		rv40.c \
 		rv40dsp.c \
 		s3tc.c \
+		sbrdsp.c \
 		sgidec.c \
 		shorten.c \
 		simple_idct.c \
@@ -393,6 +395,7 @@ LIBAVCODEC_SRC_FILES := \
 		xl.c \
 		xsubdec.c \
 		xxan.c \
+		xwddec.c \
 		y41pdec.c \
 		yuv4dec.c \
 		zmbv.c \
@@ -457,6 +460,7 @@ COMMON_ARM_SRC_FILES := \
 		arm/fmtconvert_init_arm.c \
 		arm/vp56dsp_init_arm.c \
 		arm/mpegaudiodsp_init_arm.c \
+		arm/sbrdsp_init_arm.c \
 
 
 ARMV5_SRC_FILES := \
@@ -503,6 +507,7 @@ NEON_SRC_FILES := \
 		arm/vp56dsp_neon.S.neon \
 		$(VP8_SRC_FILES) \
 		arm/vp8dsp_neon.S.neon \
+		arm/sbrdsp_neon.S.neon \
 
 
 LOCAL_SRC_FILES += $(COMMON_ARM_SRC_FILES)

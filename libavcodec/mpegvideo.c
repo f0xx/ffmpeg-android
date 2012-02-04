@@ -1344,15 +1344,15 @@ void MPV_frame_end(MpegEncContext *s)
               !(s->flags & CODEC_FLAG_EMU_EDGE)) {
         int hshift = av_pix_fmt_descriptors[s->avctx->pix_fmt].log2_chroma_w;
         int vshift = av_pix_fmt_descriptors[s->avctx->pix_fmt].log2_chroma_h;
-        s->dsp.draw_edges(s->current_picture.f.data[0], s->linesize,
+        s->dsp.draw_edges(s->current_picture.f.data[0], s->current_picture.f.linesize[0],
                           s->h_edge_pos, s->v_edge_pos,
                           EDGE_WIDTH, EDGE_WIDTH,
                           EDGE_TOP | EDGE_BOTTOM);
-        s->dsp.draw_edges(s->current_picture.f.data[1], s->uvlinesize,
+        s->dsp.draw_edges(s->current_picture.f.data[1], s->current_picture.f.linesize[1],
                           s->h_edge_pos >> hshift, s->v_edge_pos >> vshift,
                           EDGE_WIDTH >> hshift, EDGE_WIDTH >> vshift,
                           EDGE_TOP | EDGE_BOTTOM);
-        s->dsp.draw_edges(s->current_picture.f.data[2], s->uvlinesize,
+        s->dsp.draw_edges(s->current_picture.f.data[2], s->current_picture.f.linesize[2],
                           s->h_edge_pos >> hshift, s->v_edge_pos >> vshift,
                           EDGE_WIDTH >> hshift, EDGE_WIDTH >> vshift,
                           EDGE_TOP | EDGE_BOTTOM);
@@ -1805,8 +1805,8 @@ static inline int hpel_motion_lowres(MpegEncContext *s,
 
     src   += src_y * stride + src_x;
 
-    if ((unsigned)src_x >  h_edge_pos - (!!sx) - w ||
-        (unsigned)src_y > (v_edge_pos >> field_based) - (!!sy) - h) {
+    if ((unsigned)src_x > FFMAX( h_edge_pos - (!!sx) - w,                 0) ||
+        (unsigned)src_y > FFMAX((v_edge_pos >> field_based) - (!!sy) - h, 0)) {
         s->dsp.emulated_edge_mc(s->edge_emu_buffer, src, s->linesize, w + 1,
                                 (h + 1) << field_based, src_x,
                                 src_y   << field_based,
@@ -1907,8 +1907,8 @@ static av_always_inline void mpeg_motion_lowres(MpegEncContext *s,
     ptr_cb = ref_picture[1] + uvsrc_y * uvlinesize + uvsrc_x;
     ptr_cr = ref_picture[2] + uvsrc_y * uvlinesize + uvsrc_x;
 
-    if ((unsigned) src_x >  h_edge_pos - (!!sx) - 2 * block_s ||
-        (unsigned) src_y > (v_edge_pos >> field_based) - (!!sy) - h) {
+    if ((unsigned) src_x > FFMAX( h_edge_pos - (!!sx) - 2 * block_s,       0) ||
+        (unsigned) src_y > FFMAX((v_edge_pos >> field_based) - (!!sy) - h, 0)) {
         s->dsp.emulated_edge_mc(s->edge_emu_buffer, ptr_y,
                                 s->linesize, 17, 17 + field_based,
                                 src_x, src_y << field_based, h_edge_pos,
@@ -1990,8 +1990,8 @@ static inline void chroma_4mv_motion_lowres(MpegEncContext *s,
     offset = src_y * s->uvlinesize + src_x;
     ptr = ref_picture[1] + offset;
     if (s->flags & CODEC_FLAG_EMU_EDGE) {
-        if ((unsigned) src_x > h_edge_pos - (!!sx) - block_s ||
-            (unsigned) src_y > v_edge_pos - (!!sy) - block_s) {
+        if ((unsigned) src_x > FFMAX(h_edge_pos - (!!sx) - block_s, 0) ||
+            (unsigned) src_y > FFMAX(v_edge_pos - (!!sy) - block_s, 0)) {
             s->dsp.emulated_edge_mc(s->edge_emu_buffer, ptr, s->uvlinesize,
                                     9, 9, src_x, src_y, h_edge_pos, v_edge_pos);
             ptr = s->edge_emu_buffer;

@@ -39,7 +39,7 @@
 #endif
 #undef strncpy
 #define ASMALIGN(ZEROBITS) ".p2align " #ZEROBITS "\n\t"
-
+#define CODEC_FLAG2_MEMC_ONLY     0x00001000 ///< Only do ME/MC (I frames -> ref, P frame -> ME+MC).
 
 //--------- codec's requirements (filled by the codec/vf) ---------
 

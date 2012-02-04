@@ -97,6 +97,7 @@
 #define VSYNC_PASSTHROUGH 0
 #define VSYNC_CFR         1
 #define VSYNC_VFR         2
+#define VSYNC_DROP        0xff
 
 const char program_name[] = "ffmpeg";
 const int program_birth_year = 2000;
@@ -133,8 +134,6 @@ static int video_discard = 0;
 static int same_quant = 0;
 static int do_deinterlace = 0;
 static int intra_dc_precision = 8;
-static int loop_input = 0;
-static int loop_output = AVFMT_NOOUTPUTLOOP;
 static int qp_hist = 0;
 static int intra_only = 0;
 static const char *video_codec_name    = NULL;
@@ -469,11 +468,10 @@ static void reset_options(OptionsContext *o, int is_input)
     init_opts();
 }
 
-static int alloc_buffer(InputStream *ist, FrameBuffer **pbuf)
+static int alloc_buffer(AVCodecContext *s, InputStream *ist, FrameBuffer **pbuf)
 {
-    AVCodecContext *s = ist->st->codec;
     FrameBuffer  *buf = av_mallocz(sizeof(*buf));
-    int ret, i;
+    int i, ret;
     const int pixel_size = av_pix_fmt_descriptors[s->pix_fmt].comp[0].step_minus1+1;
     int h_chroma_shift, v_chroma_shift;
     int edge = 32; // XXX should be avcodec_get_edge_width(), but that fails on svq1
@@ -547,7 +545,10 @@ static int codec_get_buffer(AVCodecContext *s, AVFrame *frame)
     FrameBuffer *buf;
     int ret, i;
 
-    if (!ist->buffer_pool && (ret = alloc_buffer(ist, &ist->buffer_pool)) < 0)
+    if(av_image_check_size(s->width, s->height, 0, s))
+        return -1;
+
+    if (!ist->buffer_pool && (ret = alloc_buffer(s, ist, &ist->buffer_pool)) < 0)
         return ret;
 
     buf              = ist->buffer_pool;
@@ -557,7 +558,7 @@ static int codec_get_buffer(AVCodecContext *s, AVFrame *frame)
         av_freep(&buf->base[0]);
         av_free(buf);
         ist->dr1 = 0;
-        if ((ret = alloc_buffer(ist, &buf)) < 0)
+        if ((ret = alloc_buffer(s, ist, &buf)) < 0)
             return ret;
     }
     buf->refcount++;
@@ -627,6 +628,7 @@ static int configure_video_filters(InputStream *ist, OutputStream *ost)
                                        "src", args, NULL, ost->graph);
     if (ret < 0)
         return ret;
+
 #if FF_API_OLD_VSINK_API
     ret = avfilter_graph_create_filter(&ost->output_video_filter, avfilter_get_by_name("buffersink"),
                                        "out", NULL, pix_fmts, ost->graph);
@@ -636,6 +638,7 @@ static int configure_video_filters(InputStream *ist, OutputStream *ost)
                                        "out", NULL, buffersink_params, ost->graph);
 #endif
     av_freep(&buffersink_params);
+
     if (ret < 0)
         return ret;
     last_filter = ost->input_video_filter;
@@ -1242,7 +1245,7 @@ need_realloc:
         ost->sync_opts = lrintf(get_sync_ipts(ost) * enc->sample_rate) -
                                 av_fifo_size(ost->fifo) / (enc->channels * osize); // FIXME wrong
 
-    if (ost->audio_resample) {
+    if (ost->audio_resample || ost->audio_channels_mapped) {
         buftmp = audio_buf;
         size_out = swr_convert(ost->swr, (      uint8_t*[]){buftmp}, audio_buf_size / (enc->channels * osize),
                                          (const uint8_t*[]){buf   }, size / (dec->channels * isize));
@@ -1472,7 +1475,7 @@ static void do_video_out(AVFormatContext *s,
     if (format_video_sync == VSYNC_AUTO)
         format_video_sync = (s->oformat->flags & AVFMT_VARIABLE_FPS) ? ((s->oformat->flags & AVFMT_NOTIMESTAMPS) ? VSYNC_PASSTHROUGH : VSYNC_VFR) : 1;
 
-    if (format_video_sync != VSYNC_PASSTHROUGH) {
+    if (format_video_sync != VSYNC_PASSTHROUGH && format_video_sync != VSYNC_DROP) {
         double vdelta = sync_ipts - ost->sync_opts + duration;
         // FIXME set to 0.5 after we fix some dts/pts bugs like in avidec.c
         if (vdelta < -1.1)
@@ -1559,6 +1562,8 @@ static void do_video_out(AVFormatContext *s,
             if (ret > 0) {
                 pkt.data = bit_buffer;
                 pkt.size = ret;
+                if (!(enc->codec->capabilities & CODEC_CAP_DELAY))
+                    pkt.pts = av_rescale_q(ost->sync_opts, enc->time_base, ost->st->time_base);
                 if (enc->coded_frame->pts != AV_NOPTS_VALUE)
                     pkt.pts = av_rescale_q(enc->coded_frame->pts, enc->time_base, ost->st->time_base);
 /*av_log(NULL, AV_LOG_DEBUG, "encoder -> %"PRId64"/%"PRId64"\n",
@@ -1567,6 +1572,8 @@ static void do_video_out(AVFormatContext *s,
 
                 if (enc->coded_frame->key_frame)
                     pkt.flags |= AV_PKT_FLAG_KEY;
+                if (format_video_sync == VSYNC_DROP)
+                    pkt.pts = pkt.dts = AV_NOPTS_VALUE;
                 write_frame(s, &pkt, ost);
                 *frame_size = ret;
                 video_size += ret;
@@ -2360,6 +2367,8 @@ static int init_input_stream(int ist_index, OutputStream *output_streams, int nb
             ist->st->codec->opaque         = ist;
         }
 
+        if (!av_dict_get(ist->opts, "threads", NULL, 0))
+            av_dict_set(&ist->opts, "threads", "auto", 0);
         if (avcodec_open2(ist->st->codec, codec, &ist->opts) < 0) {
             snprintf(error, error_len, "Error while opening decoder for input stream #%d:%d",
                     ist->file_index, ist->st->index);
@@ -2596,8 +2605,8 @@ static int transcode_init(OutputFile *output_files, int nb_output_files,
                     ost->frame_rate = ost->enc->supported_framerates[idx];
                 }
                 codec->time_base = (AVRational){ost->frame_rate.den, ost->frame_rate.num};
-                if (   av_q2d(codec->time_base) < 0.001 && video_sync_method
-                   && (video_sync_method==1 || (video_sync_method<0 && !(oc->oformat->flags & AVFMT_VARIABLE_FPS)))){
+                if (   av_q2d(codec->time_base) < 0.001 && video_sync_method != VSYNC_PASSTHROUGH
+                   && (video_sync_method == VSYNC_CFR || (video_sync_method == VSYNC_AUTO && !(oc->oformat->flags & AVFMT_VARIABLE_FPS)))){
                     av_log(oc, AV_LOG_WARNING, "Frame rate very high for a muxer not effciciently supporting it.\n"
                                                "Please consider specifiying a lower framerate, a different muxer or -vsync 2\n");
                 }
@@ -2685,6 +2694,8 @@ static int transcode_init(OutputFile *output_files, int nb_output_files,
                 memcpy(ost->st->codec->subtitle_header, dec->subtitle_header, dec->subtitle_header_size);
                 ost->st->codec->subtitle_header_size = dec->subtitle_header_size;
             }
+            if (!av_dict_get(ost->opts, "threads", NULL, 0))
+                av_dict_set(&ost->opts, "threads", "auto", 0);
             if (avcodec_open2(ost->st->codec, codec, &ost->opts) < 0) {
                 snprintf(error, sizeof(error), "Error while opening encoder for output stream #%d:%d - maybe incorrect parameters such as bit_rate, rate, width or height",
                         ost->file_index, ost->index);
@@ -3682,14 +3693,6 @@ static int opt_input_file(OptionsContext *o, const char *opt, const char *filena
     ic->flags |= AVFMT_FLAG_NONBLOCK;
     ic->interrupt_callback = int_cb;
 
-    if (loop_input) {
-        av_log(NULL, AV_LOG_WARNING,
-            "-loop_input is deprecated, use -loop 1\n"
-            "Note, both loop options only work with -f image2\n"
-        );
-        ic->loop_input = loop_input;
-    }
-
     /* open the input file with generic avformat function */
     err = avformat_open_input(&ic, filename, file_iformat, &format_opts);
     if (err < 0) {
@@ -4470,11 +4473,6 @@ static void opt_output_file(void *optctx, const char *filename)
     }
     oc->max_delay = (int)(o->mux_max_delay * AV_TIME_BASE);
 
-    if (loop_output >= 0) {
-        av_log(NULL, AV_LOG_WARNING, "-loop_output is deprecated, use -loop\n");
-        oc->loop_output = loop_output;
-    }
-
     /* copy metadata */
     for (i = 0; i < o->nb_metadata_map; i++) {
         char *p;
@@ -4910,6 +4908,20 @@ static int opt_bitrate(OptionsContext *o, const char *opt, const char *arg)
     return opt_default(opt, arg);
 }
 
+static int opt_qscale(OptionsContext *o, const char *opt, const char *arg)
+{
+    char *s;
+    int ret;
+    if(!strcmp(opt, "qscale")){
+        av_log(0,AV_LOG_WARNING, "Please use -q:a or -q:v, -qscale is ambiguous\n");
+        return parse_option(o, "q:v", arg, options);
+    }
+    s = av_asprintf("q%s", opt + 6);
+    ret = parse_option(o, s, arg, options);
+    av_free(s);
+    return ret;
+}
+
 static int opt_video_filters(OptionsContext *o, const char *opt, const char *arg)
 {
     return parse_option(o, "filter:v", arg, options);
@@ -4920,9 +4932,17 @@ static int opt_vsync(const char *opt, const char *arg)
     if      (!av_strcasecmp(arg, "cfr"))         video_sync_method = VSYNC_CFR;
     else if (!av_strcasecmp(arg, "vfr"))         video_sync_method = VSYNC_VFR;
     else if (!av_strcasecmp(arg, "passthrough")) video_sync_method = VSYNC_PASSTHROUGH;
+    else if (!av_strcasecmp(arg, "drop"))        video_sync_method = VSYNC_DROP;
 
     if (video_sync_method == VSYNC_AUTO)
         video_sync_method = parse_number_or_die("vsync", arg, OPT_INT, VSYNC_AUTO, VSYNC_VFR);
+    return 0;
+}
+
+static int opt_deinterlace(const char *opt, const char *arg)
+{
+    av_log(NULL, AV_LOG_WARNING, "-%s is deprecated, use -filter:v yadif instead\n", opt);
+    do_deinterlace = 1;
     return 0;
 }
 
@@ -4958,8 +4978,6 @@ static const OptionDef options[] = {
     { "hex", OPT_BOOL | OPT_EXPERT, {(void*)&do_hex_dump},
       "when dumping packets, also dump the payload" },
     { "re", OPT_BOOL | OPT_EXPERT | OPT_OFFSET, {.off = OFFSET(rate_emu)}, "read input at native frame rate", "" },
-    { "loop_input", OPT_BOOL | OPT_EXPERT, {(void*)&loop_input}, "deprecated, use -loop" },
-    { "loop_output", HAS_ARG | OPT_INT | OPT_EXPERT, {(void*)&loop_output}, "deprecated, use -loop", "" },
     { "target", HAS_ARG | OPT_FUNC2, {(void*)opt_target}, "specify target file type (\"vcd\", \"svcd\", \"dvd\", \"dv\", \"dv50\", \"pal-vcd\", \"ntsc-svcd\", ...)", "type" },
     { "vsync", HAS_ARG | OPT_EXPERT, {(void*)opt_vsync}, "video sync method", "" },
     { "async", HAS_ARG | OPT_INT | OPT_EXPERT, {(void*)&audio_sync_method}, "audio sync method", "" },
@@ -4973,7 +4991,7 @@ static const OptionDef options[] = {
     { "frames", OPT_INT64 | HAS_ARG | OPT_SPEC, {.off = OFFSET(max_frames)}, "set the number of frames to record", "number" },
     { "tag",   OPT_STRING | HAS_ARG | OPT_SPEC, {.off = OFFSET(codec_tags)}, "force codec tag/fourcc", "fourcc/tag" },
     { "q", HAS_ARG | OPT_EXPERT | OPT_DOUBLE | OPT_SPEC, {.off = OFFSET(qscale)}, "use fixed quality scale (VBR)", "q" },
-    { "qscale", HAS_ARG | OPT_EXPERT | OPT_DOUBLE | OPT_SPEC, {.off = OFFSET(qscale)}, "use fixed quality scale (VBR)", "q" },
+    { "qscale", HAS_ARG | OPT_EXPERT | OPT_FUNC2, {(void*)opt_qscale}, "use fixed quality scale (VBR)", "q" },
 #if CONFIG_AVFILTER
     { "filter", HAS_ARG | OPT_STRING | OPT_SPEC, {.off = OFFSET(filters)}, "set stream filterchain", "filter_list" },
 #endif
@@ -5007,8 +5025,8 @@ static const OptionDef options[] = {
       "use same quantizer as source (implies VBR)" },
     { "pass", HAS_ARG | OPT_VIDEO, {(void*)opt_pass}, "select the pass number (1 or 2)", "n" },
     { "passlogfile", HAS_ARG | OPT_VIDEO, {(void*)&opt_passlogfile}, "select two pass log file name prefix", "prefix" },
-    { "deinterlace", OPT_BOOL | OPT_EXPERT | OPT_VIDEO, {(void*)&do_deinterlace},
-      "deinterlace pictures" },
+    { "deinterlace", OPT_EXPERT | OPT_VIDEO, {(void*)opt_deinterlace},
+      "this option is deprecated, use the yadif filter instead" },
     { "psnr", OPT_BOOL | OPT_EXPERT | OPT_VIDEO, {(void*)&do_psnr}, "calculate PSNR of compressed frames" },
     { "vstats", OPT_EXPERT | OPT_VIDEO, {(void*)&opt_vstats}, "dump video coding statistics to file" },
     { "vstats_file", HAS_ARG | OPT_EXPERT | OPT_VIDEO, {(void*)opt_vstats_file}, "dump video coding statistics to file", "file" },

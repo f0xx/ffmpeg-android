@@ -238,7 +238,8 @@ LIBAVFORMAT_SRC_FILES := \
 		vqf.c \
 		wav.c \
 		wc3movie.c \
-		westwood.c \
+		westwood_aud.c \
+		westwood_vqa.c \
 		wtv.c \
 		wtvdec.c \
 		wv.c \

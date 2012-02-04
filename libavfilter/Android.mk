@@ -165,7 +165,7 @@ ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
   LOCAL_CFLAGS += -fPIC
 endif
 
-LOCAL_SHARED_LIBRARIES := avutil swscale avcodec avformat
+LOCAL_SHARED_LIBRARIES := avutil swscale swresample avcodec avformat
 
 LOCAL_SRC_FILES := \
 	$(LIBAVFILTER_SRC_FILES) \

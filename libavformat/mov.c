@@ -30,6 +30,7 @@
 #include "libavutil/mathematics.h"
 #include "libavutil/avstring.h"
 #include "libavutil/dict.h"
+#include "libavutil/opt.h"
 #include "avformat.h"
 #include "internal.h"
 #include "avio_internal.h"
@@ -1149,14 +1150,13 @@ int ff_mov_read_stsd_entries(MOVContext *c, AVIOContext *pb, int entries)
             /* Multiple fourcc, we skip JPEG. This is not correct, we should
              * export it as a separate AVStream but this needs a few changes
              * in the MOV demuxer, patch welcome. */
-        multiple_stsd:
             av_log(c->fc, AV_LOG_WARNING, "multiple fourcc not supported\n");
             avio_skip(pb, size - (avio_tell(pb) - start_pos));
             continue;
         }
         /* we cannot demux concatenated h264 streams because of different extradata */
         if (st->codec->codec_tag && st->codec->codec_tag == AV_RL32("avc1"))
-            goto multiple_stsd;
+            av_log(c->fc, AV_LOG_WARNING, "Concatenated H.264 might not play corrently.\n");
         sc->pseudo_stream_id = st->codec->codec_tag ? -1 : pseudo_stream_id;
         sc->dref_id= dref_id;
 
@@ -1642,8 +1642,10 @@ static int mov_read_stsz(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 
     init_get_bits(&gb, buf, 8*num_bytes);
 
-    for (i=0; i<entries; i++)
+    for (i = 0; i < entries; i++) {
         sc->sample_sizes[i] = get_bits_long(&gb, field_size);
+        sc->data_size += sc->sample_sizes[i];
+    }
 
     av_free(buf);
     return 0;
@@ -1931,7 +1933,7 @@ static void mov_build_index(MOVContext *mov, AVStream *st)
 }
 
 static int mov_open_dref(AVIOContext **pb, const char *src, MOVDref *ref,
-                         AVIOInterruptCB *int_cb)
+                         AVIOInterruptCB *int_cb, int use_absolute_path, AVFormatContext *fc)
 {
     /* try relative path, we do not try the absolute because it can leak information about our
        system to an attacker */
@@ -1969,6 +1971,11 @@ static int mov_open_dref(AVIOContext **pb, const char *src, MOVDref *ref,
             if (!avio_open2(pb, filename, AVIO_FLAG_READ, int_cb, NULL))
                 return 0;
         }
+    } else if (use_absolute_path) {
+        av_log(fc, AV_LOG_WARNING, "Using absolute path on user request, "
+               "this is a possible security issue\n");
+        if (!avio_open2(pb, ref->path, AVIO_FLAG_READ, int_cb, NULL))
+            return 0;
     }
 
     return AVERROR(ENOENT);
@@ -2021,7 +2028,8 @@ static int mov_read_trak(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 
     if (sc->dref_id-1 < sc->drefs_count && sc->drefs[sc->dref_id-1].path) {
         MOVDref *dref = &sc->drefs[sc->dref_id - 1];
-        if (mov_open_dref(&sc->pb, c->fc->filename, dref, &c->fc->interrupt_callback) < 0)
+        if (mov_open_dref(&sc->pb, c->fc->filename, dref, &c->fc->interrupt_callback,
+            c->use_absolute_path, c->fc) < 0)
             av_log(c->fc, AV_LOG_ERROR,
                    "stream %d, error opening alias: path='%s', dir='%s', "
                    "filename='%s', volume='%s', nlvl_from=%d, nlvl_to=%d\n",
@@ -2156,8 +2164,19 @@ static int mov_read_tkhd(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     sc->width = width >> 16;
     sc->height = height >> 16;
 
+    //Assign clockwise rotate values based on transform matrix so that
+    //we can compensate for iPhone orientation during capture.
+
+    if (display_matrix[1][0] == -65536 && display_matrix[0][1] == 65536) {
+         av_dict_set(&st->metadata, "rotate", "90", 0);
+    }
+
     if (display_matrix[0][0] == -65536 && display_matrix[1][1] == -65536) {
          av_dict_set(&st->metadata, "rotate", "180", 0);
+    }
+
+    if (display_matrix[1][0] == 65536 && display_matrix[0][1] == -65536) {
+         av_dict_set(&st->metadata, "rotate", "270", 0);
     }
 
     // transform the display width/height according to the matrix
@@ -2234,6 +2253,9 @@ static int mov_read_trex(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     trex = av_realloc(c->trex_data, (c->trex_count+1)*sizeof(*c->trex_data));
     if (!trex)
         return AVERROR(ENOMEM);
+
+    c->fc->duration = AV_NOPTS_VALUE; // the duration from mvhd is not representing the whole file when fragments are used.
+
     c->trex_data = trex;
     trex = &c->trex_data[c->trex_count++];
     avio_r8(pb); /* version */
@@ -2329,6 +2351,7 @@ static int mov_read_trun(MOVContext *c, AVIOContext *pb, MOVAtom atom)
         distance++;
         dts += sample_duration;
         offset += sample_size;
+        sc->data_size += sample_size;
     }
     frag->moof_offset = offset;
     st->duration = dts + sc->time_offset;
@@ -2619,7 +2642,7 @@ static void mov_read_chapters(AVFormatContext *s)
                 if (len == 1 || len == 2)
                     title[len] = 0;
                 else
-                    get_strz(sc->pb, title + 2, len - 1);
+                    avio_get_str(sc->pb, INT_MAX, title + 2, len - 1);
             }
         }
 
@@ -2670,7 +2693,7 @@ static int mov_read_timecode_track(AVFormatContext *s, AVStream *st)
     return 0;
 }
 
-static int mov_read_header(AVFormatContext *s, AVFormatParameters *ap)
+static int mov_read_header(AVFormatContext *s)
 {
     MOVContext *mov = s->priv_data;
     AVIOContext *pb = s->pb;
@@ -2702,6 +2725,16 @@ static int mov_read_header(AVFormatContext *s, AVFormatParameters *ap)
         for (i = 0; i < s->nb_streams; i++)
             if (s->streams[i]->codec->codec_tag == AV_RL32("tmcd"))
                 mov_read_timecode_track(s, s->streams[i]);
+    }
+
+    if (mov->trex_data) {
+        int i;
+        for (i = 0; i < s->nb_streams; i++) {
+            AVStream *st = s->streams[i];
+            MOVStreamContext *sc = st->priv_data;
+            if (st->duration)
+                st->codec->bit_rate = sc->data_size * 8 * sc->time_scale / st->duration;
+        }
     }
 
     return 0;
@@ -2740,6 +2773,7 @@ static int mov_read_packet(AVFormatContext *s, AVPacket *pkt)
     AVIndexEntry *sample;
     AVStream *st = NULL;
     int ret;
+    mov->fc = s;
  retry:
     sample = mov_find_next_sample(s, &st);
     if (!sample) {
@@ -2909,6 +2943,15 @@ static int mov_read_close(AVFormatContext *s)
     return 0;
 }
 
+static const AVOption options[] = {
+    {"use_absolute_path",
+        "allow using absolute path when opening alias, this is a possible security issue",
+        offsetof(MOVContext, use_absolute_path), FF_OPT_TYPE_INT, {.dbl = 0},
+        0, 1, AV_OPT_FLAG_VIDEO_PARAM|AV_OPT_FLAG_DECODING_PARAM},
+    {NULL}
+};
+static const AVClass class = {"mov,mp4,m4a,3gp,3g2,mj2", av_default_item_name, options, LIBAVUTIL_VERSION_INT};
+
 AVInputFormat ff_mov_demuxer = {
     .name           = "mov,mp4,m4a,3gp,3g2,mj2",
     .long_name      = NULL_IF_CONFIG_SMALL("QuickTime/MPEG-4/Motion JPEG 2000 format"),
@@ -2918,4 +2961,5 @@ AVInputFormat ff_mov_demuxer = {
     .read_packet    = mov_read_packet,
     .read_close     = mov_read_close,
     .read_seek      = mov_read_seek,
+    .priv_class     = &class,
 };
