@@ -91,7 +91,7 @@ void av_fast_padded_malloc(void *ptr, unsigned int *size, size_t min_size)
 {
     uint8_t **p = ptr;
     if (min_size > SIZE_MAX - FF_INPUT_BUFFER_PADDING_SIZE) {
-        *p = NULL;
+        av_freep(p);
         *size = 0;
         return;
     }
@@ -700,6 +700,21 @@ int attribute_align_arg avcodec_open2(AVCodecContext *avctx, AVCodec *codec, AVD
     int ret = 0;
     AVDictionary *tmp = NULL;
 
+    if (avcodec_is_open(avctx))
+        return 0;
+
+    if ((!codec && !avctx->codec)) {
+        av_log(avctx, AV_LOG_ERROR, "No codec provided to avcodec_open2().\n");
+        return AVERROR(EINVAL);
+    }
+    if ((codec && avctx->codec && codec != avctx->codec)) {
+        av_log(avctx, AV_LOG_ERROR, "This AVCodecContext was allocated for %s, "
+               "but %s passed to avcodec_open2().\n", avctx->codec->name, codec->name);
+        return AVERROR(EINVAL);
+    }
+    if (!codec)
+        codec = avctx->codec;
+
     if (avctx->extradata_size < 0 || avctx->extradata_size >= FF_MAX_EXTRADATA_SIZE)
         return AVERROR(EINVAL);
 
@@ -716,11 +731,6 @@ int attribute_align_arg avcodec_open2(AVCodecContext *avctx, AVCodec *codec, AVD
     if(entangled_thread_counter != 1){
         av_log(avctx, AV_LOG_ERROR, "insufficient thread locking around avcodec_open/close()\n");
         ret = -1;
-        goto end;
-    }
-
-    if(avctx->codec || !codec) {
-        ret = AVERROR(EINVAL);
         goto end;
     }
 
@@ -909,16 +919,14 @@ int ff_alloc_packet(AVPacket *avpkt, int size)
 
     if (avpkt->data) {
         uint8_t *pkt_data;
-        int pkt_size;
 
         if (avpkt->size < size)
             return AVERROR(EINVAL);
 
         pkt_data = avpkt->data;
-        pkt_size = avpkt->size;
         av_init_packet(avpkt);
         avpkt->data = pkt_data;
-        avpkt->size = pkt_size;
+        avpkt->size = size;
         return 0;
     } else {
         return av_new_packet(avpkt, size);
@@ -1408,14 +1416,17 @@ av_cold int avcodec_close(AVCodecContext *avctx)
         return -1;
     }
 
-    if (HAVE_THREADS && avctx->thread_opaque)
-        ff_thread_free(avctx);
-    if (avctx->codec && avctx->codec->close)
-        avctx->codec->close(avctx);
-    avcodec_default_free_buffers(avctx);
-    avctx->coded_frame = NULL;
-    av_freep(&avctx->internal);
-    if (avctx->codec && avctx->codec->priv_class)
+    if (avcodec_is_open(avctx)) {
+        if (HAVE_THREADS && avctx->thread_opaque)
+            ff_thread_free(avctx);
+        if (avctx->codec && avctx->codec->close)
+            avctx->codec->close(avctx);
+        avcodec_default_free_buffers(avctx);
+        avctx->coded_frame = NULL;
+        av_freep(&avctx->internal);
+    }
+
+    if (avctx->priv_data && avctx->codec && avctx->codec->priv_class)
         av_opt_free(avctx->priv_data);
     av_opt_free(avctx);
     av_freep(&avctx->priv_data);
@@ -1435,9 +1446,9 @@ av_cold int avcodec_close(AVCodecContext *avctx)
 static enum CodecID remap_deprecated_codec_id(enum CodecID id)
 {
     switch(id){
-        case CODEC_ID_G723_1_DEPRECATED : return CODEC_ID_G723_1;
-        case CODEC_ID_G729_DEPRECATED   : return CODEC_ID_G729;
-        case CODEC_ID_UTVIDEO_DEPRECATED: return CODEC_ID_UTVIDEO;
+        //This is for future deprecatec codec ids, its empty since
+        //last major bump but will fill up again over time, please dont remove it
+//         case CODEC_ID_UTVIDEO_DEPRECATED: return CODEC_ID_UTVIDEO;
         default                         : return id;
     }
 }
@@ -1975,4 +1986,9 @@ enum AVMediaType avcodec_get_type(enum CodecID codec_id)
         return AVMEDIA_TYPE_SUBTITLE;
 
     return AVMEDIA_TYPE_UNKNOWN;
+}
+
+int avcodec_is_open(AVCodecContext *s)
+{
+    return !!s->internal;
 }

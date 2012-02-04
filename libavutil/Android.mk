@@ -53,6 +53,7 @@ LIBAVUTIL_SRC_FILES := \
 		samplefmt.c \
 		sha.c \
 		tree.c \
+		timecode.c \
 		utils.c \
 		arm/cpu.c \
 

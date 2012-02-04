@@ -185,9 +185,6 @@ enum CodecID {
     CODEC_ID_TIERTEXSEQVIDEO,
     CODEC_ID_TIFF,
     CODEC_ID_GIF,
-#if LIBAVCODEC_VERSION_MAJOR == 53
-    CODEC_ID_FFH264,
-#endif
     CODEC_ID_DXA,
     CODEC_ID_DNXHD,
     CODEC_ID_THP,
@@ -205,10 +202,6 @@ enum CodecID {
     CODEC_ID_INDEO5,
     CODEC_ID_MIMIC,
     CODEC_ID_RL2,
-#if LIBAVCODEC_VERSION_MAJOR == 53
-    CODEC_ID_8SVX_EXP,
-    CODEC_ID_8SVX_FIB,
-#endif
     CODEC_ID_ESCAPE124,
     CODEC_ID_DIRAC,
     CODEC_ID_BFI,
@@ -247,18 +240,13 @@ enum CodecID {
     CODEC_ID_DFA,
     CODEC_ID_WMV3IMAGE,
     CODEC_ID_VC1IMAGE,
-#if LIBAVCODEC_VERSION_MAJOR == 53
-    CODEC_ID_G723_1_DEPRECATED,
-    CODEC_ID_G729_DEPRECATED,
-#endif
-    CODEC_ID_UTVIDEO_DEPRECATED,
+    CODEC_ID_UTVIDEO,
     CODEC_ID_BMV_VIDEO,
     CODEC_ID_VBLE,
     CODEC_ID_DXTORY,
     CODEC_ID_V410,
     CODEC_ID_XWD,
     CODEC_ID_Y41P       = MKBETAG('Y','4','1','P'),
-    CODEC_ID_UTVIDEO = 0x800,
     CODEC_ID_ESCAPE130  = MKBETAG('E','1','3','0'),
     CODEC_ID_AVRP       = MKBETAG('A','V','R','P'),
 
@@ -397,15 +385,11 @@ enum CodecID {
     CODEC_ID_AAC_LATM,
     CODEC_ID_QDMC,
     CODEC_ID_CELT,
-#if LIBAVCODEC_VERSION_MAJOR > 53
-    CODEC_ID_G723_1_DEPRECATED,
-    CODEC_ID_G729_DEPRECATED,
+    CODEC_ID_G723_1,
+    CODEC_ID_G729,
     CODEC_ID_8SVX_EXP,
     CODEC_ID_8SVX_FIB,
-#endif
     CODEC_ID_BMV_AUDIO,
-    CODEC_ID_G729 = 0x15800,
-    CODEC_ID_G723_1= 0x15801,
     CODEC_ID_FFWAVESYNTH = MKBETAG('F','F','W','S'),
     CODEC_ID_8SVX_RAW   = MKBETAG('8','S','V','X'),
     CODEC_ID_SONIC       = MKBETAG('S','O','N','C'),
@@ -1523,7 +1507,6 @@ typedef struct AVCodecContext {
 #define FF_BUG_DC_CLIP          4096
 #define FF_BUG_MS               8192 ///< Work around various bugs in Microsoft's broken decoders.
 #define FF_BUG_TRUNCATED       16384
-//#define FF_BUG_FAKE_SCALABILITY 16 //Autodetection should work 100%.
 
     /**
      * luma single coefficient elimination threshold
@@ -2096,14 +2079,6 @@ typedef struct AVCodecContext {
      * - decoding: unused
      */
     int context_model;
-#if 0
-    /**
-     *
-     * - encoding: unused
-     * - decoding: Set by user.
-     */
-    uint8_t * (*realloc)(struct AVCodecContext *s, uint8_t *buf, int buf_size);
-#endif
 
     /**
      * slice flags
@@ -2857,31 +2832,20 @@ typedef struct AVCodec {
      * This is the primary way to find a codec from the user perspective.
      */
     const char *name;
-    enum AVMediaType type;
-    enum CodecID id;
-    int priv_data_size;
-    int (*init)(AVCodecContext *);
-    int (*encode)(AVCodecContext *, uint8_t *buf, int buf_size, void *data);
-    int (*close)(AVCodecContext *);
-    int (*decode)(AVCodecContext *, void *outdata, int *outdata_size, AVPacket *avpkt);
-    /**
-     * Codec capabilities.
-     * see CODEC_CAP_*
-     */
-    int capabilities;
-    struct AVCodec *next;
-    /**
-     * Flush buffers.
-     * Will be called when seeking
-     */
-    void (*flush)(AVCodecContext *);
-    const AVRational *supported_framerates; ///< array of supported framerates, or NULL if any, array is terminated by {0,0}
-    const enum PixelFormat *pix_fmts;       ///< array of supported pixel formats, or NULL if unknown, array is terminated by -1
     /**
      * Descriptive name for the codec, meant to be more human readable than name.
      * You should use the NULL_IF_CONFIG_SMALL() macro to define it.
      */
     const char *long_name;
+    enum AVMediaType type;
+    enum CodecID id;
+    /**
+     * Codec capabilities.
+     * see CODEC_CAP_*
+     */
+    int capabilities;
+    const AVRational *supported_framerates; ///< array of supported framerates, or NULL if any, array is terminated by {0,0}
+    const enum PixelFormat *pix_fmts;       ///< array of supported pixel formats, or NULL if unknown, array is terminated by -1
     const int *supported_samplerates;       ///< array of supported audio samplerates, or NULL if unknown, array is terminated by 0
     const enum AVSampleFormat *sample_fmts; ///< array of supported sample formats, or NULL if unknown, array is terminated by -1
     const uint64_t *channel_layouts;         ///< array of support channel layouts, or NULL if unknown. array is terminated by 0
@@ -2889,6 +2853,15 @@ typedef struct AVCodec {
     const AVClass *priv_class;              ///< AVClass for the private context
     const AVProfile *profiles;              ///< array of recognized profiles, or NULL if unknown, array is terminated by {FF_PROFILE_UNKNOWN}
 
+    /*****************************************************************
+     * No fields below this line are part of the public API. They
+     * may not be used outside of libavcodec and can be changed and
+     * removed at will.
+     * New public fields should be added right above.
+     *****************************************************************
+     */
+    int priv_data_size;
+    struct AVCodec *next;
     /**
      * @name Frame-level threading support functions
      * @{
@@ -2919,6 +2892,8 @@ typedef struct AVCodec {
      */
     void (*init_static_data)(struct AVCodec *codec);
 
+    int (*init)(AVCodecContext *);
+    int (*encode)(AVCodecContext *, uint8_t *buf, int buf_size, void *data);
     /**
      * Encode data to an AVPacket.
      *
@@ -2931,6 +2906,13 @@ typedef struct AVCodec {
      */
     int (*encode2)(AVCodecContext *avctx, AVPacket *avpkt, const AVFrame *frame,
                    int *got_packet_ptr);
+    int (*decode)(AVCodecContext *, void *outdata, int *outdata_size, AVPacket *avpkt);
+    int (*close)(AVCodecContext *);
+    /**
+     * Flush buffers.
+     * Will be called when seeking
+     */
+    void (*flush)(AVCodecContext *);
 } AVCodec;
 
 /**
@@ -3570,7 +3552,8 @@ av_export AVCodecContext *avcodec_alloc_context2(enum AVMediaType);
 
 /**
  * Allocate an AVCodecContext and set its fields to default values.  The
- * resulting struct can be deallocated by simply calling av_free().
+ * resulting struct can be deallocated by calling avcodec_close() on it followed
+ * by av_free().
  *
  * @param codec if non-NULL, allocate private data and initialize defaults
  *              for the given codec. It is illegal to then call avcodec_open2()
@@ -3715,6 +3698,11 @@ av_export int avcodec_open(AVCodecContext *avctx, AVCodec *codec);
  * @endcode
  *
  * @param avctx The context to initialize.
+ * @param codec The codec to open this context for. If a non-NULL codec has been
+ *              previously passed to avcodec_alloc_context3() or
+ *              avcodec_get_context_defaults3() for this context, then this
+ *              parameter MUST be either NULL or equal to the previously passed
+ *              codec.
  * @param options A dictionary filled with AVCodecContext and codec-private options.
  *                On return this object will be filled with options that were not found.
  *
@@ -4004,7 +3992,17 @@ av_export int avcodec_encode_video(AVCodecContext *avctx, uint8_t *buf, int buf_
 av_export int avcodec_encode_subtitle(AVCodecContext *avctx, uint8_t *buf, int buf_size,
                             const AVSubtitle *sub);
 
-av_export int avcodec_close(AVCodecContext *avctx);
+/**
+ * Close a given AVCodecContext and free all the data associated with it
+ * (but not the AVCodecContext itself).
+ *
+ * Calling this function on an AVCodecContext that hasn't been opened will free
+ * the codec-specific data allocated in avcodec_alloc_context3() /
+ * avcodec_get_context_defaults3() with a non-NULL codec. Subsequent calls will
+ * do nothing.
+ */
+av_export
+int avcodec_close(AVCodecContext *avctx);
 
 /**
  * Register all the codecs, parsers and bitstream filters which were enabled at
@@ -4377,6 +4375,7 @@ av_export int av_lockmgr_register(int (*cb)(void **mutex, enum AVLockOp op));
 /**
  * Get the type of the given codec.
  */
+av_export
 enum AVMediaType avcodec_get_type(enum CodecID codec_id);
 
 /**
@@ -4385,6 +4384,7 @@ enum AVMediaType avcodec_get_type(enum CodecID codec_id);
  *
  * @see av_opt_find().
  */
+av_export
 const AVClass *avcodec_get_class(void);
 
 /**
@@ -4393,6 +4393,14 @@ const AVClass *avcodec_get_class(void);
  *
  * @see av_opt_find().
  */
+av_export
 const AVClass *avcodec_get_frame_class(void);
+
+/**
+ * @return a positive value if s is open (i.e. avcodec_open2() was called on it
+ * with no corresponding avcodec_close()), 0 otherwise.
+ */
+av_export
+int avcodec_is_open(AVCodecContext *s);
 
 #endif /* AVCODEC_AVCODEC_H */

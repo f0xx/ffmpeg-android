@@ -491,12 +491,13 @@ following image formats are supported:
 @item Escape 124             @tab     @tab  X
 @item Escape 130             @tab     @tab  X
 @item FFmpeg video codec #1  @tab  X  @tab  X
-    @tab experimental lossless codec (fourcc: FFV1)
+    @tab lossless codec (fourcc: FFV1)
 @item Flash Screen Video v1  @tab  X  @tab  X
     @tab fourcc: FSV1
 @item Flash Screen Video v2  @tab  X  @tab  X
 @item Flash Video (FLV)      @tab  X  @tab  X
     @tab Sorenson H.263 used in Flash
+@item Forward Uncompressed   @tab     @tab  X
 @item Fraps                  @tab     @tab  X
 @item H.261                  @tab  X  @tab  X
 @item H.263 / H.263-1996     @tab  X  @tab  X
