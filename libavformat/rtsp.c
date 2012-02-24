@@ -73,7 +73,7 @@
 
 const AVOption ff_rtsp_options[] = {
     { "initial_pause",  "Don't start playing the stream immediately", OFFSET(initial_pause), AV_OPT_TYPE_INT, {0}, 0, 1, DEC },
-    FF_RTP_FLAG_OPTS(RTSPState, rtp_muxer_flags),
+    FF_RTP_FLAG_OPTS(RTSPState, rtp_muxer_flags)
     { "rtsp_transport", "RTSP transport protocols", OFFSET(lower_transport_mask), AV_OPT_TYPE_FLAGS, {0}, INT_MIN, INT_MAX, DEC|ENC, "rtsp_transport" }, \
     { "udp", "UDP", 0, AV_OPT_TYPE_CONST, {1 << RTSP_LOWER_TRANSPORT_UDP}, 0, 0, DEC|ENC, "rtsp_transport" }, \
     { "tcp", "TCP", 0, AV_OPT_TYPE_CONST, {1 << RTSP_LOWER_TRANSPORT_TCP}, 0, 0, DEC|ENC, "rtsp_transport" }, \
@@ -1921,6 +1921,9 @@ static int rtp_read_header(AVFormatContext *s)
                                       "received\n");
             continue;
         }
+
+        if (RTP_PT_IS_RTCP(recvbuf[1]))
+            continue;
 
         payload_type = recvbuf[1] & 0x7f;
         break;

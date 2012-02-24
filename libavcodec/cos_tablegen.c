@@ -50,14 +50,11 @@ static void printval(double val, int fixed)
 int main(int argc, char *argv[])
 {
     int i, j;
-    int do_sin = argc > 1 && !strcmp(argv[1], "sin");
-    int fixed  = argc > 1 &&  strstr(argv[1], "fixed");
-<<<<<<< HEAD:libavcodec/costablegen.c
+    int do_sin; // = argc > 1 && !strcmp(argv[1], "sin");
+    int fixed; //  = argc > 1 &&  strstr(argv[1], "fixed");
     do_sin |= argc > 2 && !strcmp(argv[2], "sin");
     fixed  |= argc > 2 &&  strstr(argv[2], "fixed");
 
-=======
->>>>>>> bd2bcf97fa811623441c4e13dfa55e9534220ddc:libavcodec/cos_tablegen.c
     double (*func)(double) = do_sin ? sin : cos;
 
     printf("/* This file was automatically generated. */\n");

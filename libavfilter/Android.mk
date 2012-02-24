@@ -75,6 +75,7 @@ LIBAVFILTER_SRC_FILES := \
 		vf_setpts.c \
 		vf_settb.c \
 		vf_select.c \
+		vf_setfield.c \
 		vf_showinfo.c \
 		vf_split.c \
 		vf_slicify.c \

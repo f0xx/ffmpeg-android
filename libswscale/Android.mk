@@ -21,7 +21,9 @@ LOCAL_LDFLAGS += -lz -llog
 #LOCAL_LDFLAGS += -L$(NDK_APP_DST_DIR) -L$(TARGET_OUT)
 
 LIBSWSCALE_SRC_FILES := \
+		input.c \
 		options.c \
+		output.c \
 		rgb2rgb.c \
 		swscale.c \
 		swscale_unscaled.c \

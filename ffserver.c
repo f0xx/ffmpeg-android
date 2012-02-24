@@ -1872,7 +1872,7 @@ static int http_parse_request(HTTPContext *c)
 
 static void fmt_bytecount(AVIOContext *pb, int64_t count)
 {
-    static const char *suffix = " kMGTP";
+    static const char suffix[] = " kMGTP";
     const char *s;
 
     for (s = suffix; count >= 100000 && s[1]; count /= 1000, s++);
@@ -4221,8 +4221,8 @@ static int parse_ffconfig(const char *filename)
                 }
 
                 stream->fmt = ffserver_guess_format(NULL, stream->filename, NULL);
-                avcodec_get_context_defaults2(&video_enc, AVMEDIA_TYPE_VIDEO);
-                avcodec_get_context_defaults2(&audio_enc, AVMEDIA_TYPE_AUDIO);
+                avcodec_get_context_defaults3(&video_enc, NULL);
+                avcodec_get_context_defaults3(&audio_enc, NULL);
 
                 audio_id = CODEC_ID_NONE;
                 video_id = CODEC_ID_NONE;

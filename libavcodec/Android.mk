@@ -28,6 +28,7 @@ LOCAL_LDFLAGS += -lz -llog
 #		aacpsdata.c
 		
 #LIBAVCODEC_SRC_FILES := $(patsubst $(EXCLUDE),,$(LIBAVCODEC_SRC_FILES))
+#		proresenc_anatoliy.c \
 
 LIBAVCODEC_SRC_FILES := \
 		4xm.c \
@@ -95,6 +96,7 @@ LIBAVCODEC_SRC_FILES := \
 		cavsdec.c \
 		cavsdsp.c \
 		cdgraphics.c \
+		cdxl.c \
 		celp_filters.c \
 		celp_math.c \
 		cga_data.c \
@@ -285,9 +287,11 @@ LIBAVCODEC_SRC_FILES := \
 		pnm_parser.c \
 		pnmdec.c \
 		ptx.c \
-		proresdsp.c \
+		proresdata.c \
 		proresdec2.c \
 		proresdec_lgpl.c \
+		proresdsp.c \
+		proresenc_kostya.c \
 		qcelpdec.c \
 		qdm2.c \
 		qdrw.c \
@@ -368,6 +372,8 @@ LIBAVCODEC_SRC_FILES := \
 		vorbisdec.c \
 		vble.c \
 		v308dec.c \
+		v408dec.c \
+		v408enc.c \
 		v410dec.c \
 		vp3.c \
 		vp3_parser.c \

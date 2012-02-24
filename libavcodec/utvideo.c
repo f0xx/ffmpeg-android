@@ -103,10 +103,10 @@ static int build_huff(const uint8_t *src, VLC *vlc, int *fsym)
         code += 0x80000000u >> (he[i].len - 1);
     }
 
-    return init_vlc_sparse(vlc, FFMIN(he[last].len, 9), last + 1,
-                           bits,  sizeof(*bits),  sizeof(*bits),
-                           codes, sizeof(*codes), sizeof(*codes),
-                           syms,  sizeof(*syms),  sizeof(*syms), 0);
+    return ff_init_vlc_sparse(vlc, FFMIN(he[last].len, 9), last + 1,
+                              bits,  sizeof(*bits),  sizeof(*bits),
+                              codes, sizeof(*codes), sizeof(*codes),
+                              syms,  sizeof(*syms),  sizeof(*syms), 0);
 }
 
 static int decode_plane(UtvideoContext *c, int plane_no,
@@ -207,11 +207,11 @@ static int decode_plane(UtvideoContext *c, int plane_no,
                    get_bits_left(&gb));
     }
 
-    free_vlc(&vlc);
+    ff_free_vlc(&vlc);
 
     return 0;
 fail:
-    free_vlc(&vlc);
+    ff_free_vlc(&vlc);
     return AVERROR_INVALIDDATA;
 }
 
@@ -376,8 +376,6 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
         return ret;
     }
 
-    ff_thread_finish_setup(avctx);
-
     /* parse plane structure to retrieve frame flags and validate slice offsets */
     ptr = buf;
     for (i = 0; i < c->planes; i++) {
@@ -505,7 +503,7 @@ static av_cold int decode_init(AVCodecContext *avctx)
 
     c->avctx = avctx;
 
-    dsputil_init(&c->dsp, avctx);
+    ff_dsputil_init(&c->dsp, avctx);
 
     if (avctx->extradata_size < 16) {
         av_log(avctx, AV_LOG_ERROR, "Insufficient extradata size %d, should be at least 16\n",

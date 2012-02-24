@@ -33,6 +33,10 @@ LOCAL_LDFLAGS += $(GLOBAL_LDFLAGS)
 LOCAL_LDFLAGS += -lz -llog 
 #-lavcodec -lavutil
 
+#		applehttp.c \
+#		applehttpproto.c \
+#		librtmp.c \
+
 LIBAVFORMAT_SRC_FILES := \
 		4xm.c \
 		a64.c \
@@ -48,8 +52,6 @@ LIBAVFORMAT_SRC_FILES := \
 		apc.c \
 		ape.c \
 		apetag.c \
-		applehttp.c \
-		applehttpproto.c \
 		asf.c \
 		asfcrypt.c \
 		asfdec.c \
@@ -74,6 +76,7 @@ LIBAVFORMAT_SRC_FILES := \
 		cafdec.c \
 		cavsvideodec.c \
 		cdg.c \
+		cdxl.c \
 		crypto.c \
 		concat.c \
 		cutils.c \
@@ -103,6 +106,8 @@ LIBAVFORMAT_SRC_FILES := \
 		h261dec.c \
 		h263dec.c \
 		h264dec.c \
+		hls.c \
+		hlsproto.c \
 		httpauth.c \
 		http.c \
 		icodec.c \
@@ -112,6 +117,7 @@ LIBAVFORMAT_SRC_FILES := \
 		idroqdec.c \
 		iff.c \
 		img2.c \
+		img2dec.c \
 		ingenientdec.c \
 		ipmovie.c \
 		isom.c \
@@ -193,6 +199,7 @@ LIBAVFORMAT_SRC_FILES := \
 		rtpdec.c \
 		rtpdec_g726.c \
 		rtpdec_h263.c \
+		rtpdec_h263_rfc2190.c \
 		rtpdec_h264.c \
 		rtpdec_latm.c \
 		rtpdec_mpeg4.c \
