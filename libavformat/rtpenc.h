@@ -34,7 +34,6 @@ struct RTPMuxContext {
     uint32_t timestamp;
     uint32_t base_timestamp;
     uint32_t cur_timestamp;
-    int max_packet_size;
     int max_payload_size;
     int num_frames;
 
@@ -78,7 +77,8 @@ void ff_rtp_send_data(AVFormatContext *s1, const uint8_t *buf1, int len, int m);
 
 void ff_rtp_send_h264(AVFormatContext *s1, const uint8_t *buf1, int size);
 void ff_rtp_send_h263(AVFormatContext *s1, const uint8_t *buf1, int size);
-void ff_rtp_send_h263_rfc2190(AVFormatContext *s1, const uint8_t *buf1, int size);
+void ff_rtp_send_h263_rfc2190(AVFormatContext *s1, const uint8_t *buf1, int size,
+                              const uint8_t *mb_info, int mb_info_size);
 void ff_rtp_send_aac(AVFormatContext *s1, const uint8_t *buff, int size);
 void ff_rtp_send_latm(AVFormatContext *s1, const uint8_t *buff, int size);
 void ff_rtp_send_amr(AVFormatContext *s1, const uint8_t *buff, int size);

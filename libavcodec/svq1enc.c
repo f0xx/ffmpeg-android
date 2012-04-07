@@ -95,7 +95,7 @@ static void svq1_write_header(SVQ1Context *s, int frame_type)
         /* output 5 unknown bits (2 + 2 + 1) */
         put_bits(&s->pb, 5, 2); /* 2 needed by quicktime decoder */
 
-        i= ff_match_2uint16(ff_svq1_frame_size_table, FF_ARRAY_ELEMS(ff_svq1_frame_size_table), s->frame_width, s->frame_height);
+        i= ff_match_2uint16((void*)ff_svq1_frame_size_table, FF_ARRAY_ELEMS(ff_svq1_frame_size_table), s->frame_width, s->frame_height);
         put_bits(&s->pb, 3, i);
 
         if (i == 7)
@@ -473,7 +473,7 @@ static av_cold int svq1_encode_init(AVCodecContext *avctx)
     SVQ1Context * const s = avctx->priv_data;
 
     ff_dsputil_init(&s->dsp, avctx);
-    avctx->coded_frame= (AVFrame*)&s->picture;
+    avctx->coded_frame = &s->picture;
 
     s->frame_width = avctx->width;
     s->frame_height = avctx->height;
@@ -501,15 +501,12 @@ static int svq1_encode_frame(AVCodecContext *avctx, AVPacket *pkt,
                              const AVFrame *pict, int *got_packet)
 {
     SVQ1Context * const s = avctx->priv_data;
-    AVFrame * const p= (AVFrame*)&s->picture;
+    AVFrame * const p = &s->picture;
     AVFrame temp;
     int i, ret;
 
-    if (!pkt->data &&
-        (ret = av_new_packet(pkt, s->y_block_width*s->y_block_height*MAX_MB_BYTES*3 + FF_MIN_BUFFER_SIZE) < 0)) {
-        av_log(avctx, AV_LOG_ERROR, "Error getting output packet.\n");
+    if ((ret = ff_alloc_packet2(avctx, pkt, s->y_block_width*s->y_block_height*MAX_MB_BYTES*3 + FF_MIN_BUFFER_SIZE) < 0))
         return ret;
-    }
 
     if(avctx->pix_fmt != PIX_FMT_YUV410P){
         av_log(avctx, AV_LOG_ERROR, "unsupported pixel format\n");

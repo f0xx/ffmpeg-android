@@ -47,14 +47,13 @@ static int build_vlc(VLC *vlc, const uint8_t *bits_table,
                      const uint8_t *val_table, int nb_codes,
                      int use_static, int is_ac)
 {
-    uint8_t huff_size[256];
+    uint8_t huff_size[256] = { 0 };
     uint16_t huff_code[256];
     uint16_t huff_sym[256];
     int i;
 
     assert(nb_codes <= 256);
 
-    memset(huff_size, 0, sizeof(huff_size));
     ff_mjpeg_build_huffman_codes(huff_size, huff_code, bits_table, val_table);
 
     for (i = 0; i < 256; i++)
@@ -251,6 +250,12 @@ int ff_mjpeg_decode_sof(MJpegDecodeContext *s)
     if (nb_components <= 0 ||
         nb_components > MAX_COMPONENTS)
         return -1;
+    if (s->interlaced && (s->bottom_field == !s->interlace_polarity)) {
+        if (nb_components != s->nb_components) {
+            av_log(s->avctx, AV_LOG_ERROR, "nb_components changing in interlaced picture\n");
+            return AVERROR_INVALIDDATA;
+        }
+    }
     if (s->ls && !(s->bits <= 8 || nb_components == 1)) {
         av_log(s->avctx, AV_LOG_ERROR,
                "only <= 8 bits/component or 16-bit gray accepted for JPEG-LS\n");
@@ -269,6 +274,10 @@ int ff_mjpeg_decode_sof(MJpegDecodeContext *s)
             s->h_max = s->h_count[i];
         if (s->v_count[i] > s->v_max)
             s->v_max = s->v_count[i];
+        if (!s->h_count[i] || !s->v_count[i]) {
+            av_log(s->avctx, AV_LOG_ERROR, "h/v_count is 0\n");
+            return -1;
+        }
         s->quant_index[i] = get_bits(&s->gb, 8);
         if (s->quant_index[i] >= 4)
             return -1;
@@ -312,8 +321,13 @@ int ff_mjpeg_decode_sof(MJpegDecodeContext *s)
         s->first_picture = 0;
     }
 
-    if (s->interlaced && (s->bottom_field == !s->interlace_polarity))
+    if (s->interlaced && (s->bottom_field == !s->interlace_polarity)) {
+        if (s->progressive) {
+            av_log_ask_for_sample(s->avctx, "progressively coded interlaced pictures not supported\n");
+            return AVERROR_INVALIDDATA;
+        }
         return 0;
+    }
 
     /* XXX: not complete test ! */
     pix_fmt_id = (s->h_count[0] << 28) | (s->v_count[0] << 24) |
@@ -396,6 +410,10 @@ int ff_mjpeg_decode_sof(MJpegDecodeContext *s)
     default:
         av_log(s->avctx, AV_LOG_ERROR, "Unhandled pixel format 0x%x\n", pix_fmt_id);
         return -1;
+    }
+    if ((s->upscale_h || s->upscale_v) && s->avctx->lowres) {
+        av_log(s->avctx, AV_LOG_ERROR, "lowres not supported for weird subsampling\n");
+        return AVERROR_PATCHWELCOME;
     }
     if (s->ls) {
         s->upscale_h = s->upscale_v = 0;
@@ -844,7 +862,7 @@ static int ljpeg_decode_yuv_scan(MJpegDecodeContext *s, int predictor,
                         pred &= (-1)<<(8-s->bits);
                         *ptr= pred + (dc << point_transform);
                         }else{
-                            ptr16 = s->picture.data[c] + 2*(linesize * (v * mb_y + y)) + 2*(h * mb_x + x); //FIXME optimize this crap
+                            ptr16 = (uint16_t*)(s->picture.data[c] + 2*(linesize * (v * mb_y + y)) + 2*(h * mb_x + x)); //FIXME optimize this crap
                             if(y==0 && toprow){
                                 if(x==0 && leftcol){
                                     pred= 1 << (bits - 1);
@@ -900,7 +918,7 @@ static int ljpeg_decode_yuv_scan(MJpegDecodeContext *s, int predictor,
                             pred &= (-1)<<(8-s->bits);
                             *ptr = pred + (dc << point_transform);
                         }else{
-                            ptr16 = s->picture.data[c] + 2*(linesize * (v * mb_y + y)) + 2*(h * mb_x + x); //FIXME optimize this crap
+                            ptr16 = (uint16_t*)(s->picture.data[c] + 2*(linesize * (v * mb_y + y)) + 2*(h * mb_x + x)); //FIXME optimize this crap
                             PREDICT(pred, ptr16[-linesize-1], ptr16[-linesize], ptr16[-1], predictor);
 
                             pred &= (-1)<<(16-s->bits);
@@ -980,9 +998,9 @@ static int mjpeg_decode_scan(MJpegDecodeContext *s, int nb_components, int Ah,
             if (s->restart_interval && !s->restart_count)
                 s->restart_count = s->restart_interval;
 
-            if (get_bits_count(&s->gb)>s->gb.size_in_bits) {
+            if (get_bits_left(&s->gb) < 0) {
                 av_log(s->avctx, AV_LOG_ERROR, "overread %d\n",
-                       get_bits_count(&s->gb) - s->gb.size_in_bits);
+                       -get_bits_left(&s->gb));
                 return -1;
             }
             for (i = 0; i < nb_components; i++) {
@@ -1157,6 +1175,8 @@ int ff_mjpeg_decode_sos(MJpegDecodeContext *s, const uint8_t *mb_bitmask,
 
         if(nb_components == 3 && s->nb_components == 3 && s->avctx->pix_fmt == PIX_FMT_GBR24P)
             index = (i+2)%3;
+        if(nb_components == 1 && s->nb_components == 3 && s->avctx->pix_fmt == PIX_FMT_GBR24P)
+            index = (index+2)%3;
 
         s->comp_index[i] = index;
 
@@ -1265,7 +1285,7 @@ static int mjpeg_decode_app(MJpegDecodeContext *s)
     len = get_bits(&s->gb, 16);
     if (len < 5)
         return -1;
-    if (8 * len + get_bits_count(&s->gb) > s->gb.size_in_bits)
+    if (8 * len > get_bits_left(&s->gb))
         return -1;
 
     id   = get_bits_long(&s->gb, 32);
@@ -1403,8 +1423,7 @@ out:
 static int mjpeg_decode_com(MJpegDecodeContext *s)
 {
     int len = get_bits(&s->gb, 16);
-    if (len >= 2 &&
-        8 * len - 16 + get_bits_count(&s->gb) <= s->gb.size_in_bits) {
+    if (len >= 2 && 8 * len - 16 <= get_bits_left(&s->gb)) {
         char *cbuf = av_malloc(len - 1);
         if (cbuf) {
             int i;
@@ -1570,6 +1589,10 @@ int ff_mjpeg_decode_frame(AVCodecContext *avctx, void *data, int *data_size,
         /* EOF */
         if (start_code < 0) {
             goto the_end;
+        } else if (unescaped_buf_size > (1U<<29)) {
+            av_log(avctx, AV_LOG_ERROR, "MJPEG packet 0x%x too big (0x%x/0x%x), corrupt data?\n",
+                   start_code, unescaped_buf_size, buf_size);
+            return AVERROR_INVALIDDATA;
         } else {
             av_log(avctx, AV_LOG_DEBUG, "marker=%x avail_size_in_buf=%td\n",
                    start_code, buf_end - buf_ptr);

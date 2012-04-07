@@ -117,10 +117,8 @@ static int encode_frame(AVCodecContext *avctx, AVPacket *pkt,
         size = avctx->height * avctx->width * 4;
     else
         size = avpicture_get_size(avctx->pix_fmt, avctx->width, avctx->height);
-    if ((ret = ff_alloc_packet(pkt, size + HEADER_SIZE)) < 0) {
-        av_log(avctx, AV_LOG_ERROR, "Error getting output packet.\n");
+    if ((ret = ff_alloc_packet2(avctx, pkt, size + HEADER_SIZE)) < 0)
         return ret;
-    }
     buf = pkt->data;
 
     memset(buf, 0, HEADER_SIZE);
@@ -131,9 +129,8 @@ static int encode_frame(AVCodecContext *avctx, AVPacket *pkt,
     memcpy (buf +   8, "V1.0", 4);
     write32(buf +  20, 1); /* new image */
     write32(buf +  24, HEADER_SIZE);
-    if(!(avctx->flags & CODEC_FLAG_BITEXACT)){
+    if (!(avctx->flags & CODEC_FLAG_BITEXACT))
         memcpy (buf + 160, LIBAVCODEC_IDENT, FFMIN(sizeof(LIBAVCODEC_IDENT), 100));
-    }
     write32(buf + 660, 0xFFFFFFFF); /* unencrypted */
 
     /* Image information header */

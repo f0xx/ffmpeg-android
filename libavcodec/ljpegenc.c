@@ -45,7 +45,7 @@ static int encode_picture_lossless(AVCodecContext *avctx, AVPacket *pkt,
     MJpegContext * const m = s->mjpeg_ctx;
     const int width= s->width;
     const int height= s->height;
-    AVFrame * const p= (AVFrame*)&s->current_picture;
+    AVFrame * const p = &s->current_picture.f;
     const int predictor= avctx->prediction_method+1;
     const int mb_width  = (width  + s->mjpeg_hsample[0] - 1) / s->mjpeg_hsample[0];
     const int mb_height = (height + s->mjpeg_vsample[0] - 1) / s->mjpeg_vsample[0];
@@ -57,10 +57,8 @@ static int encode_picture_lossless(AVCodecContext *avctx, AVPacket *pkt,
         max_pkt_size += mb_width * mb_height * 3 * 4
                         * s->mjpeg_hsample[0] * s->mjpeg_vsample[0];
     }
-    if ((ret = ff_alloc_packet(pkt, max_pkt_size)) < 0) {
-        av_log(avctx, AV_LOG_ERROR, "Error getting output packet of size %d.\n", max_pkt_size);
+    if ((ret = ff_alloc_packet2(avctx, pkt, max_pkt_size)) < 0)
         return ret;
-    }
 
     init_put_bits(&s->pb, pkt->data, pkt->size);
 

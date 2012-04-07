@@ -1984,8 +1984,8 @@ decode_intra_mb:
     h->slice_table[ mb_xy ]= h->slice_num;
 
     if(IS_INTRA_PCM(mb_type)) {
-        static const uint16_t mb_sizes[4] = {256,384,512,768};
-        const int mb_size = mb_sizes[h->sps.chroma_format_idc]*h->sps.bit_depth_luma >> 3;
+        const int mb_size = ff_h264_mb_sizes[h->sps.chroma_format_idc] *
+                            h->sps.bit_depth_luma >> 3;
         const uint8_t *ptr;
 
         // We assume these blocks are very rare so we do not optimize it.
@@ -1998,6 +1998,8 @@ decode_intra_mb:
         }
 
         // The pixels are stored in the same order as levels in h->mb array.
+        if ((int) (h->cabac.bytestream_end - ptr) < mb_size)
+            return -1;
         memcpy(h->mb, ptr, mb_size); ptr+=mb_size;
 
         ff_init_cabac_decoder(&h->cabac, ptr, h->cabac.bytestream_end - ptr);

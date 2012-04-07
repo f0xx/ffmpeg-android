@@ -55,7 +55,8 @@ LIBAVUTIL_SRC_FILES := \
 		tree.c \
 		timecode.c \
 		utils.c \
-		arm/cpu.c \
+
+#		arm/cpu.c \
 
 ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
   LOCAL_CFLAGS += -fPIC

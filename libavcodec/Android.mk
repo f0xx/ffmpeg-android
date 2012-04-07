@@ -126,6 +126,7 @@ LIBAVCODEC_SRC_FILES := \
 		dsputil.c \
 		dump_extradata_bsf.c \
 		dv.c \
+		dvdec.c \
 		dvbsub_parser.c \
 		dvbsubdec.c \
 		dvdata.c \
@@ -145,6 +146,7 @@ LIBAVCODEC_SRC_FILES := \
 		error_resilience.c \
 		escape124.c \
 		escape130.c \
+		exr.c \
 		faanidct.c \
 		faxcompr.c \
 		fft_fixed.c \
@@ -301,6 +303,7 @@ LIBAVCODEC_SRC_FILES := \
 		ra144.c \
 		ra144dec.c \
 		ra288.c \
+		ralf.c \
 		rangecoder.c \
 		raw.c \
 		rawdec.c \
@@ -370,6 +373,7 @@ LIBAVCODEC_SRC_FILES := \
 		vorbis.c \
 		vorbis_data.c \
 		vorbisdec.c \
+		vorbis_parser.c \
 		vble.c \
 		v308dec.c \
 		v408dec.c \
@@ -388,6 +392,7 @@ LIBAVCODEC_SRC_FILES := \
 		vqavideo.c \
 		wavpack.c \
 		wma.c \
+		wma_common.c \
 		wmadec.c \
 		wmaprodec.c \
 		wmalosslessdec.c \
@@ -397,6 +402,7 @@ LIBAVCODEC_SRC_FILES := \
 		wnv1.c \
 		ws-snd1.c \
 		xan.c \
+		xbmdec.c \
 		xiph.c \
 		xl.c \
 		xsubdec.c \
@@ -404,6 +410,7 @@ LIBAVCODEC_SRC_FILES := \
 		xwddec.c \
 		y41pdec.c \
 		yuv4dec.c \
+		zerocodec.c \
 		zmbv.c \
 		dcadsp.c \
 		pthread.c \

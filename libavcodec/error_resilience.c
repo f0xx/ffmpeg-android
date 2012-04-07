@@ -174,7 +174,7 @@ static void guess_dc(MpegEncContext *s, int16_t *dc, int w,
 {
     int b_x, b_y;
     int16_t  (*col )[4] = av_malloc(stride*h*sizeof( int16_t)*4);
-    uint16_t (*dist)[4] = av_malloc(stride*h*sizeof(uint16_t)*4);
+    uint32_t (*dist)[4] = av_malloc(stride*h*sizeof(uint32_t)*4);
 
     for(b_y=0; b_y<h; b_y++){
         int color= 1024;
@@ -248,7 +248,7 @@ static void guess_dc(MpegEncContext *s, int16_t *dc, int w,
             weight_sum = 0;
             guess      = 0;
             for (j = 0; j < 4; j++) {
-                int64_t weight  = 256 * 256 * 256 * 16 / dist[b_x + b_y*stride][j];
+                int64_t weight  = 256 * 256 * 256 * 16 / FFMAX(dist[b_x + b_y*stride][j], 1);
                 guess          += weight*(int64_t)col[b_x + b_y*stride][j];
                 weight_sum     += weight;
             }
@@ -613,7 +613,7 @@ skip_mean_and_median:
                         if (s->avctx->codec_id == CODEC_ID_H264) {
                             // FIXME
                         } else {
-                            ff_thread_await_progress((AVFrame *) s->last_picture_ptr,
+                            ff_thread_await_progress(&s->last_picture_ptr->f,
                                                      mb_y, 0);
                         }
                         if (!s->last_picture.f.motion_val[0] ||
@@ -786,7 +786,7 @@ static int is_intra_more_likely(MpegEncContext *s)
                 if (s->avctx->codec_id == CODEC_ID_H264) {
                     // FIXME
                 } else {
-                    ff_thread_await_progress((AVFrame *) s->last_picture_ptr,
+                    ff_thread_await_progress(&s->last_picture_ptr->f,
                                              mb_y, 0);
                 }
                 is_intra_likely += s->dsp.sad[0](NULL, last_mb_ptr, mb_ptr                    , s->linesize, 16);
@@ -1170,7 +1170,7 @@ void ff_er_frame_end(MpegEncContext *s)
                     if (s->avctx->codec_id == CODEC_ID_H264) {
                         // FIXME
                     } else {
-                        ff_thread_await_progress((AVFrame *) s->next_picture_ptr, mb_y, 0);
+                        ff_thread_await_progress(&s->next_picture_ptr->f, mb_y, 0);
                     }
                     s->mv[0][0][0] = s->next_picture.f.motion_val[0][xy][0] *  time_pb            / time_pp;
                     s->mv[0][0][1] = s->next_picture.f.motion_val[0][xy][1] *  time_pb            / time_pp;

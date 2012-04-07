@@ -854,8 +854,8 @@ end:
     {
         int v= show_bits(&s->gb, 16);
 
-        if(get_bits_count(&s->gb) + 16 > s->gb.size_in_bits){
-            v>>= get_bits_count(&s->gb) + 16 - s->gb.size_in_bits;
+        if (get_bits_left(&s->gb) < 16) {
+            v >>= 16 - get_bits_left(&s->gb);
         }
 
         if(v==0)
@@ -1085,6 +1085,20 @@ int ff_h263_decode_picture_header(MpegEncContext *s)
         skip_bits(&s->gb, 2); /* Quantization information for B-pictures */
     }
 
+    if (s->pict_type!=AV_PICTURE_TYPE_B) {
+        s->time= s->picture_number;
+        s->pp_time= s->time - s->last_non_b_time;
+        s->last_non_b_time= s->time;
+    }else{
+        s->time= s->picture_number;
+        s->pb_time= s->pp_time - (s->last_non_b_time - s->time);
+        if(s->pp_time <=s->pb_time || s->pp_time <= s->pp_time - s->pb_time || s->pp_time<=0){
+            s->pp_time = 2;
+            s->pb_time = 1;
+        }
+        ff_mpeg4_init_direct_mv(s);
+    }
+
     /* PEI */
     while (get_bits1(&s->gb) != 0) {
         skip_bits(&s->gb, 8);
@@ -1114,7 +1128,7 @@ int ff_h263_decode_picture_header(MpegEncContext *s)
     }
 
         ff_h263_show_pict_info(s);
-    if (s->pict_type == AV_PICTURE_TYPE_I && s->codec_tag == AV_RL32("ZYGO")){
+    if (s->pict_type == AV_PICTURE_TYPE_I && s->codec_tag == AV_RL32("ZYGO") && get_bits_left(&s->gb) >= 85 + 13*3*16 + 50){
         int i,j;
         for(i=0; i<85; i++) av_log(s->avctx, AV_LOG_DEBUG, "%d", get_bits1(&s->gb));
         av_log(s->avctx, AV_LOG_DEBUG, "\n");

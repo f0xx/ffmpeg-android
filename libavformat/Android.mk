@@ -133,6 +133,7 @@ LIBAVFORMAT_SRC_FILES := \
 		matroskadec.c \
 		md5enc.c \
 		md5proto.c \
+		mgsts.c \
 		metadata.c \
 		microdvddec.c \
 		mm.c \
@@ -255,6 +256,9 @@ LIBAVFORMAT_SRC_FILES := \
 		xwma.c \
 		yop.c \
 		yuv4mpeg.c \
+
+
+#		bluray.c \
 
 ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
   LOCAL_CFLAGS += -fPIC

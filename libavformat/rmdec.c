@@ -311,6 +311,15 @@ ff_rm_read_mdpr_codecdata (AVFormatContext *s, AVIOContext *pb,
         /* ra type header */
         if (rm_read_audio_stream_info(s, pb, st, rst, 0))
             return -1;
+    } else if (v == MKBETAG('L', 'S', 'D', ':')) {
+        avio_seek(pb, -4, SEEK_CUR);
+        if ((ret = rm_read_extradata(pb, st->codec, codec_data_size)) < 0)
+            return ret;
+
+        st->codec->codec_type = AVMEDIA_TYPE_AUDIO;
+        st->codec->codec_tag  = AV_RL32(st->codec->extradata);
+        st->codec->codec_id   = ff_codec_get_id(ff_rm_codec_tags,
+                                                st->codec->codec_tag);
     } else {
         int fps;
         if (avio_rl32(pb) != MKTAG('V', 'I', 'D', 'O')) {
@@ -379,7 +388,7 @@ static int rm_read_index(AVFormatContext *s)
         } else if ((avio_size(pb) - avio_tell(pb)) / 14 < n_pkts) {
             av_log(s, AV_LOG_ERROR,
                    "Nr. of packets in packet index for stream index %d "
-                   "exceeds filesize (%"PRId64" at %"PRId64" = %d)\n",
+                   "exceeds filesize (%"PRId64" at %"PRId64" = %"PRId64")\n",
                    str_id, avio_size(pb), avio_tell(pb),
                    (avio_size(pb) - avio_tell(pb)) / 14);
             goto skip;
@@ -439,10 +448,8 @@ static int rm_read_header(AVFormatContext *s)
         return AVERROR(EIO);
     }
 
-    avio_rb32(pb); /* header size */
-    avio_rb16(pb);
-    avio_rb32(pb);
-    avio_rb32(pb); /* number of headers */
+    tag_size = avio_rb32(pb);
+    avio_skip(pb, tag_size - 8);
 
     for(;;) {
         if (url_feof(pb))

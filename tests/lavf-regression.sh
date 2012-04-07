@@ -107,6 +107,7 @@ do_lavf flv -an
 fi
 
 if [ -n "$do_mov" ] ; then
+do_lavf mov "-movflags +rtphint -acodec pcm_alaw -vcodec mpeg4"
 do_lavf_timecode mov "-acodec pcm_alaw -vcodec mpeg4"
 fi
 
@@ -211,16 +212,26 @@ if [ -n "$do_jpg" ] ; then
 do_image_formats jpg "-pix_fmt yuvj420p" "-f image2"
 fi
 
+if [ -n "$do_pam" ] ; then
+do_image_formats pam
+fi
+
 if [ -n "$do_pcx" ] ; then
 do_image_formats pcx
 fi
 
 if [ -n "$do_dpx" ] ; then
 do_image_formats dpx
+do_image_formats dpx "-pix_fmt rgb48le"
+do_image_formats dpx "-pix_fmt rgb48le -bits_per_raw_sample 10"
 fi
 
 if [ -n "$do_xwd" ] ; then
 do_image_formats xwd
+fi
+
+if [ -n "$do_sunrast" ] ; then
+do_image_formats sun
 fi
 
 # audio only

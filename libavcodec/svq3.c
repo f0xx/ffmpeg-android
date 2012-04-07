@@ -175,7 +175,6 @@ void ff_svq3_add_idct_c(uint8_t *dst, DCTELEM *block, int stride, int qp,
 {
     const int qmul = svq3_dequant_coeff[qp];
     int i;
-    uint8_t *cm = ff_cropTbl + MAX_NEG_CROP;
 
     if (dc) {
         dc = 13*13*((dc == 1) ? 1538*block[0] : ((qmul*(block[0] >> 3)) / 2));
@@ -201,10 +200,10 @@ void ff_svq3_add_idct_c(uint8_t *dst, DCTELEM *block, int stride, int qp,
         const int z3 = 17* block[i + 4*1] +  7*block[i + 4*3];
         const int rr = (dc + 0x80000);
 
-        dst[i + stride*0] = cm[ dst[i + stride*0] + (((z0 + z3)*qmul + rr) >> 20) ];
-        dst[i + stride*1] = cm[ dst[i + stride*1] + (((z1 + z2)*qmul + rr) >> 20) ];
-        dst[i + stride*2] = cm[ dst[i + stride*2] + (((z1 - z2)*qmul + rr) >> 20) ];
-        dst[i + stride*3] = cm[ dst[i + stride*3] + (((z0 - z3)*qmul + rr) >> 20) ];
+        dst[i + stride*0] = av_clip_uint8( dst[i + stride*0] + (((z0 + z3)*qmul + rr) >> 20) );
+        dst[i + stride*1] = av_clip_uint8( dst[i + stride*1] + (((z1 + z2)*qmul + rr) >> 20) );
+        dst[i + stride*2] = av_clip_uint8( dst[i + stride*2] + (((z1 - z2)*qmul + rr) >> 20) );
+        dst[i + stride*3] = av_clip_uint8( dst[i + stride*3] + (((z0 - z3)*qmul + rr) >> 20) );
     }
 }
 
@@ -661,7 +660,7 @@ static int svq3_decode_mb(SVQ3Context *svq3, unsigned int mb_type)
     if (IS_INTRA16x16(mb_type)) {
         AV_ZERO128(h->mb_luma_dc[0]+0);
         AV_ZERO128(h->mb_luma_dc[0]+8);
-        if (svq3_decode_block(&s->gb, h->mb_luma_dc, 0, 1)){
+        if (svq3_decode_block(&s->gb, *h->mb_luma_dc, 0, 1)){
             av_log(h->s.avctx, AV_LOG_ERROR, "error while decoding intra luma dc\n");
             return -1;
         }
@@ -824,6 +823,7 @@ static av_cold int svq3_decode_init(AVCodecContext *avctx)
     s->flags2 = avctx->flags2;
     s->unrestricted_mv = 1;
     h->is_complex=1;
+    h->sps.chroma_format_idc = 1;
     avctx->pix_fmt = avctx->codec->pix_fmts[0];
 
     if (!s->context_initialized) {
@@ -959,7 +959,7 @@ static int svq3_decode_frame(AVCodecContext *avctx,
     /* special case for last picture */
     if (buf_size == 0) {
         if (s->next_picture_ptr && !s->low_delay) {
-            *(AVFrame *) data = *(AVFrame *) &s->next_picture;
+            *(AVFrame *) data   = s->next_picture.f;
             s->next_picture_ptr = NULL;
             *data_size = sizeof(AVFrame);
         }
@@ -1102,9 +1102,9 @@ static int svq3_decode_frame(AVCodecContext *avctx,
     ff_MPV_frame_end(s);
 
     if (s->pict_type == AV_PICTURE_TYPE_B || s->low_delay) {
-        *(AVFrame *) data = *(AVFrame *) &s->current_picture;
+        *(AVFrame *) data = s->current_picture.f;
     } else {
-        *(AVFrame *) data = *(AVFrame *) &s->last_picture;
+        *(AVFrame *) data = s->last_picture.f;
     }
 
     /* Do not output the last pic after seeking. */

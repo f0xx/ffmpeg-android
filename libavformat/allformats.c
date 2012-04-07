@@ -134,6 +134,7 @@ void av_register_all(void)
     REGISTER_MUXER    (MD5, md5);
     REGISTER_MUXDEMUX (MATROSKA, matroska);
     REGISTER_MUXER    (MATROSKA_AUDIO, matroska_audio);
+    REGISTER_DEMUXER  (MGSTS, mgsts);
     REGISTER_MUXDEMUX (MICRODVD, microdvd);
     REGISTER_MUXDEMUX (MJPEG, mjpeg);
     REGISTER_MUXDEMUX (MLP, mlp);
@@ -260,6 +261,7 @@ void av_register_all(void)
 #if FF_API_APPLEHTTP_PROTO
     REGISTER_PROTOCOL (APPLEHTTP, applehttp);
 #endif
+    REGISTER_PROTOCOL (BLURAY, bluray);
     REGISTER_PROTOCOL (CACHE, cache);
     REGISTER_PROTOCOL (CONCAT, concat);
     REGISTER_PROTOCOL (CRYPTO, crypto);

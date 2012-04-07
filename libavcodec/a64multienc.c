@@ -246,7 +246,7 @@ static int a64multi_encode_frame(AVCodecContext *avctx, AVPacket *pkt,
                                  const AVFrame *pict, int *got_packet)
 {
     A64Context *c = avctx->priv_data;
-    AVFrame *const p = (AVFrame *) & c->picture;
+    AVFrame *const p = &c->picture;
 
     int frame;
     int x, y;
@@ -254,7 +254,7 @@ static int a64multi_encode_frame(AVCodecContext *avctx, AVPacket *pkt,
     int b_width;
 
     int req_size, ret;
-    uint8_t *buf;
+    uint8_t *buf = NULL;
 
     int *charmap     = c->mc_charmap;
     uint8_t *colram  = c->mc_colram;
@@ -308,10 +308,8 @@ static int a64multi_encode_frame(AVCodecContext *avctx, AVPacket *pkt,
         /* any frames to encode? */
         if (c->mc_lifetime) {
             req_size = charset_size + c->mc_lifetime*(screen_size + colram_size);
-            if ((ret = ff_alloc_packet(pkt, req_size)) < 0) {
-                av_log(avctx, AV_LOG_ERROR, "Error getting output packet of size %d.\n", req_size);
+            if ((ret = ff_alloc_packet2(avctx, pkt, req_size)) < 0)
                 return ret;
-            }
             buf = pkt->data;
 
             /* calc optimal new charset + charmaps */

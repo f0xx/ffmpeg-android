@@ -28,7 +28,7 @@ static int pam_encode_frame(AVCodecContext *avctx, AVPacket *pkt,
                             const AVFrame *pict, int *got_packet)
 {
     PNMContext *s     = avctx->priv_data;
-    AVFrame * const p = (AVFrame*)&s->picture;
+    AVFrame * const p = &s->picture;
     int i, h, w, n, linesize, depth, maxval, ret;
     const char *tuple_type;
     uint8_t *ptr;
@@ -88,10 +88,8 @@ static int pam_encode_frame(AVCodecContext *avctx, AVPacket *pkt,
         return -1;
     }
 
-    if ((ret = ff_alloc_packet(pkt, n*h + 200)) < 0) {
-        av_log(avctx, AV_LOG_ERROR, "encoded frame too large\n");
+    if ((ret = ff_alloc_packet2(avctx, pkt, n*h + 200)) < 0)
         return ret;
-    }
 
     *p           = *pict;
     p->pict_type = AV_PICTURE_TYPE_I;

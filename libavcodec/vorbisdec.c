@@ -1043,7 +1043,6 @@ static av_cold int vorbis_decode_init(AVCodecContext *avccontext)
 
     avccontext->channels    = vc->audio_channels;
     avccontext->sample_rate = vc->audio_samplerate;
-    avccontext->frame_size  = FFMIN(vc->blocksize[0], vc->blocksize[1]) >> 2;
 
     avcodec_get_frame_defaults(&vc->frame);
     avccontext->coded_frame = &vc->frame;
@@ -1522,8 +1521,10 @@ static int vorbis_parse_audio_packet(vorbis_context *vc)
     blockflag = vc->modes[mode_number].blockflag;
     blocksize = vc->blocksize[blockflag];
     vlen = blocksize / 2;
-    if (blockflag)
-        skip_bits(gb, 2); // previous_window, next_window
+    if (blockflag) {
+        previous_window = get_bits(gb, 1);
+        skip_bits1(gb); // next_window
+    }
 
     memset(ch_res_ptr,   0, sizeof(float) * vc->audio_channels * vlen); //FIXME can this be removed ?
     memset(ch_floor_ptr, 0, sizeof(float) * vc->audio_channels * vlen); //FIXME can this be removed ?
@@ -1591,6 +1592,9 @@ static int vorbis_parse_audio_packet(vorbis_context *vc)
         ch_res_ptr += ch * vlen;
         ch_left -= ch;
     }
+
+    if (ch_left > 0)
+        return AVERROR_INVALIDDATA;
 
 // Inverse coupling
 
@@ -1710,6 +1714,17 @@ static av_cold int vorbis_decode_close(AVCodecContext *avccontext)
     return 0;
 }
 
+static av_cold void vorbis_decode_flush(AVCodecContext *avccontext)
+{
+    vorbis_context *vc = avccontext->priv_data;
+
+    if (vc->saved) {
+        memset(vc->saved, 0, (vc->blocksize[1] / 4) * vc->audio_channels *
+                             sizeof(*vc->saved));
+    }
+    vc->previous_window = 0;
+}
+
 AVCodec ff_vorbis_decoder = {
     .name           = "vorbis",
     .type           = AVMEDIA_TYPE_AUDIO,
@@ -1718,6 +1733,7 @@ AVCodec ff_vorbis_decoder = {
     .init           = vorbis_decode_init,
     .close          = vorbis_decode_close,
     .decode         = vorbis_decode_frame,
+    .flush          = vorbis_decode_flush,
     .capabilities   = CODEC_CAP_DR1,
     .long_name = NULL_IF_CONFIG_SMALL("Vorbis"),
     .channel_layouts = ff_vorbis_channel_layouts,

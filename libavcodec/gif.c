@@ -160,14 +160,12 @@ static int gif_encode_frame(AVCodecContext *avctx, AVPacket *pkt,
                             const AVFrame *pict, int *got_packet)
 {
     GIFContext *s = avctx->priv_data;
-    AVFrame *const p = (AVFrame *)&s->picture;
+    AVFrame *const p = &s->picture;
     uint8_t *outbuf_ptr, *end;
     int ret;
 
-    if ((ret = ff_alloc_packet(pkt, avctx->width*avctx->height*7/5 + FF_MIN_BUFFER_SIZE)) < 0) {
-        av_log(avctx, AV_LOG_ERROR, "Error getting output packet.\n");
+    if ((ret = ff_alloc_packet2(avctx, pkt, avctx->width*avctx->height*7/5 + FF_MIN_BUFFER_SIZE)) < 0)
         return ret;
-    }
     outbuf_ptr = pkt->data;
     end        = pkt->data + pkt->size;
 

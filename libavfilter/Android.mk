@@ -42,6 +42,7 @@ LIBAVFILTER_SRC_FILES := \
 		asrc_aevalsrc.c \
 		avfilter.c \
 		avfiltergraph.c \
+		bbox.c \
 		defaults.c \
 		drawutils.c \
 		formats.c \
@@ -50,21 +51,25 @@ LIBAVFILTER_SRC_FILES := \
 		sink_buffer.c \
 		transform.c \
 		vf_aspect.c \
+		vf_blackdetect.c \
 		vf_blackframe.c \
+		vf_bbox.c \
 		vf_boxblur.c \
-		vf_deshake.c \
+		vf_colormatrix.c \
 		vf_copy.c \
 		vf_crop.c \
 		vf_cropdetect.c \
+		vf_deshake.c \
 		vf_drawbox.c \
 		vf_delogo.c \
+		vf_gradfun.c \
 		vf_fade.c \
 		vf_fieldorder.c \
 		vf_fifo.c \
 		vf_format.c \
-		vf_gradfun.c \
 		vf_hflip.c \
 		vf_hqdn3d.c \
+		vf_idet.c \
 		vf_null.c \
 		vf_lut.c \
 		vf_mp.c \
@@ -79,6 +84,7 @@ LIBAVFILTER_SRC_FILES := \
 		vf_showinfo.c \
 		vf_split.c \
 		vf_slicify.c \
+		vf_tile.c \
 		vf_transpose.c \
 		vf_thumbnail.c \
 		vf_tinterlace.c \
@@ -93,7 +99,8 @@ LIBAVFILTER_SRC_FILES := \
 		vsrc_testsrc.c \
 		vsrc_cellauto.c \
 		vsrc_life.c \
-
+		vf_swapuv.c \
+		
 #		vf_drawtext.c \
 #		vf_frei0r.c \
 #		vf_libopencv.c \
@@ -136,6 +143,7 @@ LIBMPCODECS_SRC_FILES := \
 		vf_palette.c \
 		vf_perspective.c \
 		vf_phase.c \
+		vf_pp.c \
 		vf_pp7.c \
 		vf_pullup.c \
 		vf_qp.c \
@@ -149,7 +157,6 @@ LIBMPCODECS_SRC_FILES := \
 		vf_softskip.c \
 		vf_spp.c \
 		vf_stereo3d.c \
-		vf_swapuv.c \
 		vf_telecine.c \
 		vf_tile.c \
 		vf_tinterlace.c \
@@ -159,6 +166,7 @@ LIBMPCODECS_SRC_FILES := \
 		vf_yvu9.c \
 
 #		vf_filmdint.c \
+#		vf_swapuv.c \
 
 LIBMPCODECS_SRC_FILES := $(patsubst %,libmpcodecs/%,$(LIBMPCODECS_SRC_FILES))
 
@@ -166,7 +174,7 @@ ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
   LOCAL_CFLAGS += -fPIC
 endif
 
-LOCAL_SHARED_LIBRARIES := avutil swscale swresample avcodec avformat
+LOCAL_SHARED_LIBRARIES := avutil swscale swresample avcodec avformat postproc
 
 LOCAL_SRC_FILES := \
 	$(LIBAVFILTER_SRC_FILES) \

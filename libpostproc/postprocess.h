@@ -48,16 +48,19 @@
 /**
  * Return the LIBPOSTPROC_VERSION_INT constant.
  */
+av_export
 unsigned postproc_version(void);
 
 /**
  * Return the libpostproc build-time configuration.
  */
+av_export
 const char *postproc_configuration(void);
 
 /**
  * Return the libpostproc license.
  */
+av_export
 const char *postproc_license(void);
 
 #define PP_QUALITY_MAX 6
@@ -77,6 +80,7 @@ extern const char *const pp_help; ///< a simple help text
 extern const char pp_help[]; ///< a simple help text
 #endif
 
+av_export
 void  pp_postprocess(const uint8_t * src[3], const int srcStride[3],
                      uint8_t * dst[3], const int dstStride[3],
                      int horizontalSize, int verticalSize,
@@ -90,10 +94,14 @@ void  pp_postprocess(const uint8_t * src[3], const int srcStride[3],
  * @param name    the string after "-pp" on the command line
  * @param quality a number from 0 to PP_QUALITY_MAX
  */
+av_export
 pp_mode *pp_get_mode_by_name_and_quality(const char *name, int quality);
+av_export
 void pp_free_mode(pp_mode *mode);
 
+av_export
 pp_context *pp_get_context(int width, int height, int flags);
+av_export
 void pp_free_context(pp_context *ppContext);
 
 #define PP_CPU_CAPS_MMX   0x80000000

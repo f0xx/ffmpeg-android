@@ -29,6 +29,7 @@
  */
 
 #include "avcodec.h"
+#include "internal.h"
 #include "get_bits.h"
 #include "put_bits.h"
 #include "dsputil.h"
@@ -82,16 +83,20 @@ typedef struct HYuvContext{
     DSPContext dsp;
 }HYuvContext;
 
-static const unsigned char classic_shift_luma[] = {
+#define classic_shift_luma_table_size 42
+static const unsigned char classic_shift_luma[classic_shift_luma_table_size + FF_INPUT_BUFFER_PADDING_SIZE] = {
   34,36,35,69,135,232,9,16,10,24,11,23,12,16,13,10,14,8,15,8,
   16,8,17,20,16,10,207,206,205,236,11,8,10,21,9,23,8,8,199,70,
-  69,68, 0
+  69,68, 0,
+  0,0,0,0,0,0,0,0,
 };
 
-static const unsigned char classic_shift_chroma[] = {
+#define classic_shift_chroma_table_size 59
+static const unsigned char classic_shift_chroma[classic_shift_chroma_table_size + FF_INPUT_BUFFER_PADDING_SIZE] = {
   66,36,37,38,39,40,41,75,76,77,110,239,144,81,82,83,84,85,118,183,
   56,57,88,89,56,89,154,57,58,57,26,141,57,56,58,57,58,57,184,119,
-  214,245,116,83,82,49,80,79,78,77,44,75,41,40,39,38,37,36,34, 0
+  214,245,116,83,82,49,80,79,78,77,44,75,41,40,39,38,37,36,34, 0,
+  0,0,0,0,0,0,0,0,
 };
 
 static const unsigned char classic_add_luma[256] = {
@@ -132,7 +137,7 @@ static const unsigned char classic_add_chroma[256] = {
     6, 12,  8, 10,  7,  9,  6,  4,  6,  2,  2,  3,  3,  3,  3,  2,
 };
 
-static inline int sub_left_prediction(HYuvContext *s, uint8_t *dst, uint8_t *src, int w, int left){
+static inline int sub_left_prediction(HYuvContext *s, uint8_t *dst, const uint8_t *src, int w, int left){
     int i;
     if(w<32){
         for(i=0; i<w; i++){
@@ -152,7 +157,7 @@ static inline int sub_left_prediction(HYuvContext *s, uint8_t *dst, uint8_t *src
     }
 }
 
-static inline void sub_left_prediction_bgr32(HYuvContext *s, uint8_t *dst, uint8_t *src, int w, int *red, int *green, int *blue, int *alpha){
+static inline void sub_left_prediction_bgr32(HYuvContext *s, uint8_t *dst, const uint8_t *src, int w, int *red, int *green, int *blue, int *alpha){
     int i;
     int r,g,b,a;
     r= *red;
@@ -180,7 +185,7 @@ static inline void sub_left_prediction_bgr32(HYuvContext *s, uint8_t *dst, uint8
     *alpha= src[(w-1)*4+A];
 }
 
-static inline void sub_left_prediction_rgb24(HYuvContext *s, uint8_t *dst, uint8_t *src, int w, int *red, int *green, int *blue){
+static inline void sub_left_prediction_rgb24(HYuvContext *s, uint8_t *dst, const uint8_t *src, int w, int *red, int *green, int *blue){
     int i;
     int r,g,b;
     r= *red;
@@ -390,14 +395,13 @@ static int read_huffman_tables(HYuvContext *s, const uint8_t *src, int length){
 }
 
 static int read_old_huffman_tables(HYuvContext *s){
-#if 1
     GetBitContext gb;
     int i;
 
-    init_get_bits(&gb, classic_shift_luma, sizeof(classic_shift_luma)*8);
+    init_get_bits(&gb, classic_shift_luma, classic_shift_luma_table_size*8);
     if(read_len_table(s->len[0], &gb)<0)
         return -1;
-    init_get_bits(&gb, classic_shift_chroma, sizeof(classic_shift_chroma)*8);
+    init_get_bits(&gb, classic_shift_chroma, classic_shift_chroma_table_size*8);
     if(read_len_table(s->len[1], &gb)<0)
         return -1;
 
@@ -419,10 +423,6 @@ static int read_old_huffman_tables(HYuvContext *s){
     generate_joint_tables(s);
 
     return 0;
-#else
-    av_log(s->avctx, AV_LOG_DEBUG, "v1 huffyuv is not supported \n");
-    return -1;
-#endif
 }
 
 static av_cold void alloc_temp(HYuvContext *s){
@@ -543,7 +543,12 @@ s->bgr32=1;
         }
         break;
     default:
-        assert(0);
+        return AVERROR_INVALIDDATA;
+    }
+
+    if ((avctx->pix_fmt == PIX_FMT_YUV422P || avctx->pix_fmt == PIX_FMT_YUV420P) && avctx->width & 1) {
+        av_log(avctx, AV_LOG_ERROR, "width must be even for this colorspace\n");
+        return AVERROR_INVALIDDATA;
     }
 
     alloc_temp(s);
@@ -615,10 +620,12 @@ static av_cold int encode_init(AVCodecContext *avctx)
 
     switch(avctx->pix_fmt){
     case PIX_FMT_YUV420P:
-        s->bitstream_bpp= 12;
-        break;
     case PIX_FMT_YUV422P:
-        s->bitstream_bpp= 16;
+        if (s->width & 1) {
+            av_log(avctx, AV_LOG_ERROR, "width must be even for this colorspace\n");
+            return AVERROR(EINVAL);
+        }
+        s->bitstream_bpp = avctx->pix_fmt == PIX_FMT_YUV420P ? 12 : 16;
         break;
     case PIX_FMT_RGB32:
         s->bitstream_bpp= 32;
@@ -750,7 +757,7 @@ static void decode_422_bitstream(HYuvContext *s, int count){
     count/=2;
 
     if(count >= (get_bits_left(&s->gb))/(31*4)){
-        for(i=0; i<count && get_bits_count(&s->gb) < s->gb.size_in_bits; i++){
+        for (i = 0; i < count && get_bits_left(&s->gb) > 0; i++) {
             READ_2PIX(s->temp[0][2*i  ], s->temp[1][i], 1);
             READ_2PIX(s->temp[0][2*i+1], s->temp[2][i], 2);
         }
@@ -768,7 +775,7 @@ static void decode_gray_bitstream(HYuvContext *s, int count){
     count/=2;
 
     if(count >= (get_bits_left(&s->gb))/(31*2)){
-        for(i=0; i<count && get_bits_count(&s->gb) < s->gb.size_in_bits; i++){
+        for (i = 0; i < count && get_bits_left(&s->gb) > 0; i++) {
             READ_2PIX(s->temp[0][2*i  ], s->temp[0][2*i+1], 0);
         }
     }else{
@@ -1274,11 +1281,8 @@ static int encode_frame(AVCodecContext *avctx, AVPacket *pkt,
     AVFrame * const p= &s->picture;
     int i, j, size = 0, ret;
 
-    if (!pkt->data &&
-        (ret = av_new_packet(pkt, width * height * 3 * 4 + FF_MIN_BUFFER_SIZE)) < 0) {
-        av_log(avctx, AV_LOG_ERROR, "Error allocating output packet.\n");
+    if ((ret = ff_alloc_packet2(avctx, pkt, width * height * 3 * 4 + FF_MIN_BUFFER_SIZE)) < 0)
         return ret;
-    }
 
     *p = *pict;
     p->pict_type= AV_PICTURE_TYPE_I;

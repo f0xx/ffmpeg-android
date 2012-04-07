@@ -625,7 +625,7 @@ static void decode_component(DiracContext *s, int comp)
                 b->quant = svq3_get_ue_golomb(&s->gb);
                 align_get_bits(&s->gb);
                 b->coeff_data = s->gb.buffer + get_bits_count(&s->gb)/8;
-                b->length = FFMIN(b->length, get_bits_left(&s->gb)/8);
+                b->length = FFMIN(b->length, FFMAX(get_bits_left(&s->gb)/8, 0));
                 skip_bits_long(&s->gb, b->length*8);
             }
         }
@@ -1870,7 +1870,7 @@ static int dirac_decode_frame(AVCodecContext *avctx, void *data, int *data_size,
     }
 
     if (!s->current_picture)
-        return 0;
+        return buf_size;
 
     if (s->current_picture->avframe.display_picture_number > s->frame_number) {
         DiracFrame *delayed_frame = remove_frame(s->delay_frames, s->frame_number);
