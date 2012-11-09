@@ -6,14 +6,27 @@ libavcodec:    2012-01-27
 libavdevice:   2011-04-18
 libavfilter:   2012-06-22
 libavformat:   2012-01-27
-libavresample: 2012-04-24
+libavresample: 2012-10-05
 libpostproc:   2011-04-18
 libswresample: 2011-09-19
 libswscale:    2011-06-20
-libavutil:     2011-04-18
+libavutil:     2012-10-22
 
 
 API changes, most recent first:
+
+2012-11-02 - xxxxxxx - lavu 52.4.100 - opt.h
+  Add av_opt_get_key_value().
+
+2012-11-03 - xxxxxxx - lavu 52.3.100 - opt.h
+  Add AV_OPT_TYPE_SAMPLE_FMT value to AVOptionType enum.
+
+2012-10-21 - xxxxxxx - lavc  54.68.100 - avcodec.h
+                       lavfi  3.20.100 - avfilter.h
+  Add AV_PKT_DATA_STRINGS_METADATA side data type, used to transmit key/value
+  strings between AVPacket and AVFrame, and add metadata field to
+  AVCodecContext (which shall not be accessed by users; see AVFrame metadata
+  instead).
 
 2012-09-27 - a70b493 - lavd 54.3.100 - version.h
   Add LIBAVDEVICE_IDENT symbol.
@@ -97,6 +110,12 @@ API changes, most recent first:
 2012-03-26 - a67d9cf - lavfi 2.66.100
   Add avfilter_fill_frame_from_{audio_,}buffer_ref() functions.
 
+2012-xx-xx - xxxxxxx - lavu 52.1.0 - intmath.h
+  Add av_ctz() for trailing zero bit count
+
+2012-10-18 - xxxxxxx - lavu 51.45.0 - error.h
+  Add AVERROR_EXPERIMENTAL
+
 2012-10-12 - xxxxxxx - lavu 51.44.0 - pixdesc.h
   Add functions for accessing pixel format descriptors.
   Accessing the av_pix_fmt_descriptors array directly is now
@@ -104,7 +123,6 @@ API changes, most recent first:
 
 2012-10-xx - xxxxxxx - lavu 51.43.0 - aes.h, md5.h, sha.h, tree.h
   Add functions for allocating the opaque contexts for the algorithms,
-  deprecate the context size variables.
 
 2012-10-xx - xxxxxxx - lavf 54.18.0 - avio.h
   Add avio_closep to complement avio_close.

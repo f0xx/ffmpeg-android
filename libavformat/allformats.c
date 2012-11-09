@@ -69,6 +69,7 @@ void av_register_all(void)
     REGISTER_MUXDEMUX (AVI, avi);
     REGISTER_DEMUXER  (AVISYNTH, avisynth);
     REGISTER_MUXER    (AVM2, avm2);
+    REGISTER_DEMUXER  (AVR, avr);
     REGISTER_DEMUXER  (AVS, avs);
     REGISTER_DEMUXER  (BETHSOFTVID, bethsoftvid);
     REGISTER_DEMUXER  (BFI, bfi);
@@ -133,6 +134,7 @@ void av_register_all(void)
     REGISTER_MUXDEMUX (LATM, latm);
     REGISTER_DEMUXER  (LMLM4, lmlm4);
     REGISTER_DEMUXER  (LOAS, loas);
+    REGISTER_DEMUXER  (LVF, lvf);
     REGISTER_DEMUXER  (LXF, lxf);
     REGISTER_MUXDEMUX (M4V, m4v);
     REGISTER_MUXER    (MD5, md5);

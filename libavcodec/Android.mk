@@ -181,6 +181,7 @@ LIBAVCODEC_SRC_FILES := \
 		cavsdsp.c \
 		cdgraphics.c \
 		cdxl.c \
+		cngdec.c \
 		celp_filters.c \
 		celp_math.c \
 		cga_data.c \
@@ -240,6 +241,7 @@ LIBAVCODEC_SRC_FILES := \
 		faxcompr.c \
 		fft_fixed.c \
 		ffv1.c \
+		ffv1dec.c \
 		ffwavesynth.c \
 		flac.c \
 		flacdata.c \

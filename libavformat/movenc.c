@@ -869,20 +869,20 @@ static int mov_get_dv_codec_tag(AVFormatContext *s, MOVTrack *track)
 {
     int tag;
 
-    if (track->enc->width == 720) /* SD */
-        if (track->enc->height == 480) /* NTSC */
+    if (track->enc->width == 720) { /* SD */
+        if (track->enc->height == 480) { /* NTSC */
             if  (track->enc->pix_fmt == AV_PIX_FMT_YUV422P) tag = MKTAG('d','v','5','n');
             else                                         tag = MKTAG('d','v','c',' ');
-        else if (track->enc->pix_fmt == AV_PIX_FMT_YUV422P) tag = MKTAG('d','v','5','p');
+       }else if (track->enc->pix_fmt == AV_PIX_FMT_YUV422P) tag = MKTAG('d','v','5','p');
         else if (track->enc->pix_fmt == AV_PIX_FMT_YUV420P) tag = MKTAG('d','v','c','p');
         else                                             tag = MKTAG('d','v','p','p');
-    else if (track->enc->height == 720) /* HD 720 line */
+    } else if (track->enc->height == 720) { /* HD 720 line */
         if  (track->enc->time_base.den == 50)            tag = MKTAG('d','v','h','q');
         else                                             tag = MKTAG('d','v','h','p');
-    else if (track->enc->height == 1080) /* HD 1080 line */
+    } else if (track->enc->height == 1080) { /* HD 1080 line */
         if  (track->enc->time_base.den == 25)            tag = MKTAG('d','v','h','5');
         else                                             tag = MKTAG('d','v','h','6');
-    else {
+    } else {
         av_log(s, AV_LOG_ERROR, "unsupported height for dv codec\n");
         return 0;
     }
@@ -1375,6 +1375,7 @@ static int mov_write_gmhd_tag(AVIOContext *pb, MOVTrack *track)
      * don't appear to be documented, so the
      * bytes are copied verbatim.
      */
+    if (track->tag != MKTAG('c','6','0','8')) {
     avio_wb32(pb, 0x2C);   /* size */
     ffio_wfourcc(pb, "text");
     avio_wb16(pb, 0x01);
@@ -1387,6 +1388,7 @@ static int mov_write_gmhd_tag(AVIOContext *pb, MOVTrack *track)
     avio_wb32(pb, 0x00);
     avio_wb32(pb, 0x00004000);
     avio_wb16(pb, 0x0000);
+    }
 
     if (track->enc->codec_tag == MKTAG('t','m','c','d')) {
         int64_t tmcd_pos = avio_tell(pb);
@@ -1435,9 +1437,14 @@ static int mov_write_hdlr_tag(AVIOContext *pb, MOVTrack *track)
             hdlr_type = "soun";
             descr = "SoundHandler";
         } else if (track->enc->codec_type == AVMEDIA_TYPE_SUBTITLE) {
+            if (track->tag == MKTAG('c','6','0','8')) {
+                hdlr_type = "clcp";
+                descr = "ClosedCaptionHandler";
+            } else {
             if (track->tag == MKTAG('t','x','3','g')) hdlr_type = "sbtl";
             else                                      hdlr_type = "text";
             descr = "SubtitleHandler";
+            }
         } else if (track->enc->codec_tag == MKTAG('t','m','c','d')) {
             hdlr_type = "tmcd";
             descr = "TimeCodeHandler";
@@ -1492,8 +1499,11 @@ static int mov_write_minf_tag(AVIOContext *pb, MOVTrack *track)
     else if (track->enc->codec_type == AVMEDIA_TYPE_AUDIO)
         mov_write_smhd_tag(pb);
     else if (track->enc->codec_type == AVMEDIA_TYPE_SUBTITLE) {
-        if (track->tag == MKTAG('t','e','x','t')) mov_write_gmhd_tag(pb, track);
-        else                                      mov_write_nmhd_tag(pb);
+        if (track->tag == MKTAG('t','e','x','t') || track->tag == MKTAG('c','6','0','8')) {
+            mov_write_gmhd_tag(pb, track);
+        } else {
+            mov_write_nmhd_tag(pb);
+        }
     } else if (track->tag == MKTAG('t','m','c','d')) {
         mov_write_gmhd_tag(pb, track);
     } else if (track->tag == MKTAG('r','t','p',' ')) {
@@ -1657,6 +1667,12 @@ static int mov_write_tapt_tag(AVIOContext *pb, MOVTrack *track)
 
     avio_wb32(pb, 20);
     ffio_wfourcc(pb, "clef");
+    avio_wb32(pb, 0);
+    avio_wb32(pb, width << 16);
+    avio_wb32(pb, track->enc->height << 16);
+
+    avio_wb32(pb, 20);
+    ffio_wfourcc(pb, "prof");
     avio_wb32(pb, 0);
     avio_wb32(pb, width << 16);
     avio_wb32(pb, track->enc->height << 16);
@@ -2012,6 +2028,24 @@ static int mov_write_trkn_tag(AVIOContext *pb, MOVMuxContext *mov,
     return size;
 }
 
+static int mov_write_int8_metadata(AVFormatContext *s, AVIOContext *pb,
+                                   const char *name, const char *tag,
+                                   int len)
+{
+    AVDictionaryEntry *t = NULL;
+    uint8_t num;
+
+    if (!(t = av_dict_get(s->metadata, tag, NULL, 0)))
+        return 0;
+    num = atoi(t->value);
+
+    avio_wb32(pb, len+8);
+    ffio_wfourcc(pb, name);
+    if (len==4) avio_wb32(pb, num);
+    else        avio_w8 (pb, num);
+    return len+8;
+}
+
 /* iTunes meta data list */
 static int mov_write_ilst_tag(AVIOContext *pb, MOVMuxContext *mov,
                               AVFormatContext *s)
@@ -2036,6 +2070,11 @@ static int mov_write_ilst_tag(AVIOContext *pb, MOVMuxContext *mov,
     mov_write_string_metadata(s, pb, "tvsh",    "show"     , 1);
     mov_write_string_metadata(s, pb, "tven",    "episode_id",1);
     mov_write_string_metadata(s, pb, "tvnn",    "network"  , 1);
+    mov_write_int8_metadata  (s, pb, "tves",    "episode_sort",4);
+    mov_write_int8_metadata  (s, pb, "tvsn",    "season_number",4);
+    mov_write_int8_metadata  (s, pb, "stik",    "media_type",1);
+    mov_write_int8_metadata  (s, pb, "hdvd",    "hd_video",  1);
+    mov_write_int8_metadata  (s, pb, "pgap",    "gapless_playback",1);
     mov_write_trkn_tag(pb, mov, s);
     mov_write_tmpo_tag(pb, s);
     return update_size(pb, pos);

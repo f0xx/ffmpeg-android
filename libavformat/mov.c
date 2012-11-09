@@ -1177,18 +1177,18 @@ enum AVCodecID ff_mov_get_lpcm_codec_id(int bps, int flags)
         }
     } else {
         if (flags & 2) {
-            if      (bps == 8)
+            if      (bps == 8) {
                 // signed integer
                 if (flags & 4)  return AV_CODEC_ID_PCM_S8;
                 else            return AV_CODEC_ID_PCM_U8;
-            else if (bps == 16) return AV_CODEC_ID_PCM_S16BE;
+           }else if (bps == 16) return AV_CODEC_ID_PCM_S16BE;
             else if (bps == 24) return AV_CODEC_ID_PCM_S24BE;
             else if (bps == 32) return AV_CODEC_ID_PCM_S32BE;
         } else {
-            if      (bps == 8)
+            if      (bps == 8) {
                 if (flags & 4)  return AV_CODEC_ID_PCM_S8;
                 else            return AV_CODEC_ID_PCM_U8;
-            else if (bps == 16) return AV_CODEC_ID_PCM_S16LE;
+           }else if (bps == 16) return AV_CODEC_ID_PCM_S16LE;
             else if (bps == 24) return AV_CODEC_ID_PCM_S24LE;
             else if (bps == 32) return AV_CODEC_ID_PCM_S32LE;
         }
@@ -2879,7 +2879,14 @@ static int mov_probe(AVProbeData *p)
         case MKTAG('p','n','o','t'): /* detect movs with preview pics like ew.mov and april.mov */
         case MKTAG('u','d','t','a'): /* Packet Video PVAuthor adds this and a lot of more junk */
         case MKTAG('f','t','y','p'):
-            score  = AVPROBE_SCORE_MAX;
+            if (AV_RB32(p->buf+offset) < 8 &&
+                (AV_RB32(p->buf+offset) != 1 ||
+                 offset + 12 > (unsigned int)p->buf_size ||
+                 AV_RB64(p->buf+offset + 8) == 0)) {
+                score = FFMAX(score, AVPROBE_SCORE_MAX - 50);
+            } else {
+                score = AVPROBE_SCORE_MAX;
+            }
             offset = FFMAX(4, AV_RB32(p->buf+offset)) + offset;
             break;
         /* those are more common words, so rate then a bit less */
@@ -2903,20 +2910,19 @@ static int mov_probe(AVProbeData *p)
             offset = FFMAX(4, AV_RB32(p->buf+offset)) + offset;
         }
     }
-    if(tag > AVPROBE_SCORE_MAX - 50 && moov_offset != -1) {
+    if(score > AVPROBE_SCORE_MAX - 50 && moov_offset != -1) {
         /* moov atom in the header - we should make sure that this is not a
          * MOV-packed MPEG-PS */
         offset = moov_offset;
 
-        while(offset < (p->buf_size - 20)){ /* Sufficient space */
-               /* We found an actual stsd atom */
-            if(AV_RL32(p->buf+offset)       == MKTAG('s','t','s','d') &&
-               /* Make sure there's only one stream */
-               AV_RB32(p->buf + offset + 8)  == 1 &&
-               AV_RL32(p->buf + offset + 16) == MKTAG('m','1','s',' ')
-            ){
-                av_log(NULL, AV_LOG_WARNING, "Found m1s tag indicating this is a MOV-packed MPEG-PS.\n");
-                /* We found an stsd atom describing an MPEG-PS-in-MOV, return a
+        while(offset < (p->buf_size - 16)){ /* Sufficient space */
+               /* We found an actual hdlr atom */
+            if(AV_RL32(p->buf + offset     ) == MKTAG('h','d','l','r') &&
+               AV_RL32(p->buf + offset +  8) == MKTAG('m','h','l','r') &&
+               AV_RL32(p->buf + offset + 12) == MKTAG('M','P','E','G')){
+                av_log(NULL, AV_LOG_WARNING, "Found media data tag MPEG indicating this is a MOV-packed MPEG-PS.\n");
+                /* We found a media handler reference atom describing an
+                 * MPEG-PS-in-MOV, return a
                  * low score to force expanding the probe window until
                  * mpegps_probe finds what it needs */
                 return 5;

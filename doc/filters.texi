@@ -191,6 +191,59 @@ Follows a BNF description for the filtergraph syntax:
 @var{FILTERGRAPH}      ::= [sws_flags=@var{flags};] @var{FILTERCHAIN} [;@var{FILTERGRAPH}]
 @end example
 
+@section Notes on filtergraph escaping
+
+Some filter arguments require the use of special characters, typically
+@code{:} to separate key=value pairs in a named options list. In this
+case the user should perform a first level escaping when specifying
+the filter arguments. For example, consider the following literal
+string to be embedded in the @ref{drawtext} filter arguments:
+@example
+this is a 'string': may contain one, or more, special characters
+@end example
+
+Since @code{:} is special for the filter arguments syntax, it needs to
+be escaped, so you get:
+@example
+text=this is a \'string\'\: may contain one, or more, special characters
+@end example
+
+A second level of escaping is required when embedding the filter
+arguments in a filtergraph description, in order to escape all the
+filtergraph special characters. Thus the example above becomes:
+@example
+drawtext=text=this is a \\\'string\\\'\\: may contain one\, or more\, special characters
+@end example
+
+Finally an additional level of escaping may be needed when writing the
+filtergraph description in a shell command, which depends on the
+escaping rules of the adopted shell. For example, assuming that
+@code{\} is special and needs to be escaped with another @code{\}, the
+previous string will finally result in:
+@example
+-vf "drawtext=text=this is a \\\\\\'string\\\\\\'\\\\: may contain one\\, or more\\, special characters"
+@end example
+
+Sometimes, it might be more convenient to employ quoting in place of
+escaping. For example the string:
+@example
+Caesar: tu quoque, Brute, fili mi
+@end example
+
+Can be quoted in the filter arguments as:
+@example
+text='Caesar: tu quoque, Brute, fili mi'
+@end example
+
+And finally inserted in a filtergraph like:
+@example
+drawtext=text=\'Caesar: tu quoque\, Brute\, fili mi\'
+@end example
+
+See the @ref{quoting_and_escaping, Quoting and escaping} section for
+more information about the escaping and quoting rules adopted by
+FFmpeg.
+
 @c man end FILTERGRAPH DESCRIPTION
 
 @chapter Audio Filters
@@ -414,37 +467,34 @@ A description of each shown parameter follows:
 sequential number of the input frame, starting from 0
 
 @item pts
-presentation TimeStamp of the input frame, expressed as a number of
-time base units. The time base unit depends on the filter input pad, and
-is usually 1/@var{sample_rate}.
+Presentation timestamp of the input frame, in time base units; the time base
+depends on the filter input pad, and is usually 1/@var{sample_rate}.
 
 @item pts_time
-presentation TimeStamp of the input frame, expressed as a number of
-seconds
+presentation timestamp of the input frame in seconds
 
 @item pos
 position of the frame in the input stream, -1 if this information in
 unavailable and/or meaningless (for example in case of synthetic audio)
 
 @item fmt
-sample format name
+sample format
 
 @item chlayout
-channel layout description
-
-@item nb_samples
-number of samples (per each channel) contained in the filtered frame
+channel layout
 
 @item rate
 sample rate for the audio frame
 
-@item checksum
-Adler-32 checksum (printed in hexadecimal) of all the planes of the input frame
+@item nb_samples
+number of samples (per channel) in the frame
 
-@item plane_checksum
-Adler-32 checksum (printed in hexadecimal) for each input frame plane,
-expressed in the form "[@var{c0} @var{c1} @var{c2} @var{c3} @var{c4} @var{c5}
-@var{c6} @var{c7}]"
+@item checksum
+Adler-32 checksum (printed in hexadecimal) of the audio data. For planar audio
+the data is treated as if all the planes were concatenated.
+
+@item plane_checksums
+A list of Adler-32 checksums for each data plane.
 @end table
 
 @section asplit
@@ -1729,34 +1779,63 @@ specified file.
 
 Draw a colored box on the input image.
 
-It accepts the syntax:
-@example
-drawbox=@var{x}:@var{y}:@var{width}:@var{height}:@var{color}
-@end example
+The filter accepts parameters as a list of @var{key}=@var{value} pairs,
+separated by ":".
+
+The description of the accepted parameters follows.
 
 @table @option
-
 @item x, y
 Specify the top left corner coordinates of the box. Default to 0.
 
-@item width, height
+@item width, w
+@item height, h
 Specify the width and height of the box, if 0 they are interpreted as
 the input width and height. Default to 0.
 
-@item color
+@item color, c
 Specify the color of the box to write, it can be the name of a color
-(case insensitive match) or a 0xRRGGBB[AA] sequence.
+(case insensitive match) or a 0xRRGGBB[AA] sequence. If the special
+value @code{invert} is used, the box edge color is the same as the
+video with inverted luma.
+
+@item thickness, t
+Set the thickness of the box edge. Default value is @code{4}.
 @end table
 
-Follow some examples:
+If the key of the first options is omitted, the arguments are
+interpreted according to the following syntax:
 @example
-# draw a black box around the edge of the input image
-drawbox
-
-# draw a box with color red and an opacity of 50%
-drawbox=10:20:200:60:red@@0.5"
+drawbox=@var{x}:@var{y}:@var{width}:@var{height}:@var{color}:@var{thickness}
 @end example
 
+Some examples follow:
+@itemize
+@item
+Draw a black box around the edge of the input image:
+@example
+drawbox
+@end example
+
+@item
+Draw a box with color red and an opacity of 50%:
+@example
+drawbox=10:20:200:60:red@@0.5
+@end example
+
+The previous example can be specified as:
+@example
+drawbox=x=10:y=20:w=200:h=60:color=red@@0.5
+@end example
+
+@item
+Fill the box with pink color:
+@example
+drawbox=x=10:y=10:w=100:h=100:color=pink@@0.5:t=max
+@end example
+@end itemize
+
+@anchor{drawtext}
 @section drawtext
 
 Draw text string or text from specified file on top of video using the
@@ -2016,13 +2095,13 @@ drawtext="fontsize=60:fontfile=FreeSerif.ttf:fontcolor=green:text=g:x=(w-max_gly
 @item
 Show text for 1 second every 3 seconds:
 @example
-drawtext="fontfile=FreeSerif.ttf:fontcolor=white:x=100:y=x/dar:draw=lt(mod(t\\,3)\\,1):text='blink'"
+drawtext="fontfile=FreeSerif.ttf:fontcolor=white:x=100:y=x/dar:draw=lt(mod(t\,3)\,1):text='blink'"
 @end example
 
 @item
 Use fontconfig to set the font. Note that the colons need to be escaped.
 @example
-drawtext='fontfile=Linux Libertine O-40\\:style=Semibold:text=FFmpeg'
+drawtext='fontfile=Linux Libertine O-40\:style=Semibold:text=FFmpeg'
 @end example
 
 @end itemize
@@ -2115,6 +2194,31 @@ fade=in:5:20
 fade=in:0:25:alpha=1
 @end example
 
+@section field
+
+Extract a single field from an interlaced image using stride
+arithmetic to avoid wasting CPU time. The output frames are marked as
+non-interlaced.
+
+This filter accepts the following named options:
+@table @option
+@item type
+Specify whether to extract the top (if the value is @code{0} or
+@code{top}) or the bottom field (if the value is @code{1} or
+@code{bottom}).
+@end table
+
+If the option key is not specified, the first value sets the @var{type}
+option. For example:
+@example
+field=bottom
+@end example
+
+is equivalent to:
+@example
+field=type=bottom
+@end example
+
 @section fieldorder
 
 Transform the field order of the input video.
@@ -2186,6 +2290,9 @@ This filter accepts the following named parameters:
 @item fps
 Desired output framerate.
 
+@item round
+Rounding method. The default is @code{near}.
+
 @end table
 
 @section framestep
@@ -2210,10 +2317,11 @@ The filter supports the syntax:
 
 @var{filter_name} is the name to the frei0r effect to load. If the
 environment variable @env{FREI0R_PATH} is defined, the frei0r effect
-is searched in each one of the directories specified by the colon
-separated list in @env{FREIOR_PATH}, otherwise in the standard frei0r
-paths, which are in this order: @file{HOME/.frei0r-1/lib/},
-@file{/usr/local/lib/frei0r-1/}, @file{/usr/lib/frei0r-1/}.
+is searched in each one of the directories specified by the colon (or
+semicolon on Windows platforms) separated list in @env{FREIOR_PATH},
+otherwise in the standard frei0r paths, which are in this order:
+@file{HOME/.frei0r-1/lib/}, @file{/usr/local/lib/frei0r-1/},
+@file{/usr/lib/frei0r-1/}.
 
 @var{param1}, @var{param2}, ... , @var{paramN} specify the parameters
 for the frei0r effect.
@@ -2581,13 +2689,11 @@ The list of the currently supported filters follows:
 @item dsize
 @item eq2
 @item eq
-@item field
 @item fil
 @item fixpts
 @item fspp
 @item geq
 @item harddup
-@item hqdn3d
 @item il
 @item ilpack
 @item ivtc
@@ -2595,13 +2701,11 @@ The list of the currently supported filters follows:
 @item mcdeint
 @item noise
 @item ow
-@item palette
 @item perspective
 @item phase
 @item pp7
 @item pullup
 @item qp
-@item rectangle
 @item sab
 @item softpulldown
 @item softskip
@@ -2611,8 +2715,6 @@ The list of the currently supported filters follows:
 @item tinterlace
 @item unsharp
 @item uspp
-@item yuvcsp
-@item yvu9
 @end table
 
 The parameter syntax and behavior for the listed filters are the same
@@ -2823,7 +2925,7 @@ ffmpeg -i input -i logo1 -i logo2 -filter_complex
 
 # add a transparent color layer on top of the main video,
 # WxH specifies the size of the main input to the overlay filter
-color=red@.3:WxH [over]; [in][over] overlay [out]
+color=red@@.3:WxH [over]; [in][over] overlay [out]
 
 # play an original video and a filtered version (here with the deshake filter)
 # side by side
@@ -3006,13 +3108,57 @@ pixels will slow things down on a large logo.
 
 @section scale
 
-Scale (resize) the input video to @var{width}:@var{height}[:@var{interl}=@{1|-1@}] and/or convert the image format.
+Scale (resize) the input video, using the libswscale library.
 
 The scale filter forces the output display aspect ratio to be the same
 of the input, by changing the output sample aspect ratio.
 
-The parameters @var{width} and @var{height} are expressions containing
-the following constants:
+This filter accepts a list of named options in the form of
+@var{key}=@var{value} pairs separated by ":". If the key for the first
+two options is not specified, the assumed keys for the first two
+values are @code{w} and @code{h}. If the first option has no key and
+can be interpreted like a video size specification, it will be used
+to set the video size.
+
+A description of the accepted options follows.
+
+@table @option
+@item width, w
+Set the video width expression, default value is @code{iw}. See below
+for the list of accepted constants.
+
+@item height, h
+Set the video heiht expression, default value is @code{ih}.
+See below for the list of accepted constants.
+
+@item interl
+Set the interlacing. It accepts the following values:
+
+@table @option
+@item 1
+force interlaced aware scaling
+
+@item 0
+do not apply interlaced scaling
+
+@item -1
+select interlaced aware scaling depending on whether the source frames
+are flagged as interlaced or not
+@end table
+
+Default value is @code{0}.
+
+@item flags
+Set libswscale scaling flags. If not explictly specified the filter
+applies a bilinear scaling algorithm.
+
+@item size, s
+Set the video size, the value must be a valid abbreviation or in the
+form @var{width}x@var{height}.
+@end table
+
+The values of the @var{w} and @var{h} options are expressions
+containing the following constants:
 
 @table @option
 @item in_w, in_h
@@ -3052,53 +3198,92 @@ If the value for @var{width} or @var{height} is -1, the scale filter will
 use, for the respective output size, a value that maintains the aspect
 ratio of the input image.
 
-The default value of @var{width} and @var{height} is 0.
+@subsection Examples
 
-Valid values for the optional parameter @var{interl} are:
-
-@table @option
-@item 1
-force interlaced aware scaling
-
-@item -1
-select interlaced aware scaling depending on whether the source frames
-are flagged as interlaced or not
-@end table
-
-Unless @var{interl} is set to one of the above options, interlaced scaling will not be used.
-
-Some examples follow:
+@itemize
+@item
+Scale the input video to a size of 200x100:
 @example
-# scale the input video to a size of 200x100.
 scale=200:100
+@end example
 
-# scale the input to 2x
+This is equivalent to:
+@example
+scale=w=200:h=100
+@end example
+
+or:
+@example
+scale=200x100
+@end example
+
+@item
+Specify a size abbreviation for the output size:
+@example
+scale=qcif
+@end example
+
+which can also be written as:
+@example
+scale=size=qcif
+@end example
+
+@item
+Scale the input to 2x:
+@example
 scale=2*iw:2*ih
-# the above is the same as
+@end example
+
+@item
+The above is the same as:
+@example
 scale=2*in_w:2*in_h
+@end example
 
-# scale the input to 2x with forced interlaced scaling
+@item
+Scale the input to 2x with forced interlaced scaling:
+@example
 scale=2*iw:2*ih:interl=1
+@end example
 
-# scale the input to half size
+@item
+Scale the input to half size:
+@example
 scale=iw/2:ih/2
+@end example
 
-# increase the width, and set the height to the same size
+@item
+Increase the width, and set the height to the same size:
+@example
 scale=3/2*iw:ow
+@end example
 
-# seek for Greek harmony
+@item
+Seek for Greek harmony:
+@example
 scale=iw:1/PHI*iw
 scale=ih*PHI:ih
+@end example
 
-# increase the height, and set the width to 3/2 of the height
+@item
+Increase the height, and set the width to 3/2 of the height:
+@example
 scale=3/2*oh:3/5*ih
+@end example
 
-# increase the size, but make the size a multiple of the chroma
+@item
+Increase the size, but make the size a multiple of the chroma:
+@example
 scale="trunc(3/2*iw/hsub)*hsub:trunc(3/2*ih/vsub)*vsub"
+@end example
 
-# increase the width to a maximum of 500 pixels, keep the same input aspect ratio
+@item
+Increase the width to a maximum of 500 pixels, keep the same input
+aspect ratio:
+@example
 scale='min(500\, iw*3/2):-1'
 @end example
+@end itemize
 
 @section select
 Select frames to pass in output.
@@ -3250,16 +3435,34 @@ Keep in mind that the sample aspect ratio set by the @code{setsar}
 filter may be changed by later filters in the filterchain, e.g. if
 another "setsar" or a "setdar" filter is applied.
 
-The @code{setdar} and @code{setsar} filters accept a parameter string
-which represents the wanted aspect ratio.  The parameter can
-be a floating point number string, an expression, or a string of the form
-@var{num}:@var{den}, where @var{num} and @var{den} are the numerator
-and denominator of the aspect ratio. If the parameter is not
-specified, it is assumed the value "0:1".
+The @code{setdar} and @code{setsar} filters accept a string in the
+form @var{num}:@var{den} expressing an aspect ratio, or the following
+named options, expressed as a sequence of @var{key}=@var{value} pairs,
+separated by ":".
+
+@table @option
+@item max
+Set the maximum integer value to use for expressing numerator and
+denominator when reducing the expressed aspect ratio to a rational.
+Default value is @code{100}.
+
+@item r, ratio:
+Set the aspect ratio used by the filter.
+
+The parameter can be a floating point number string, an expression, or
+a string of the form @var{num}:@var{den}, where @var{num} and
+@var{den} are the numerator and denominator of the aspect ratio. If
+the parameter is not specified, it is assumed the value "0".
+In case the form "@var{num}:@var{den}" the @code{:} character should
+be escaped.
+@end table
+
+If the keys are omitted in the named options list, the specifed values
+are assumed to be @var{ratio} and @var{max} in that order.
 
 For example to change the display aspect ratio to 16:9, specify:
 @example
-setdar=16:9
+setdar='16:9'
 @end example
 
 The example above is equivalent to:
@@ -3269,7 +3472,13 @@ setdar=1.77777
 
 To change the sample aspect ratio to 10:11, specify:
 @example
-setsar=10:11
+setsar='10:11'
+@end example
+
+To set a display aspect ratio of 16:9, and specify a maximum integer value of
+1000 in the aspect ratio reduction, use the command:
+@example
+setdar=ratio='16:9':max=1000
 @end example
 
 @section setfield
@@ -4616,6 +4825,9 @@ streams in each segment. Default is 1.
 Set the number of output audio streams, that is also the number of video
 streams in each segment. Default is 0.
 
+@item unsafe
+Activate unsafe mode: do not fail if segments have a different format.
+
 @end table
 
 The filter has @var{v}+@var{a} outputs: first @var{v} video outputs, then
@@ -4677,6 +4889,9 @@ The filter accepts the following named parameters:
 @table @option
 @item size, s
 Specify the video size for the output. Default value is @code{640x480}.
+@item slide
+Specify if the spectrum should slide along the window. Default value is
+@code{0}.
 @end table
 
 The usage is very similar to the showwaves filter; see the examples in that

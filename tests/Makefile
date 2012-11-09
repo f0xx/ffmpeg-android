@@ -41,9 +41,11 @@ tests/data/ffprobe-test.nut: ffmpeg$(EXESUF) | tests/data
 
 tests/data/%.sw tests/data/asynth% tests/data/vsynth%.yuv tests/vsynth%/00.pgm tests/data/%.nut: TAG = GEN
 
+CHKCFG  = $(if $($(1))$(!$(1)),$($(1)), $(error No such config: $(1)))
+
 ALLYES  = $(strip $(call XYES, $(1)))
 XYES    = $(if $(strip $(1)),                                           \
-               $(if $(CONFIG_$(firstword $(1))),                        \
+               $(if $(call CHKCFG,CONFIG_$(firstword $(1))),            \
                     $(call XYES, $(wordlist 2, $(words $(1)), $(1)))),  \
                yes)
 
@@ -55,6 +57,7 @@ ENCDEC2 = $(call ALLYES, $(firstword $(1))_ENCODER $(lastword $(1))_DECODER  \
                          $(firstword $(3))_MUXER   $(lastword $(3))_DEMUXER)
 
 DEMDEC  = $(call ALLYES, $(1)_DEMUXER $(2:%=%_DECODER))
+ENCMUX  = $(call ALLYES, $(1:%=%_ENCODER) $(2)_MUXER)
 
 include $(SRC_PATH)/tests/fate/acodec.mak
 include $(SRC_PATH)/tests/fate/vcodec.mak
@@ -74,7 +77,6 @@ include $(SRC_PATH)/tests/fate/audio.mak
 include $(SRC_PATH)/tests/fate/bmp.mak
 include $(SRC_PATH)/tests/fate/cdxl.mak
 include $(SRC_PATH)/tests/fate/cover-art.mak
-include $(SRC_PATH)/tests/fate/dct.mak
 include $(SRC_PATH)/tests/fate/demux.mak
 include $(SRC_PATH)/tests/fate/dfa.mak
 include $(SRC_PATH)/tests/fate/dpcm.mak
@@ -117,11 +119,8 @@ FATE_FFMPEG += $(FATE_FFMPEG-yes) $(FATE_AVCONV) $(FATE_AVCONV-yes)
 FATE-$(CONFIG_FFMPEG) += $(FATE_FFMPEG)
 FATE-$(CONFIG_FFPROBE) += $(FATE_FFPROBE)
 
-FATE-$(CONFIG_AVCODEC)  += $(FATE_LIBAVCODEC)
-FATE-$(CONFIG_AVFORMAT) += $(FATE_LIBAVFORMAT)
-
 FATE_SAMPLES_AVCONV           += $(FATE_SAMPLES_AVCONV-yes)
-FATE_EXTERN-$(CONFIG_FFMPEG)  += $(FATE_SAMPLES_AVCONV) $(FATE_SAMPLES_FFMPEG)
+FATE_EXTERN-$(CONFIG_FFMPEG)  += $(FATE_SAMPLES_AVCONV) $(FATE_SAMPLES_FFMPEG) $(FATE_SAMPLES_FFPROBE)
 FATE_EXTERN += $(FATE_EXTERN-yes)
 
 FATE += $(FATE-yes)
@@ -129,13 +128,13 @@ FATE += $(FATE_LIBAVUTIL)
 
 $(FATE_FFMPEG) $(FATE_SAMPLES_AVCONV) $(FATE_SAMPLES_FFMPEG): ffmpeg$(EXESUF)
 
-$(FATE_FFPROBE): ffprobe$(EXESUF)
+$(FATE_FFPROBE) $(FATE_SAMPLES_FFPROBE): ffprobe$(EXESUF)
 
 ifdef SAMPLES
 FATE += $(FATE_FULL) $(FATE_FULL-yes)
 FATE += $(FATE_EXTERN)
 fate-rsync:
-	rsync -vaLW --timeout=60 --contimeout=60 rsync://fate-suite.ffmpeg.org/fate-suite/ $(SAMPLES)
+	rsync -vrltLW --timeout=60 --contimeout=60 rsync://fate-suite.ffmpeg.org/fate-suite/ $(SAMPLES)
 else
 fate::
 	@echo "warning: only a subset of the fate tests will be run because SAMPLES is not specified"

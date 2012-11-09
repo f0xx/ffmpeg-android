@@ -23,8 +23,8 @@
  * libswresample public header
  */
 
-#ifndef SWR_H
-#define SWR_H
+#ifndef SWRESAMPLE_SWRESAMPLE_H
+#define SWRESAMPLE_SWRESAMPLE_H
 
 #include <inttypes.h>
 #include "libavutil/samplefmt.h"
@@ -233,4 +233,4 @@ const char *swresample_configuration(void);
 av_export
 const char *swresample_license(void);
 
-#endif
+#endif /* SWRESAMPLE_SWRESAMPLE_H */

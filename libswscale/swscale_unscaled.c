@@ -139,20 +139,6 @@ static void fillPlane(uint8_t *plane, int stride, int width, int height, int y,
     }
 }
 
-static void fillPlane16(uint8_t *plane, int stride, int width, int height, int y,
-                      int alpha, int bits)
-{
-    int i, j;
-    uint8_t *ptr = plane + stride * y;
-    int v = alpha ? -1 : (1<<bits);
-    for (i = 0; i < height; i++) {
-        for (j = 0; j < width; j++) {
-            AV_WN16(ptr+2*j, v);
-        }
-        ptr += stride;
-    }
-}
-
 static void copyPlane(const uint8_t *src, int srcStride,
                       int srcSliceY, int srcSliceH, int width,
                       uint8_t *dst, int dstStride)
@@ -451,6 +437,11 @@ static int planarRgbToRgbWrapper(SwsContext *c, const uint8_t *src[],
                                  uint8_t *dst[], int dstStride[])
 {
     int alpha_first = 0;
+    const uint8_t *src102[] = { src[1], src[0], src[2] };
+    const uint8_t *src201[] = { src[2], src[0], src[1] };
+    int stride102[] = { srcStride[1], srcStride[0], srcStride[2] };
+    int stride201[] = { srcStride[2], srcStride[0], srcStride[1] };
+
     if (c->srcFormat != AV_PIX_FMT_GBRP) {
         av_log(c, AV_LOG_ERROR, "unsupported planar RGB conversion %s -> %s\n",
                av_get_pix_fmt_name(c->srcFormat),
@@ -460,15 +451,13 @@ static int planarRgbToRgbWrapper(SwsContext *c, const uint8_t *src[],
 
     switch (c->dstFormat) {
     case AV_PIX_FMT_BGR24:
-        gbr24ptopacked24((const uint8_t *[]) { src[1], src[0], src[2] },
-                         (int []) { srcStride[1], srcStride[0], srcStride[2] },
+        gbr24ptopacked24(src102, stride102,
                          dst[0] + srcSliceY * dstStride[0], dstStride[0],
                          srcSliceH, c->srcW);
         break;
 
     case AV_PIX_FMT_RGB24:
-        gbr24ptopacked24((const uint8_t *[]) { src[2], src[0], src[1] },
-                         (int []) { srcStride[2], srcStride[0], srcStride[1] },
+        gbr24ptopacked24(src201, stride201,
                          dst[0] + srcSliceY * dstStride[0], dstStride[0],
                          srcSliceH, c->srcW);
         break;
@@ -476,8 +465,7 @@ static int planarRgbToRgbWrapper(SwsContext *c, const uint8_t *src[],
     case AV_PIX_FMT_ARGB:
         alpha_first = 1;
     case AV_PIX_FMT_RGBA:
-        gbr24ptopacked32((const uint8_t *[]) { src[2], src[0], src[1] },
-                         (int []) { srcStride[2], srcStride[0], srcStride[1] },
+        gbr24ptopacked32(src201, stride201,
                          dst[0] + srcSliceY * dstStride[0], dstStride[0],
                          srcSliceH, alpha_first, c->srcW);
         break;
@@ -485,8 +473,7 @@ static int planarRgbToRgbWrapper(SwsContext *c, const uint8_t *src[],
     case AV_PIX_FMT_ABGR:
         alpha_first = 1;
     case AV_PIX_FMT_BGRA:
-        gbr24ptopacked32((const uint8_t *[]) { src[1], src[0], src[2] },
-                         (int []) { srcStride[1], srcStride[0], srcStride[2] },
+        gbr24ptopacked32(src102, stride102,
                          dst[0] + srcSliceY * dstStride[0], dstStride[0],
                          srcSliceH, alpha_first, c->srcW);
         break;
@@ -531,8 +518,6 @@ static rgbConvFn findRgbConvFn(SwsContext *c)
     const int srcId = c->srcFormatBpp;
     const int dstId = c->dstFormatBpp;
     rgbConvFn conv = NULL;
-    const AVPixFmtDescriptor *desc_src = av_pix_fmt_desc_get(srcFormat);
-    const AVPixFmtDescriptor *desc_dst = av_pix_fmt_desc_get(dstFormat);
 
 #define IS_NOT_NE(bpp, desc) \
     (((bpp + 7) >> 3) == 2 && \
@@ -783,7 +768,8 @@ static int planarCopyWrapper(SwsContext *c, const uint8_t *src[],
         if (!src[plane] || (plane == 1 && !src[2])) {
             if (is16BPS(c->dstFormat) || isNBPS(c->dstFormat)) {
                 fillPlane16(dst[plane], dstStride[plane], length, height, y,
-                        plane == 3, desc_dst->comp[plane].depth_minus1);
+                        plane == 3, desc_dst->comp[plane].depth_minus1,
+                        isBE(c->dstFormat));
             } else {
                 fillPlane(dst[plane], dstStride[plane], length, height, y,
                         (plane == 3) ? 255 : 128);

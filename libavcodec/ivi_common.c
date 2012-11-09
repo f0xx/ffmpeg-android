@@ -478,7 +478,7 @@ int ff_ivi_decode_blocks(GetBitContext *gb, IVIBandDesc *band, IVITile *tile)
                 /* block not coded */
                 /* for intra blocks apply the dc slant transform */
                 /* for inter - perform the motion compensation without delta */
-                if (is_intra && band->dc_transform) {
+                if (is_intra) {
                     band->dc_transform(&prev_dc, band->buf + buf_offs,
                                        band->pitch, blk_size);
                 } else
@@ -650,7 +650,7 @@ void ff_ivi_output_plane(IVIPlaneDesc *plane, uint8_t *dst, int dst_pitch)
  *  @param[in]      avctx  ptr to the AVCodecContext
  *  @return         result code: 0 = OK, -1 = error
  */
-static int decode_band(IVI45DecContext *ctx, int plane_num,
+static int decode_band(IVI45DecContext *ctx,
                        IVIBandDesc *band, AVCodecContext *avctx)
 {
     int         result, i, t, idx1, idx2, pos;
@@ -791,7 +791,7 @@ int ff_ivi_decode_frame(AVCodecContext *avctx, void *data, int *data_size,
         ctx->buf_invalid[ctx->dst_buf] = 1;
         for (p = 0; p < 3; p++) {
             for (b = 0; b < ctx->planes[p].num_bands; b++) {
-                result = decode_band(ctx, p, &ctx->planes[p].bands[b], avctx);
+                result = decode_band(ctx, &ctx->planes[p].bands[b], avctx);
                 if (result) {
                     av_log(avctx, AV_LOG_ERROR,
                            "Error while decoding band: %d, plane: %d\n", b, p);

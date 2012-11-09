@@ -11,6 +11,7 @@ FATE_LAVFI = fate-lavfi-alphaextract_rgb                                \
              fate-lavfi-drawbox                                         \
              fate-lavfi-edgedetect                                      \
              fate-lavfi-fade                                            \
+             fate-lavfi-field                                           \
              fate-lavfi-idet                                            \
              fate-lavfi-life                                            \
              fate-lavfi-null                                            \
@@ -27,6 +28,7 @@ FATE_LAVFI = fate-lavfi-alphaextract_rgb                                \
              fate-lavfi-pixfmts_vflip                                   \
              fate-lavfi-scale200                                        \
              fate-lavfi-scale500                                        \
+             fate-lavfi-scalenorm                                       \
              fate-lavfi-select                                          \
              fate-lavfi-setdar                                          \
              fate-lavfi-setsar                                          \

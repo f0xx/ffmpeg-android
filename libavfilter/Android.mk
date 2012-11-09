@@ -92,6 +92,7 @@ LIBAVFILTER_SRC_FILES := \
 		vf_fps.c \
 		vf_gradfun.c \
 		vf_fade.c \
+		vf_field.c \
 		vf_fieldorder.c \
 		vf_format.c \
 		vf_framestep.c \
@@ -148,13 +149,11 @@ LIBMPCODECS_SRC_FILES := \
 		vf_dsize.c \
 		vf_eq2.c \
 		vf_eq.c \
-		vf_field.c \
 		vf_fil.c \
 		vf_fixpts.c \
 		vf_fspp.c \
 		vf_geq.c \
 		vf_harddup.c \
-		vf_hqdn3d.c \
 		vf_il.c \
 		vf_ilpack.c \
 		vf_ivtc.c \
@@ -162,14 +161,12 @@ LIBMPCODECS_SRC_FILES := \
 		vf_mcdeint.c \
 		vf_noise.c \
 		vf_ow.c \
-		vf_palette.c \
 		vf_perspective.c \
 		vf_phase.c \
 		vf_pp.c \
 		vf_pp7.c \
 		vf_pullup.c \
 		vf_qp.c \
-		vf_rectangle.c \
 		vf_sab.c \
 		vf_softpulldown.c \
 		vf_softskip.c \
@@ -180,8 +177,6 @@ LIBMPCODECS_SRC_FILES := \
 		vf_tinterlace.c \
 		vf_unsharp.c \
 		vf_uspp.c \
-		vf_yuvcsp.c \
-		vf_yvu9.c \
 
 #		vf_filmdint.c \
 #		vf_swapuv.c \

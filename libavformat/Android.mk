@@ -65,6 +65,7 @@ LIBAVFORMAT_SRC_FILES := \
 		avio.c \
 		avlanguage.c \
 		avs.c \
+		avr.c \
 		bethsoftvid.c \
 		bfi.c \
 		bink.c \
@@ -102,6 +103,7 @@ LIBAVFORMAT_SRC_FILES := \
 		flvdec.c \
 		gif.c \
 		gxf.c \
+		g722.c \
 		g723_1.c \
 		g729dec.c \
 		gsmdec.c \
@@ -131,6 +133,7 @@ LIBAVFORMAT_SRC_FILES := \
 		jvdec.c \
 		lmlm4.c \
 		loasdec.c \
+		lvfdec.c \
 		lxfdec.c \
 		m4vdec.c \
 		matroska.c \
@@ -190,6 +193,7 @@ LIBAVFORMAT_SRC_FILES := \
 		qcp.c \
 		r3d.c \
 		rawdec.c \
+		rawenc.c \
 		rawvideodec.c \
 		rdt.c \
 		realtextdec.c \
