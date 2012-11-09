@@ -27,29 +27,54 @@ LIBAVFILTER_SRC_FILES := \
 		af_aconvert.c \
 		af_aformat.c \
 		af_amerge.c \
-		af_asplit.c \
-		af_astreamsync.c \
+		af_amix.c \
 		af_aresample.c \
+		af_astreamsync.c \
+		af_asetnsamples.c \
 		af_ashowinfo.c \
+		af_asyncts.c \
+		af_atempo.c \
+		af_channelmap.c \
+		af_channelsplit.c \
 		af_earwax.c \
+		af_join.c \
 		af_pan.c \
+		af_resample.c \
 		af_volume.c \
+		af_volumedetect.c \
 		af_silencedetect.c \
 		allfilters.c \
 		asink_anullsink.c \
 		asrc_anullsrc.c \
-		asrc_abuffer.c \
 		asrc_aevalsrc.c \
 		avfilter.c \
 		avfiltergraph.c \
+		avf_concat.c \
+		avf_showspectrum.c \
+		avf_showwaves.c \
+		audio.c \
 		bbox.c \
-		defaults.c \
+		buffer.c \
+		buffersrc.c \
+		buffersink.c \
 		drawutils.c \
+		f_ebur128.c \
+		f_setpts.c \
+		f_settb.c \
+		f_sendcmd.c \
 		formats.c \
 		graphparser.c \
+		fifo.c \
+		lavfutils.c \
+		lswsutils.c \
 		src_movie.c \
 		sink_buffer.c \
+		split.c \
+		src_buffer.c \
 		transform.c \
+		video.c \
+		vf_alphaextract.c \
+		vf_alphamerge.c \
 		vf_aspect.c \
 		vf_blackdetect.c \
 		vf_blackframe.c \
@@ -59,16 +84,20 @@ LIBAVFILTER_SRC_FILES := \
 		vf_copy.c \
 		vf_crop.c \
 		vf_cropdetect.c \
+		vf_decimate.c \
 		vf_deshake.c \
 		vf_drawbox.c \
 		vf_delogo.c \
+		vf_edgedetect.c \
+		vf_fps.c \
 		vf_gradfun.c \
 		vf_fade.c \
 		vf_fieldorder.c \
-		vf_fifo.c \
 		vf_format.c \
+		vf_framestep.c \
 		vf_hflip.c \
 		vf_hqdn3d.c \
+		vf_hue.c \
 		vf_idet.c \
 		vf_null.c \
 		vf_lut.c \
@@ -76,13 +105,13 @@ LIBAVFILTER_SRC_FILES := \
 		vf_overlay.c \
 		vf_pad.c \
 		vf_pixdesctest.c \
+		vf_removelogo.c \
 		vf_scale.c \
-		vf_setpts.c \
-		vf_settb.c \
 		vf_select.c \
 		vf_setfield.c \
+		vf_smartblur.c \
 		vf_showinfo.c \
-		vf_split.c \
+		vf_super2xsai.c \
 		vf_slicify.c \
 		vf_tile.c \
 		vf_transpose.c \
@@ -92,8 +121,6 @@ LIBAVFILTER_SRC_FILES := \
 		vf_vflip.c \
 		vf_yadif.c \
 		vsink_nullsink.c \
-		vsrc_buffer.c \
-		vsrc_color.c \
 		vsrc_mandelbrot.c \
 		vsrc_mptestsrc.c \
 		vsrc_testsrc.c \
@@ -113,8 +140,6 @@ LIBMPCODECS_SRC_FILES := \
 		img_format.c \
 		mp_image.c \
 		pullup.c \
-		vf_2xsai.c \
-		vf_decimate.c \
 		vf_denoise3d.c \
 		vf_detc.c \
 		vf_dint.c \
@@ -126,18 +151,15 @@ LIBMPCODECS_SRC_FILES := \
 		vf_field.c \
 		vf_fil.c \
 		vf_fixpts.c \
-		vf_framestep.c \
 		vf_fspp.c \
 		vf_geq.c \
 		vf_harddup.c \
 		vf_hqdn3d.c \
-		vf_hue.c \
 		vf_il.c \
 		vf_ilpack.c \
 		vf_ivtc.c \
 		vf_kerndeint.c \
 		vf_mcdeint.c \
-		vf_mirror.c \
 		vf_noise.c \
 		vf_ow.c \
 		vf_palette.c \
@@ -148,11 +170,7 @@ LIBMPCODECS_SRC_FILES := \
 		vf_pullup.c \
 		vf_qp.c \
 		vf_rectangle.c \
-		vf_remove_logo.c \
-		vf_rotate.c \
 		vf_sab.c \
-		vf_screenshot.c \
-		vf_smartblur.c \
 		vf_softpulldown.c \
 		vf_softskip.c \
 		vf_spp.c \
@@ -174,7 +192,7 @@ ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
   LOCAL_CFLAGS += -fPIC
 endif
 
-LOCAL_SHARED_LIBRARIES := avutil swscale swresample avcodec avformat postproc
+LOCAL_SHARED_LIBRARIES := avutil swscale avresample swresample avcodec avformat postproc
 
 LOCAL_SRC_FILES := \
 	$(LIBAVFILTER_SRC_FILES) \

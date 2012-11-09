@@ -29,6 +29,7 @@
 
 #include "avcodec.h"
 #include "lzw.h"
+#include "libavutil/mem.h"
 
 #define LZW_MAXBITS                 12
 #define LZW_SIZTABLE                (1<<LZW_MAXBITS)
@@ -189,6 +190,10 @@ int ff_lzw_decode(LZWState *p, uint8_t *buf, int len){
             *buf++ = *(--sp);
             if ((--l) == 0)
                 goto the_end;
+        }
+        if (s->ebuf < s->pbuf) {
+            av_log(0, AV_LOG_ERROR, "lzw overread\n");
+            goto the_end;
         }
         c = lzw_get_code(s);
         if (c == s->end_code) {

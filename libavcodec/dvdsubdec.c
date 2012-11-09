@@ -22,6 +22,7 @@
 #include "get_bits.h"
 #include "dsputil.h"
 #include "libavutil/colorspace.h"
+#include "libavutil/imgutils.h"
 
 //#define DEBUG
 
@@ -356,6 +357,7 @@ static int decode_dvd_subtitles(DVDSubContext *ctx, AVSubtitle *sub_header,
                 sub_header->rects[0]->h = h;
                 sub_header->rects[0]->type = SUBTITLE_BITMAP;
                 sub_header->rects[0]->pict.linesize[0] = w;
+                sub_header->rects[0]->forced = is_menu;
             }
         }
         if (next_cmd_pos < cmd_pos) {
@@ -539,6 +541,11 @@ static int dvdsub_init(AVCodecContext *avctx)
                 while(*p == ',' || isspace(*p))
                     p++;
             }
+        } else if (strncmp("size:", data, 5) == 0) {
+            int w, h;
+            if (sscanf(data + 5, "%dx%d", &w, &h) == 2 &&
+                av_image_check_size(w, h, 0, avctx) >= 0)
+                avcodec_set_dimensions(avctx, w, h);
         }
 
         data += pos;
@@ -560,9 +567,9 @@ static int dvdsub_init(AVCodecContext *avctx)
 AVCodec ff_dvdsub_decoder = {
     .name           = "dvdsub",
     .type           = AVMEDIA_TYPE_SUBTITLE,
-    .id             = CODEC_ID_DVD_SUBTITLE,
+    .id             = AV_CODEC_ID_DVD_SUBTITLE,
     .priv_data_size = sizeof(DVDSubContext),
     .init           = dvdsub_init,
     .decode         = dvdsub_decode,
-    .long_name = NULL_IF_CONFIG_SMALL("DVD subtitles"),
+    .long_name      = NULL_IF_CONFIG_SMALL("DVD subtitles"),
 };

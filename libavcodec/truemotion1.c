@@ -36,6 +36,8 @@
 #include "avcodec.h"
 #include "dsputil.h"
 #include "libavutil/imgutils.h"
+#include "libavutil/internal.h"
+#include "libavutil/mem.h"
 
 #include "truemotion1data.h"
 
@@ -354,14 +356,7 @@ static int truemotion1_decode_header(TrueMotion1Context *s)
     if (s->flags & FLAG_SPRITE) {
         av_log_ask_for_sample(s->avctx, "SPRITE frame found.\n");
         /* FIXME header.width, height, xoffset and yoffset aren't initialized */
-#if 0
-        s->w = header.width;
-        s->h = header.height;
-        s->x = header.xoffset;
-        s->y = header.yoffset;
-#else
         return -1;
-#endif
     } else {
         s->w = header.xsize;
         s->h = header.ysize;
@@ -395,10 +390,10 @@ static int truemotion1_decode_header(TrueMotion1Context *s)
     }
 
     if (compression_types[header.compression].algorithm == ALGO_RGB24H) {
-        new_pix_fmt = PIX_FMT_RGB32;
+        new_pix_fmt = AV_PIX_FMT_RGB32;
         width_shift = 1;
     } else
-        new_pix_fmt = PIX_FMT_RGB555; // RGB565 is supported as well
+        new_pix_fmt = AV_PIX_FMT_RGB555; // RGB565 is supported as well
 
     s->w >>= width_shift;
     if (av_image_check_size(s->w, s->h, 0, s->avctx) < 0)
@@ -424,7 +419,7 @@ static int truemotion1_decode_header(TrueMotion1Context *s)
         if (compression_types[header.compression].algorithm == ALGO_RGB24H)
             gen_vector_table24(s, sel_vector_table);
         else
-        if (s->avctx->pix_fmt == PIX_FMT_RGB555)
+        if (s->avctx->pix_fmt == AV_PIX_FMT_RGB555)
             gen_vector_table15(s, sel_vector_table);
         else
             gen_vector_table16(s, sel_vector_table);
@@ -469,9 +464,9 @@ static av_cold int truemotion1_decode_init(AVCodecContext *avctx)
 
     // FIXME: it may change ?
 //    if (avctx->bits_per_sample == 24)
-//        avctx->pix_fmt = PIX_FMT_RGB24;
+//        avctx->pix_fmt = AV_PIX_FMT_RGB24;
 //    else
-//        avctx->pix_fmt = PIX_FMT_RGB555;
+//        avctx->pix_fmt = AV_PIX_FMT_RGB555;
 
     avcodec_get_frame_defaults(&s->frame);
     s->frame.data[0] = NULL;
@@ -519,6 +514,10 @@ hres,vres,i,i%vres (0 < i < 4)
 }
 
 #define APPLY_C_PREDICTOR() \
+    if(index > 1023){\
+        av_log(s->avctx, AV_LOG_ERROR, " index %d went out of bounds\n", index); \
+        return; \
+    }\
     predictor_pair = s->c_predictor_table[index]; \
     horiz_pred += (predictor_pair >> 1); \
     if (predictor_pair & 1) { \
@@ -536,6 +535,10 @@ hres,vres,i,i%vres (0 < i < 4)
         index++;
 
 #define APPLY_C_PREDICTOR_24() \
+    if(index > 1023){\
+        av_log(s->avctx, AV_LOG_ERROR, " index %d went out of bounds\n", index); \
+        return; \
+    }\
     predictor_pair = s->c_predictor_table[index]; \
     horiz_pred += (predictor_pair >> 1); \
     if (predictor_pair & 1) { \
@@ -554,6 +557,10 @@ hres,vres,i,i%vres (0 < i < 4)
 
 
 #define APPLY_Y_PREDICTOR() \
+    if(index > 1023){\
+        av_log(s->avctx, AV_LOG_ERROR, " index %d went out of bounds\n", index); \
+        return; \
+    }\
     predictor_pair = s->y_predictor_table[index]; \
     horiz_pred += (predictor_pair >> 1); \
     if (predictor_pair & 1) { \
@@ -571,6 +578,10 @@ hres,vres,i,i%vres (0 < i < 4)
         index++;
 
 #define APPLY_Y_PREDICTOR_24() \
+    if(index > 1023){\
+        av_log(s->avctx, AV_LOG_ERROR, " index %d went out of bounds\n", index); \
+        return; \
+    }\
     predictor_pair = s->y_predictor_table[index]; \
     horiz_pred += (predictor_pair >> 1); \
     if (predictor_pair & 1) { \
@@ -894,11 +905,11 @@ static av_cold int truemotion1_decode_end(AVCodecContext *avctx)
 AVCodec ff_truemotion1_decoder = {
     .name           = "truemotion1",
     .type           = AVMEDIA_TYPE_VIDEO,
-    .id             = CODEC_ID_TRUEMOTION1,
+    .id             = AV_CODEC_ID_TRUEMOTION1,
     .priv_data_size = sizeof(TrueMotion1Context),
     .init           = truemotion1_decode_init,
     .close          = truemotion1_decode_end,
     .decode         = truemotion1_decode_frame,
     .capabilities   = CODEC_CAP_DR1,
-    .long_name = NULL_IF_CONFIG_SMALL("Duck TrueMotion 1.0"),
+    .long_name      = NULL_IF_CONFIG_SMALL("Duck TrueMotion 1.0"),
 };

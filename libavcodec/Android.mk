@@ -2,13 +2,90 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
+LOCAL_APP_ABI += armeabi-v7a
+LOCAL_ARM_MODE += arm
+LOCAL_MODULE    := avcodec_vfp
+LOCAL_CFLAGS := -mfpu=vfp -march=armv6
+
+VFP_SRC_FILES := \
+		arm/dsputil_init_vfp.c \
+		arm/dsputil_vfp.S \
+		fmtconvert_vfp.S \
+
+include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+
+LOCAL_APP_ABI += armeabi-v7a
+LOCAL_ARM_MODE += arm
+LOCAL_MODULE    := avcodec_armv6
+LOCAL_CFLAGS := -mfpu=softfloat -march=armv6
+
+ARM6_SRC_FILES := \
+		arm/dsputil_armv6.S \
+		arm/dsputil_init_armv6.c \
+		arm/simple_idct_armv6.S \
+		arm/vp8dsp_armv6.S \
+
+include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+
+LOCAL_APP_ABI += armeabi-v7a
+LOCAL_ARM_MODE += arm
+LOCAL_MODULE    := avcodec_neon
+
+NEON_SRC_FILES := \
+		arm/ac3dsp_neon.S \
+		arm/dcadsp_neon.S \
+		arm/dsputil_init_neon.c \
+		arm/dsputil_neon.S \
+		arm/fft_neon.S \
+		arm/fft_fixed_neon.S \
+		arm/fmtconvert_neon.S \
+		arm/h264cmc_neon.S \
+		arm/h264dsp_neon.S \
+		arm/h264idct_neon.S \
+		arm/h264pred_neon.S \
+		arm/int_neon.S \
+		arm/mdct_neon.S \
+		arm/mdct_fixed_neon.S \
+		arm/mpegvideo_neon.S \
+		arm/rdft_neon.S \
+		arm/rv40dsp_neon.S \
+		arm/simple_idct_neon.S \
+		arm/synth_filter_neon.S \
+		arm/vp3dsp_neon.S \
+		arm/vp56dsp_neon.S \
+		arm/vp8dsp_neon.S \
+		arm/sbrdsp_neon.S \
+
+LOCAL_CFLAGS += -DHAVE_NEON=1
+LOCAL_CFLAGS += -fPIC
+
+LOCAL_C_INCLUDES += . 
+LOCAL_C_INCLUDES += ..
+
+ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
+    LOCAL_NEON_EXT_FILES += $(NEON_SRC_FILES:%=%.neon)
+    LOCAL_SRC_FILES := $(LOCAL_NEON_EXT_FILES)
+else
+    LOCAL_SRC_FILES := $(NEON_SRC_FILES)
+endif
+
+include $(BUILD_STATIC_LIBRARY)
+
+#################################################################
+
+include $(CLEAR_VARS)
+
 LOCAL_APP_ABI += $(APP_ABI)
 LOCAL_ARM_MODE += arm
 
 LOCAL_MODULE    := avcodec
 LOCAL_C_INCLUDES += $(LOCAL_PATH)
 LOCAL_C_INCLUDES += $(FFMPEG_INCLUDE_DIR)
-LOCAL_C_INCLUDES += $(FFMPEG_INCLUDE_DIR)/libavutil
+#LOCAL_C_INCLUDES += $(FFMPEG_INCLUDE_DIR)/libavutil
 
 LOCAL_CFLAGS += -DHAVE_AV_CONFIG_H  -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DPIC
 LOCAL_CFLAGS += $(GLOBAL_CFLAGS)
@@ -41,6 +118,7 @@ LIBAVCODEC_SRC_FILES := \
 		aacadtsdec.c \
 		aacsbr.c \
 		aacps.c \
+		aacpsdsp.c \
 		aactab.c \
 		aandcttab.c \
 		aasc.c \
@@ -69,7 +147,8 @@ LIBAVCODEC_SRC_FILES := \
 		ass.c \
 		assdec.c \
 		ass_split.c \
-		asv1.c \
+		asv.c \
+		asvdec.c \
 		atrac.c \
 		atrac1.c \
 		atrac3.c \
@@ -77,7 +156,9 @@ LIBAVCODEC_SRC_FILES := \
 		aura.c \
 		avfft.c \
 		avpacket.c \
+		avrndec.c \
 		avs.c \
+		avuidec.c \
 		bethsoftvideo.c \
 		bfi.c \
 		bgmc.c \
@@ -88,11 +169,14 @@ LIBAVCODEC_SRC_FILES := \
 		bitstream.c \
 		bitstream_filter.c \
 		bmp.c \
+		bmp_parser.c \
 		bmv.c \
+		cpia.c \
 		c93.c \
 		cabac.c \
 		cavs.c \
 		cavs_parser.c \
+		cavsdata.c \
 		cavsdec.c \
 		cavsdsp.c \
 		cdgraphics.c \
@@ -103,10 +187,14 @@ LIBAVCODEC_SRC_FILES := \
 		chomp_bsf.c \
 		cinepak.c \
 		cljr.c \
+		cllc.c \
+		codec_desc.c \
 		cook.c \
+		cook_parser.c \
 		cscd.c \
 		cyuv.c \
 		dca.c \
+		dcadec.c \
 		dca_parser.c \
 		dct.c \
 		dct32_fixed.c \
@@ -125,6 +213,7 @@ LIBAVCODEC_SRC_FILES := \
 		dsicinav.c \
 		dsputil.c \
 		dump_extradata_bsf.c \
+		dv_profile.c \
 		dv.c \
 		dvdec.c \
 		dvbsub_parser.c \
@@ -155,10 +244,12 @@ LIBAVCODEC_SRC_FILES := \
 		flac.c \
 		flacdata.c \
 		flacdec.c \
+		flacdsp.c \
 		flac_parser.c \
 		flashsv.c \
 		flicvideo.c \
 		flvdec.c \
+		frame_thread_encoder.c \
 		fraps.c \
 		frwu.c \
 		g722.c \
@@ -174,6 +265,7 @@ LIBAVCODEC_SRC_FILES := \
 		gsmdec_data.c \
 		h261.c \
 		h261_parser.c \
+		h261data.c \
 		h261dec.c \
 		h263.c \
 		h263_parser.c \
@@ -209,6 +301,7 @@ LIBAVCODEC_SRC_FILES := \
 		ituh263dec.c \
 		ivi_common.c \
 		ivi_dsp.c \
+		jacosubdec.c \
 		j2k.c \
 		j2kdec.c \
 		j2k_dwt.c \
@@ -226,8 +319,10 @@ LIBAVCODEC_SRC_FILES := \
 		lsp.c \
 		lzw.c \
 		mace.c \
+		mathtables.c \
 		mdct_fixed.c \
 		mdec.c \
+		microdvddec.c \
 		mimic.c \
 		mjpeg.c \
 		mjpeg2jpeg_bsf.c \
@@ -243,6 +338,7 @@ LIBAVCODEC_SRC_FILES := \
 		mmvideo.c \
 		motionpixels.c \
 		movsub_bsf.c \
+		movtextdec.c \
 		mp3_header_compress_bsf.c \
 		mp3_header_decompress_bsf.c \
 		mpc.c \
@@ -256,18 +352,27 @@ LIBAVCODEC_SRC_FILES := \
 		mpeg4videodec.c \
 		mpegaudio.c \
 		mpegaudiodsp.c \
+		mpegaudiodsp_data.c \
 		mpegaudio_parser.c \
 		mpegaudiodata.c \
 		mpegaudiodec.c \
 		mpegaudiodsp_fixed.c \
 		mpegaudiodecheader.c \
 		mpegvideo.c \
+		mpegvideo_motion.c \
 		mpegvideo_parser.c \
 		msgsmdec.c \
 		msmpeg4.c \
 		msmpeg4data.c \
 		msrle.c \
 		msrledec.c \
+		mss12.c \
+		mss1.c \
+		mss2.c \
+		mss2dsp.c \
+		mss34dsp.c \
+		mss3.c \
+		mss4.c \
 		msvideo1.c \
 		mqc.c \
 		mqcdec.c \
@@ -277,6 +382,7 @@ LIBAVCODEC_SRC_FILES := \
 		nuv.c \
 		options.c \
 		parser.c \
+		paf.c \
 		pcm-mpeg.c \
 		pcm.c \
 		pcx.c \
@@ -285,6 +391,7 @@ LIBAVCODEC_SRC_FILES := \
 		png.c \
 		pngdec.c \
 		pngdsp.c \
+		png_parser.c \
 		pnm.c \
 		pnm_parser.c \
 		pnmdec.c \
@@ -308,6 +415,7 @@ LIBAVCODEC_SRC_FILES := \
 		raw.c \
 		rawdec.c \
 		rdft.c \
+		realtextdec.c \
 		remove_extradata_bsf.c \
 		resample.c \
 		resample2.c \
@@ -324,7 +432,9 @@ LIBAVCODEC_SRC_FILES := \
 		rv34_parser.c \
 		rv40.c \
 		rv40dsp.c \
+		samidec.c \
 		s3tc.c \
+		sanm.c \
 		sbrdsp.c \
 		sgidec.c \
 		shorten.c \
@@ -338,27 +448,39 @@ LIBAVCODEC_SRC_FILES := \
 		sonic.c \
 		srtdec.c \
 		sp5xdec.c \
+		subviewerdec.c \
 		sunrast.c \
 		s302m.c \
 		svq1.c \
 		svq1dec.c \
+		svq13.c \
 		svq3.c \
 		synth_filter.c \
+		tak.c \
+		takdec.c \
+		tak_parser.c \
 		targa.c \
+		targa_y216dec.c \
+		textdec.c \
 		tiertexseqv.c \
 		timecode.c \
 		tiff.c \
+		tiff_data.c \
 		tmv.c \
 		truemotion1.c \
 		truemotion2.c \
 		truespeech.c \
 		tscc.c \
+		tscc2.c \
 		tta.c \
 		twinvq.c \
 		txd.c \
 		ulti.c \
 		utils.c \
 		utvideo.c \
+		utvideodec.c \
+		utvideoenc.c \
+		vima.c \
 		v210dec.c \
 		v210x.c \
 		vb.c \
@@ -391,6 +513,7 @@ LIBAVCODEC_SRC_FILES := \
 		vp6dsp.c \
 		vqavideo.c \
 		wavpack.c \
+		webvttdec.c \
 		wma.c \
 		wma_common.c \
 		wmadec.c \
@@ -404,6 +527,8 @@ LIBAVCODEC_SRC_FILES := \
 		xan.c \
 		xbmdec.c \
 		xiph.c \
+		xface.c \
+		xfacedec.c \
 		xl.c \
 		xsubdec.c \
 		xxan.c \
@@ -421,27 +546,32 @@ LIBAVCODEC_SRC_FILES := \
 		sinewin_tables.c \
 
 
-
-
 ARMV5_LOCAL_SRC_FILES := \
-		arm/asm.S \
+		arm/aacpsdsp_init_arm.c \
 		arm/ac3dsp_arm.S \
 		arm/ac3dsp_init_arm.c \
 		arm/dcadsp_init_arm.c \
 		arm/dsputil_arm.S \
 		arm/dsputil_init_arm.c \
 		arm/dsputil_init_armv5te.c \
+		arm/flacdsp_arm.S \
+		arm/flacdsp_init_arm.c \
 		arm/fft_init_arm.c \
 		arm/fft_fixed_init_arm.c \
 		arm/h264dsp_init_arm.c \
 		arm/h264pred_init_arm.c \
 		arm/jrevdct_arm.S \
+		arm/mpegaudiodsp_init_arm.c \
 		arm/mpegvideo_arm.c \
 		arm/mpegvideo_armv5te.c \
 		arm/mpegvideo_armv5te_s.S \
+		arm/rv34dsp_init_arm.c \
+		arm/rv40dsp_init_arm.c \
+		arm/sbrdsp_init_arm.c \
 		arm/simple_idct_arm.S \
 		arm/simple_idct_armv5te.S \
 		arm/fmtconvert_init_arm.c \
+		arm/vp3dsp_init_arm.c \
 		arm/vp56dsp_init_arm.c \
 		arm/vp8dsp_init_arm.c \
 		$(LIBAVFORMAT_SRC_FILES) \
@@ -450,97 +580,25 @@ ARMV5_LOCAL_SRC_FILES := \
 
 
 VP8_SRC_FILES := \
-		arm/vp8dsp_init_arm.c \
 		vp8.c \
 		vp8_parser.c \
 		vp8dsp.c \
 
 
-COMMON_ARM_SRC_FILES := \
-		arm/asm.S \
-		arm/ac3dsp_arm.S \
-		arm/ac3dsp_init_arm.c \
-		arm/dcadsp_init_arm.c \
-		arm/dsputil_arm.S \
-		arm/dsputil_init_arm.c \
-		arm/fft_init_arm.c \
-		arm/fft_fixed_init_arm.c \
-		arm/h264dsp_init_arm.c \
-		arm/h264pred_init_arm.c \
-		arm/jrevdct_arm.S \
-		arm/mpegvideo_arm.c \
-		arm/simple_idct_arm.S \
-		arm/fmtconvert_init_arm.c \
-		arm/vp56dsp_init_arm.c \
-		arm/mpegaudiodsp_init_arm.c \
-		arm/sbrdsp_init_arm.c \
-
-
-ARMV5_SRC_FILES := \
-		arm/dsputil_init_armv5te.c \
-		arm/mpegvideo_armv5te.c \
-		arm/mpegvideo_armv5te_s.S \
-		arm/simple_idct_armv5te.S \
-
-VFP_SRC_FILES := \
-		arm/dsputil_init_vfp.c \
-		arm/dsputil_vfp.S \
-		fmtconvert_vfp.S \
-		$(VP8_SRC_FILES) \
-		arm/vp8dsp_armv6.S \
-
-
-ARM6_SRC_FILES := \
-		arm/dsputil_armv6.S \
-		arm/dsputil_init_armv6.c \
-		arm/simple_idct_armv6.S \
-		$(VP8_SRC_FILES) \
-		arm/vp8dsp_armv6.S \
-
-
-NEON_SRC_FILES := \
-		arm/ac3dsp_neon.S.neon \
-		arm/dcadsp_neon.S.neon \
-		arm/dsputil_init_neon.c.neon \
-		arm/dsputil_neon.S.neon \
-		arm/fft_neon.S.neon \
-		arm/fft_fixed_neon.S.neon \
-		arm/fmtconvert_neon.S.neon \
-		arm/h264dsp_neon.S.neon \
-		arm/h264idct_neon.S.neon \
-		arm/h264pred_neon.S.neon \
-		arm/int_neon.S.neon \
-		arm/mdct_neon.S.neon \
-		arm/mdct_fixed_neon.S.neon \
-		arm/mpegvideo_neon.S.neon \
-		arm/rdft_neon.S.neon \
-		arm/simple_idct_neon.S.neon \
-		arm/synth_filter_neon.S.neon \
-		arm/vp3dsp_neon.S.neon \
-		arm/vp56dsp_neon.S.neon \
-		$(VP8_SRC_FILES) \
-		arm/vp8dsp_neon.S.neon \
-		arm/sbrdsp_neon.S.neon \
+COMMON_ARM_SRC_FILES := $(ARMV5_LOCAL_SRC_FILES)
 
 
 LOCAL_SRC_FILES += $(COMMON_ARM_SRC_FILES)
 LOCAL_SRC_FILES += $(LIBAVCODEC_SRC_FILES)
 
-
-LOCAL_SRC_FILES += $(ARMV5_SRC_FILES)
-ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
-    LOCAL_CFLAGS += -DHAVE_NEON=1
-    LOCAL_CFLAGS += -fPIC
-    LOCAL_NEON_EXT_FILES += $(LOCAL_SRC_FILES:%=%.neon)
-    LOCAL_SRC_FILES := $(LOCAL_NEON_EXT_FILES) 
-    LOCAL_SRC_FILES += $(NEON_SRC_FILES)
-else
-#    LOCAL_SRC_FILES += $(ARMV5_SRC_FILES)
-endif
+#LOCAL_SRC_FILES += $(VP8_SRC_FILES)
+#LOCAL_SRC_FILES += $(ARMV5_SRC_FILES)
+#LOCAL_SRC_FILES += $(ARM6_SRC_FILES) ## runtime cpu detection enabled
+#LOCAL_SRC_FILES += $(VFP_SRC_FILES) ## runtime cpu detection enabled 
+#LOCAL_SRC_FILES += $(NEON_SRC_FILES) ## runtime cpu detection enabled 
 
 
-
-
-LOCAL_SHARED_LIBRARIES := avutil 
+LOCAL_SHARED_LIBRARIES := avutil
+LOCAL_STATIC_LIBRARIES := avcodec_vfp avcodec_armv6 avcodec_neon
 
 include $(BUILD_SHARED_LIBRARY)

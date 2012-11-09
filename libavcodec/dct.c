@@ -28,6 +28,7 @@
  */
 
 #include <math.h>
+#include <string.h>
 
 #include "libavutil/mathematics.h"
 #include "dct.h"
@@ -209,13 +210,13 @@ av_cold int ff_dct_init(DCTContext *s, int nbits, enum DCTTransformType inverse)
 
     s->dct32 = 
 #if DCT32_FLOAT
-		ff_dct32_float
+      ff_dct32_float
 #else
-		ff_dct32_fixed
+      ff_dct32_fixed
 #endif
-		;
-    if (HAVE_MMX)
-        ff_dct_init_mmx(s);
+    ;
+    if (ARCH_X86)
+        ff_dct_init_x86(s);
 
     return 0;
 }

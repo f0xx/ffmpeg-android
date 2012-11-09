@@ -260,20 +260,15 @@ static inline void decode_subblock1(DCTELEM *dst, int code, GetBitContext *gb, V
     decode_coeff(dst, coeff, 3, gb, vlc, q);
 }
 
-static inline void decode_subblock3(DCTELEM *dst, int code, const int is_block2, GetBitContext *gb, VLC *vlc,
+static inline void decode_subblock3(DCTELEM *dst, int code, GetBitContext *gb, VLC *vlc,
                                     int q_dc, int q_ac1, int q_ac2)
 {
     int flags = modulo_three_table[code];
 
-    decode_coeff(    dst+0*4+0, (flags >> 6)    , 3, gb, vlc, q_dc);
-    if(is_block2){
-        decode_coeff(dst+1*4+0, (flags >> 4) & 3, 2, gb, vlc, q_ac1);
-        decode_coeff(dst+0*4+1, (flags >> 2) & 3, 2, gb, vlc, q_ac1);
-    }else{
-        decode_coeff(dst+0*4+1, (flags >> 4) & 3, 2, gb, vlc, q_ac1);
-        decode_coeff(dst+1*4+0, (flags >> 2) & 3, 2, gb, vlc, q_ac1);
-    }
-    decode_coeff(    dst+1*4+1, (flags >> 0) & 3, 2, gb, vlc, q_ac2);
+    decode_coeff(dst+0*4+0, (flags >> 6)    , 3, gb, vlc, q_dc);
+    decode_coeff(dst+0*4+1, (flags >> 4) & 3, 2, gb, vlc, q_ac1);
+    decode_coeff(dst+1*4+0, (flags >> 2) & 3, 2, gb, vlc, q_ac1);
+    decode_coeff(dst+1*4+1, (flags >> 0) & 3, 2, gb, vlc, q_ac2);
 }
 
 /**
@@ -287,7 +282,7 @@ static inline void decode_subblock3(DCTELEM *dst, int code, const int is_block2,
  *  o--o
  */
 
-static inline int rv34_decode_block(DCTELEM *dst, GetBitContext *gb, RV34VLC *rvlc, int fc, int sc, int q_dc, int q_ac1, int q_ac2)
+static int rv34_decode_block(DCTELEM *dst, GetBitContext *gb, RV34VLC *rvlc, int fc, int sc, int q_dc, int q_ac1, int q_ac2)
 {
     int code, pattern, has_ac = 1;
 
@@ -298,7 +293,7 @@ static inline int rv34_decode_block(DCTELEM *dst, GetBitContext *gb, RV34VLC *rv
     code >>= 3;
 
     if (modulo_three_table[code] & 0x3F) {
-        decode_subblock3(dst, code, 0, gb, &rvlc->coefficient, q_dc, q_ac1, q_ac2);
+        decode_subblock3(dst, code, gb, &rvlc->coefficient, q_dc, q_ac1, q_ac2);
     } else {
         decode_subblock1(dst, code, gb, &rvlc->coefficient, q_dc);
         if (!pattern)
@@ -318,7 +313,7 @@ static inline int rv34_decode_block(DCTELEM *dst, GetBitContext *gb, RV34VLC *rv
         code = get_vlc2(gb, rvlc->third_pattern[sc].table, 9, 2);
         decode_subblock(dst + 4*2+2, code, 0, gb, &rvlc->coefficient, q_ac2);
     }
-    return has_ac || pattern;
+    return has_ac | pattern;
 }
 
 /**
@@ -521,7 +516,7 @@ static void rv34_pred_mv(RV34DecContext *r, int block_type, int subblock_no, int
  */
 static int calc_add_mv(RV34DecContext *r, int dir, int val)
 {
-    int mul = dir ? -r->weight2 : r->weight1;
+    int mul = dir ? -r->mv_weight2 : r->mv_weight1;
 
     return (val * mul + 0x2000) >> 14;
 }
@@ -776,24 +771,24 @@ static void rv34_mc_1mv(RV34DecContext *r, const int block_type,
 
 static void rv4_weight(RV34DecContext *r)
 {
-    r->rdsp.rv40_weight_pixels_tab[0](r->s.dest[0],
-                                      r->tmp_b_block_y[0],
-                                      r->tmp_b_block_y[1],
-                                      r->weight1,
-                                      r->weight2,
-                                      r->s.linesize);
-    r->rdsp.rv40_weight_pixels_tab[1](r->s.dest[1],
-                                      r->tmp_b_block_uv[0],
-                                      r->tmp_b_block_uv[2],
-                                      r->weight1,
-                                      r->weight2,
-                                      r->s.uvlinesize);
-    r->rdsp.rv40_weight_pixels_tab[1](r->s.dest[2],
-                                      r->tmp_b_block_uv[1],
-                                      r->tmp_b_block_uv[3],
-                                      r->weight1,
-                                      r->weight2,
-                                      r->s.uvlinesize);
+    r->rdsp.rv40_weight_pixels_tab[r->scaled_weight][0](r->s.dest[0],
+                                                        r->tmp_b_block_y[0],
+                                                        r->tmp_b_block_y[1],
+                                                        r->weight1,
+                                                        r->weight2,
+                                                        r->s.linesize);
+    r->rdsp.rv40_weight_pixels_tab[r->scaled_weight][1](r->s.dest[1],
+                                                        r->tmp_b_block_uv[0],
+                                                        r->tmp_b_block_uv[2],
+                                                        r->weight1,
+                                                        r->weight2,
+                                                        r->s.uvlinesize);
+    r->rdsp.rv40_weight_pixels_tab[r->scaled_weight][1](r->s.dest[2],
+                                                        r->tmp_b_block_uv[1],
+                                                        r->tmp_b_block_uv[3],
+                                                        r->weight1,
+                                                        r->weight2,
+                                                        r->s.uvlinesize);
 }
 
 static void rv34_mc_2mv(RV34DecContext *r, const int block_type)
@@ -1337,7 +1332,7 @@ static int check_slice_end(RV34DecContext *r, MpegEncContext *s)
     if(r->s.mb_skip_run > 1)
         return 0;
     bits = get_bits_left(&s->gb);
-    if(bits < 0 || (bits < 8 && !show_bits(&s->gb, bits)))
+    if(bits <= 0 || (bits < 8 && !show_bits(&s->gb, bits)))
         return 1;
     return 0;
 }
@@ -1488,21 +1483,21 @@ av_cold int ff_rv34_decode_init(AVCodecContext *avctx)
     r->s.avctx = avctx;
     avctx->flags |= CODEC_FLAG_EMU_EDGE;
     r->s.flags |= CODEC_FLAG_EMU_EDGE;
-    avctx->pix_fmt = PIX_FMT_YUV420P;
+    avctx->pix_fmt = AV_PIX_FMT_YUV420P;
     avctx->has_b_frames = 1;
     s->low_delay = 0;
 
     if ((ret = ff_MPV_common_init(s)) < 0)
         return ret;
 
-    ff_h264_pred_init(&r->h, CODEC_ID_RV40, 8, 1);
+    ff_h264_pred_init(&r->h, AV_CODEC_ID_RV40, 8, 1);
 
 #if CONFIG_RV30_DECODER
-    if (avctx->codec_id == CODEC_ID_RV30)
+    if (avctx->codec_id == AV_CODEC_ID_RV30)
         ff_rv30dsp_init(&r->rdsp, &r->s.dsp);
 #endif
 #if CONFIG_RV40_DECODER
-    if (avctx->codec_id == CODEC_ID_RV40)
+    if (avctx->codec_id == AV_CODEC_ID_RV40)
         ff_rv40dsp_init(&r->rdsp, &r->s.dsp);
 #endif
 
@@ -1542,10 +1537,9 @@ int ff_rv34_decode_update_thread_context(AVCodecContext *dst, const AVCodecConte
         return 0;
 
     if (s->height != s1->height || s->width != s1->width) {
-        ff_MPV_common_end(s);
         s->height = s1->height;
         s->width  = s1->width;
-        if ((err = ff_MPV_common_init(s)) < 0)
+        if ((err = ff_MPV_common_frame_size_change(s)) < 0)
             return err;
         if ((err = rv34_decoder_realloc(r)) < 0)
             return err;
@@ -1655,7 +1649,7 @@ int ff_rv34_decode_frame(AVCodecContext *avctx,
     /* first slice */
     if (si.start == 0) {
         if (s->mb_num_left > 0) {
-            av_log(avctx, AV_LOG_ERROR, "New frame but still %d MB left.",
+            av_log(avctx, AV_LOG_ERROR, "New frame but still %d MB left.\n",
                    s->mb_num_left);
             ff_er_frame_end(s);
             ff_MPV_frame_end(s);
@@ -1664,20 +1658,13 @@ int ff_rv34_decode_frame(AVCodecContext *avctx,
         if (s->width != si.width || s->height != si.height) {
             int err;
 
-            if (HAVE_THREADS &&
-                (s->avctx->active_thread_type & FF_THREAD_FRAME)) {
-                av_log_missing_feature(s->avctx, "Width/height changing with "
-                                       "frame threading is", 0);
-                return AVERROR_PATCHWELCOME;
-            }
-
             av_log(s->avctx, AV_LOG_WARNING, "Changing dimensions to %dx%d\n",
                    si.width, si.height);
-            ff_MPV_common_end(s);
+
             s->width  = si.width;
             s->height = si.height;
             avcodec_set_dimensions(s->avctx, s->width, s->height);
-            if ((err = ff_MPV_common_init(s)) < 0)
+            if ((err = ff_MPV_common_frame_size_change(s)) < 0)
                 return err;
             if ((err = rv34_decoder_realloc(r)) < 0)
                 return err;
@@ -1707,11 +1694,21 @@ int ff_rv34_decode_frame(AVCodecContext *avctx,
             int dist0   = GET_PTS_DIFF(r->cur_pts,  r->last_pts);
             int dist1   = GET_PTS_DIFF(r->next_pts, r->cur_pts);
 
-            if (!refdist) {
-                r->weight1 = r->weight2 = 8192;
-            } else {
-                r->weight1 = (dist0 << 14) / refdist;
-                r->weight2 = (dist1 << 14) / refdist;
+            if(!refdist){
+                r->mv_weight1 = r->mv_weight2 = r->weight1 = r->weight2 = 8192;
+                r->scaled_weight = 0;
+            }else{
+                r->mv_weight1 = (dist0 << 14) / refdist;
+                r->mv_weight2 = (dist1 << 14) / refdist;
+                if((r->mv_weight1|r->mv_weight2) & 511){
+                    r->weight1 = r->mv_weight1;
+                    r->weight2 = r->mv_weight2;
+                    r->scaled_weight = 0;
+                }else{
+                    r->weight1 = r->mv_weight1 >> 9;
+                    r->weight2 = r->mv_weight2 >> 9;
+                    r->scaled_weight = 1;
+                }
             }
         }
         s->mb_x = s->mb_y = 0;

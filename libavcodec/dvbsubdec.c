@@ -1343,6 +1343,10 @@ static void dvbsub_parse_display_definition_segment(AVCodecContext *avctx,
     display_def->y       = 0;
     display_def->width   = bytestream_get_be16(&buf) + 1;
     display_def->height  = bytestream_get_be16(&buf) + 1;
+    if (!avctx->width || !avctx->height) {
+        avctx->width  = display_def->width;
+        avctx->height = display_def->height;
+    }
 
     if (buf_size < 13)
         return;
@@ -1533,10 +1537,10 @@ static int dvbsub_decode(AVCodecContext *avctx,
 AVCodec ff_dvbsub_decoder = {
     .name           = "dvbsub",
     .type           = AVMEDIA_TYPE_SUBTITLE,
-    .id             = CODEC_ID_DVB_SUBTITLE,
+    .id             = AV_CODEC_ID_DVB_SUBTITLE,
     .priv_data_size = sizeof(DVBSubContext),
     .init           = dvbsub_init_decoder,
     .close          = dvbsub_close_decoder,
     .decode         = dvbsub_decode,
-    .long_name = NULL_IF_CONFIG_SMALL("DVB subtitles"),
+    .long_name      = NULL_IF_CONFIG_SMALL("DVB subtitles"),
 };

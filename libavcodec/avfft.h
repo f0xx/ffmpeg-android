@@ -18,6 +18,19 @@
 
 #ifndef AVCODEC_AVFFT_H
 #define AVCODEC_AVFFT_H
+#include "avcodec.h"
+/**
+ * @file
+ * @ingroup lavc_fft
+ * FFT functions
+ */
+
+/**
+ * @defgroup lavc_fft FFT functions
+ * @ingroup lavc_misc
+ *
+ * @{
+ */
 
 typedef float FFTSample;
 
@@ -32,25 +45,34 @@ typedef struct FFTContext FFTContext;
  * @param nbits           log2 of the length of the input array
  * @param inverse         if 0 perform the forward transform, if 1 perform the inverse
  */
+av_export
 FFTContext *av_fft_init(int nbits, int inverse);
 
 /**
  * Do the permutation needed BEFORE calling ff_fft_calc().
  */
+av_export
 void av_fft_permute(FFTContext *s, FFTComplex *z);
 
 /**
  * Do a complex FFT with the parameters defined in av_fft_init(). The
  * input data must be permuted before. No 1.0/sqrt(n) normalization is done.
  */
+av_export
 void av_fft_calc(FFTContext *s, FFTComplex *z);
 
+av_export
 void av_fft_end(FFTContext *s);
 
+av_export
 FFTContext *av_mdct_init(int nbits, int inverse, double scale);
+av_export
 void av_imdct_calc(FFTContext *s, FFTSample *output, const FFTSample *input);
+av_export
 void av_imdct_half(FFTContext *s, FFTSample *output, const FFTSample *input);
+av_export
 void av_mdct_calc(FFTContext *s, FFTSample *output, const FFTSample *input);
+av_export
 void av_mdct_end(FFTContext *s);
 
 /* Real Discrete Fourier Transform */
@@ -69,8 +91,11 @@ typedef struct RDFTContext RDFTContext;
  * @param nbits           log2 of the length of the input array
  * @param trans           the type of transform
  */
+av_export
 RDFTContext *av_rdft_init(int nbits, enum RDFTransformType trans);
+av_export
 void av_rdft_calc(RDFTContext *s, FFTSample *data);
+av_export
 void av_rdft_end(RDFTContext *s);
 
 /* Discrete Cosine Transform */
@@ -92,8 +117,15 @@ enum DCTTransformType {
  *
  * @note the first element of the input of DST-I is ignored
  */
+av_export
 DCTContext *av_dct_init(int nbits, enum DCTTransformType type);
+av_export
 void av_dct_calc(DCTContext *s, FFTSample *data);
+av_export
 void av_dct_end (DCTContext *s);
+
+/**
+ * @}
+ */
 
 #endif /* AVCODEC_AVFFT_H */

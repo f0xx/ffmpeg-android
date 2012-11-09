@@ -43,6 +43,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "libavutil/common.h"
 #include "libavutil/intreadwrite.h"
 #include "avcodec.h"
 
@@ -264,7 +265,7 @@ static void vmd_decode(VmdVideoContext *s)
             r = *p++ * 4;
             g = *p++ * 4;
             b = *p++ * 4;
-            palette32[i] = 0xFF << 24 | r << 16 | g << 8 | b;
+            palette32[i] = 0xFFU << 24 | r << 16 | g << 8 | b;
             palette32[i] |= palette32[i] >> 6 & 0x30303;
         }
     }
@@ -377,7 +378,7 @@ static av_cold int vmdvideo_decode_init(AVCodecContext *avctx)
     unsigned char *raw_palette;
 
     s->avctx = avctx;
-    avctx->pix_fmt = PIX_FMT_PAL8;
+    avctx->pix_fmt = AV_PIX_FMT_PAL8;
 
     /* make sure the VMD header made it */
     if (s->avctx->extradata_size != VMD_HEADER_SIZE) {
@@ -645,22 +646,22 @@ static int vmdaudio_decode_frame(AVCodecContext *avctx, void *data,
 AVCodec ff_vmdvideo_decoder = {
     .name           = "vmdvideo",
     .type           = AVMEDIA_TYPE_VIDEO,
-    .id             = CODEC_ID_VMDVIDEO,
+    .id             = AV_CODEC_ID_VMDVIDEO,
     .priv_data_size = sizeof(VmdVideoContext),
     .init           = vmdvideo_decode_init,
     .close          = vmdvideo_decode_end,
     .decode         = vmdvideo_decode_frame,
     .capabilities   = CODEC_CAP_DR1,
-    .long_name = NULL_IF_CONFIG_SMALL("Sierra VMD video"),
+    .long_name      = NULL_IF_CONFIG_SMALL("Sierra VMD video"),
 };
 
 AVCodec ff_vmdaudio_decoder = {
     .name           = "vmdaudio",
     .type           = AVMEDIA_TYPE_AUDIO,
-    .id             = CODEC_ID_VMDAUDIO,
+    .id             = AV_CODEC_ID_VMDAUDIO,
     .priv_data_size = sizeof(VmdAudioContext),
     .init           = vmdaudio_decode_init,
     .decode         = vmdaudio_decode_frame,
     .capabilities   = CODEC_CAP_DR1,
-    .long_name = NULL_IF_CONFIG_SMALL("Sierra VMD audio"),
+    .long_name      = NULL_IF_CONFIG_SMALL("Sierra VMD audio"),
 };

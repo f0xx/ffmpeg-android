@@ -414,7 +414,7 @@ static av_cold int smc_decode_init(AVCodecContext *avctx)
     SmcContext *s = avctx->priv_data;
 
     s->avctx = avctx;
-    avctx->pix_fmt = PIX_FMT_PAL8;
+    avctx->pix_fmt = AV_PIX_FMT_PAL8;
 
     avcodec_get_frame_defaults(&s->frame);
     s->frame.data[0] = NULL;
@@ -468,11 +468,11 @@ static av_cold int smc_decode_end(AVCodecContext *avctx)
 AVCodec ff_smc_decoder = {
     .name           = "smc",
     .type           = AVMEDIA_TYPE_VIDEO,
-    .id             = CODEC_ID_SMC,
+    .id             = AV_CODEC_ID_SMC,
     .priv_data_size = sizeof(SmcContext),
     .init           = smc_decode_init,
     .close          = smc_decode_end,
     .decode         = smc_decode_frame,
     .capabilities   = CODEC_CAP_DR1,
-    .long_name = NULL_IF_CONFIG_SMALL("QuickTime Graphics (SMC)"),
+    .long_name      = NULL_IF_CONFIG_SMALL("QuickTime Graphics (SMC)"),
 };

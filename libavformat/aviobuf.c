@@ -24,6 +24,7 @@
 #include "libavutil/intreadwrite.h"
 #include "libavutil/log.h"
 #include "libavutil/opt.h"
+#include "libavutil/avassert.h"
 #include "avformat.h"
 #include "avio.h"
 #include "avio_internal.h"
@@ -121,7 +122,7 @@ AVIOContext *avio_alloc_context(
 static void writeout(AVIOContext *s, const uint8_t *data, int len)
 {
     if (s->write_packet && !s->error){
-        int ret= s->write_packet(s->opaque, data, len);
+        int ret= s->write_packet(s->opaque, (uint8_t *)data, len);
         if(ret < 0){
             s->error = ret;
         }
@@ -227,16 +228,15 @@ int64_t avio_seek(AVIOContext *s, int64_t offset, int whence)
     } else {
         int64_t res;
 
-#if CONFIG_MUXERS || CONFIG_NETWORK
         if (s->write_flag) {
             flush_buffer(s);
             s->must_flush = 1;
         }
-#endif /* CONFIG_MUXERS || CONFIG_NETWORK */
         if (!s->seek)
             return AVERROR(EPIPE);
         if ((res = s->seek(s->opaque, offset, SEEK_SET)) < 0)
             return res;
+        s->seek_count ++;
         if (!s->write_flag)
             s->buf_end = s->buffer;
         s->buf_ptr = s->buffer;
@@ -387,7 +387,7 @@ static void fill_buffer(AVIOContext *s)
     int len= s->buffer_size - (dst - s->buffer);
     int max_buffer_size = s->max_packet_size ? s->max_packet_size : IO_BUFFER_SIZE;
 
-    /* can't fill the buffer without read_packet, just set EOF if appropiate */
+    /* can't fill the buffer without read_packet, just set EOF if appropriate */
     if (!s->read_packet && s->buf_ptr >= s->buf_end)
         s->eof_reached = 1;
 
@@ -423,6 +423,7 @@ static void fill_buffer(AVIOContext *s)
         s->pos += len;
         s->buf_ptr = dst;
         s->buf_end = dst + len;
+        s->bytes_read += len;
     }
 }
 
@@ -482,6 +483,7 @@ int avio_read(AVIOContext *s, unsigned char *buf, int size)
                     break;
                 } else {
                     s->pos += len;
+                    s->bytes_read += len;
                     size -= len;
                     buf += len;
                     s->buf_ptr = s->buffer;
@@ -710,7 +712,7 @@ int ffio_set_buf_size(AVIOContext *s, int buf_size)
 
 static int url_resetbuf(AVIOContext *s, int flags)
 {
-    assert(flags == AVIO_FLAG_WRITE || flags == AVIO_FLAG_READ);
+    av_assert1(flags == AVIO_FLAG_WRITE || flags == AVIO_FLAG_READ);
 
     if (flags & AVIO_FLAG_WRITE) {
         s->buf_end = s->buffer + s->buffer_size;
@@ -722,27 +724,32 @@ static int url_resetbuf(AVIOContext *s, int flags)
     return 0;
 }
 
-int ffio_rewind_with_probe_data(AVIOContext *s, unsigned char *buf, int buf_size)
+int ffio_rewind_with_probe_data(AVIOContext *s, unsigned char **bufp, int buf_size)
 {
     int64_t buffer_start;
     int buffer_size;
     int overlap, new_size, alloc_size;
+    uint8_t *buf = *bufp;
 
-    if (s->write_flag)
+    if (s->write_flag) {
+        av_freep(bufp);
         return AVERROR(EINVAL);
+    }
 
     buffer_size = s->buf_end - s->buffer;
 
     /* the buffers must touch or overlap */
-    if ((buffer_start = s->pos - buffer_size) > buf_size)
+    if ((buffer_start = s->pos - buffer_size) > buf_size) {
+        av_freep(bufp);
         return AVERROR(EINVAL);
+    }
 
     overlap = buf_size - buffer_start;
     new_size = buf_size + buffer_size - overlap;
 
     alloc_size = FFMAX(s->buffer_size, new_size);
     if (alloc_size > buf_size)
-        if (!(buf = av_realloc_f(buf, 1, alloc_size)))
+        if (!(buf = (*bufp) = av_realloc_f(buf, 1, alloc_size)))
             return AVERROR(ENOMEM);
 
     if (new_size > buf_size) {
@@ -785,11 +792,25 @@ int avio_open2(AVIOContext **s, const char *filename, int flags,
 
 int avio_close(AVIOContext *s)
 {
-    URLContext *h = s->opaque;
+    URLContext *h;
 
-    av_free(s->buffer);
+    if (!s)
+        return 0;
+
+    avio_flush(s);
+    h = s->opaque;
+    av_freep(&s->buffer);
+    if (!s->write_flag)
+        av_log(s, AV_LOG_DEBUG, "Statistics: %"PRId64" bytes read, %d seeks\n", s->bytes_read, s->seek_count);
     av_free(s);
     return ffurl_close(h);
+}
+
+int avio_closep(AVIOContext **s)
+{
+    int ret = avio_close(*s);
+    *s = NULL;
+    return ret;
 }
 
 int avio_printf(AVIOContext *s, const char *fmt, ...)

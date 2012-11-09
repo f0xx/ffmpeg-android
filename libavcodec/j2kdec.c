@@ -69,7 +69,7 @@ typedef struct {
 
     int bit_index;
 
-    int16_t curtileno;
+    int curtileno;
 
     J2kTile *tile;
 } J2kDecoderContext;
@@ -167,6 +167,9 @@ static int tag_tree_decode(J2kDecoderContext *s, J2kTgtNode *node, int threshold
     J2kTgtNode *stack[30];
     int sp = -1, curval = 0;
 
+    if(!node)
+        return AVERROR(EINVAL);
+
     while(node && !node->vis){
         stack[++sp] = node;
         node = node->parent;
@@ -217,6 +220,10 @@ static int get_siz(J2kDecoderContext *s)
      s->tile_offset_y = bytestream2_get_be32u(&s->g); // YT0Siz
        s->ncomponents = bytestream2_get_be16u(&s->g); // CSiz
 
+    if(s->ncomponents <= 0 || s->ncomponents > 4) {
+        av_log(s->avctx, AV_LOG_ERROR, "unsupported/invalid ncomponents: %d\n", s->ncomponents);
+        return AVERROR(EINVAL);
+    }
     if(s->tile_width<=0 || s->tile_height<=0)
         return AVERROR(EINVAL);
 
@@ -256,20 +263,20 @@ static int get_siz(J2kDecoderContext *s)
     switch(s->ncomponents){
     case 1:
         if (s->precision > 8) {
-            s->avctx->pix_fmt = PIX_FMT_GRAY16;
+            s->avctx->pix_fmt = AV_PIX_FMT_GRAY16;
         } else {
-            s->avctx->pix_fmt = PIX_FMT_GRAY8;
+            s->avctx->pix_fmt = AV_PIX_FMT_GRAY8;
         }
         break;
     case 3:
         if (s->precision > 8) {
-            s->avctx->pix_fmt = PIX_FMT_RGB48;
+            s->avctx->pix_fmt = AV_PIX_FMT_RGB48;
         } else {
-            s->avctx->pix_fmt = PIX_FMT_RGB24;
+            s->avctx->pix_fmt = AV_PIX_FMT_RGB24;
         }
         break;
     case 4:
-        s->avctx->pix_fmt = PIX_FMT_RGBA;
+        s->avctx->pix_fmt = AV_PIX_FMT_RGBA;
         break;
     }
 
@@ -829,7 +836,7 @@ static int decode_tile(J2kDecoderContext *s, J2kTile *tile)
                                 int *ptr = t1.data[y-yy0];
                                 for (x = xx0; x < xx1; x+=s->cdx[compno]){
                                     int tmp = ((int64_t)*ptr++) * ((int64_t)band->stepsize) >> 13, tmp2;
-                                    tmp2 = FFABS(tmp>>1) + FFABS(tmp&1);
+                                    tmp2 = FFABS(tmp>>1) + (tmp&1);
                                     comp->data[(comp->coord[0][1] - comp->coord[0][0]) * y + x] = tmp < 0 ? -tmp2 : tmp2;
                                 }
                             }
@@ -1017,7 +1024,6 @@ static int decode_frame(AVCodecContext *avctx,
     AVFrame *picture = data;
     int tileno, ret;
 
-    s->avctx = avctx;
     bytestream2_init(&s->g, avpkt->data, avpkt->size);
     s->curtileno = -1;
 
@@ -1068,6 +1074,7 @@ static av_cold int j2kdec_init(AVCodecContext *avctx)
 {
     J2kDecoderContext *s = avctx->priv_data;
 
+    s->avctx = avctx;
     avcodec_get_frame_defaults((AVFrame*)&s->picture);
     avctx->coded_frame = (AVFrame*)&s->picture;
 
@@ -1089,7 +1096,7 @@ static av_cold int decode_end(AVCodecContext *avctx)
 AVCodec ff_jpeg2000_decoder = {
     .name           = "j2k",
     .type           = AVMEDIA_TYPE_VIDEO,
-    .id             = CODEC_ID_JPEG2000,
+    .id             = AV_CODEC_ID_JPEG2000,
     .priv_data_size = sizeof(J2kDecoderContext),
     .init           = j2kdec_init,
     .close          = decode_end,

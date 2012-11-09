@@ -555,7 +555,7 @@ static int sbr_hf_calc_npatches(AACContext *ac, SpectralBandReplication *sbr)
             k = sbr->n_master;
     } while (sb != sbr->kx[1] + sbr->m[1]);
 
-    if (sbr->patch_num_subbands[sbr->num_patches-1] < 3 && sbr->num_patches > 1)
+    if (sbr->num_patches > 1 && sbr->patch_num_subbands[sbr->num_patches-1] < 3)
         sbr->num_patches--;
 
     return 0;
@@ -918,7 +918,7 @@ static void read_sbr_extension(AACContext *ac, SpectralBandReplication *sbr,
 {
     switch (bs_extension_id) {
     case EXTENSION_ID_PS:
-        if (!ac->m4ac.ps) {
+        if (!ac->oc[1].m4ac.ps) {
             av_log(ac->avctx, AV_LOG_ERROR, "Parametric Stereo signaled to be not-present but was found in the bitstream.\n");
             skip_bits_long(gb, *num_bits_left); // bs_fill_bits
             *num_bits_left = 0;
@@ -933,7 +933,9 @@ static void read_sbr_extension(AACContext *ac, SpectralBandReplication *sbr,
         }
         break;
     default:
-        av_log_missing_feature(ac->avctx, "Reserved SBR extensions are", 1);
+        // some files contain 0-padding
+        if (bs_extension_id || *num_bits_left > 16 || show_bits(gb, *num_bits_left))
+            av_log_missing_feature(ac->avctx, "Reserved SBR extensions are", 1);
         skip_bits_long(gb, *num_bits_left); // bs_fill_bits
         *num_bits_left = 0;
         break;
@@ -1075,9 +1077,9 @@ int ff_decode_sbr_extension(AACContext *ac, SpectralBandReplication *sbr,
     sbr->reset = 0;
 
     if (!sbr->sample_rate)
-        sbr->sample_rate = 2 * ac->m4ac.sample_rate; //TODO use the nominal sample rate for arbitrary sample rate support
-    if (!ac->m4ac.ext_sample_rate)
-        ac->m4ac.ext_sample_rate = 2 * ac->m4ac.sample_rate;
+        sbr->sample_rate = 2 * ac->oc[1].m4ac.sample_rate; //TODO use the nominal sample rate for arbitrary sample rate support
+    if (!ac->oc[1].m4ac.ext_sample_rate)
+        ac->oc[1].m4ac.ext_sample_rate = 2 * ac->oc[1].m4ac.sample_rate;
 
     if (crc) {
         skip_bits(gb, 10); // bs_sbr_crc_bits; TODO - implement CRC check
@@ -1576,10 +1578,6 @@ static void sbr_hf_assemble(float Y1[38][64][2],
         0.11516383427084,
         0.03183050093751,
     };
-    static const int8_t phi[2][4] = {
-        {  1,  0, -1,  0}, // real
-        {  0,  1,  0, -1}, // imaginary
-    };
     float (*g_temp)[48] = ch_data->g_temp, (*q_temp)[48] = ch_data->q_temp;
     int indexnoise = ch_data->f_indexnoise;
     int indexsine  = ch_data->f_indexsine;
@@ -1603,7 +1601,6 @@ static void sbr_hf_assemble(float Y1[38][64][2],
 
     for (e = 0; e < ch_data->bs_num_env; e++) {
         for (i = 2 * ch_data->t_env[e]; i < 2 * ch_data->t_env[e + 1]; i++) {
-            int phi_sign = (1 - 2*(kx & 1));
             LOCAL_ALIGNED_16(float, g_filt_tab, [48]);
             LOCAL_ALIGNED_16(float, q_filt_tab, [48]);
             float *g_filt, *q_filt;
@@ -1633,13 +1630,17 @@ static void sbr_hf_assemble(float Y1[38][64][2],
                                                    q_filt, indexnoise,
                                                    kx, m_max);
             } else {
-                for (m = 0; m < m_max; m++) {
-                    Y1[i][m + kx][0] +=
-                        sbr->s_m[e][m] * phi[0][indexsine];
-                    Y1[i][m + kx][1] +=
-                        sbr->s_m[e][m] * (phi[1][indexsine] * phi_sign);
-                    phi_sign = -phi_sign;
+                int idx = indexsine&1;
+                int A = (1-((indexsine+(kx & 1))&2));
+                int B = (A^(-idx)) + idx;
+                float *out = &Y1[i][kx][idx];
+                float *in  = sbr->s_m[e];
+                for (m = 0; m+1 < m_max; m+=2) {
+                    out[2*m  ] += in[m  ] * A;
+                    out[2*m+2] += in[m+1] * B;
                 }
+                if(m_max&1)
+                    out[2*m  ] += in[m  ] * A;
             }
             indexnoise = (indexnoise + m_max) & 0x1ff;
             indexsine = (indexsine + 1) & 3;
@@ -1652,7 +1653,7 @@ static void sbr_hf_assemble(float Y1[38][64][2],
 void ff_sbr_apply(AACContext *ac, SpectralBandReplication *sbr, int id_aac,
                   float* L, float* R)
 {
-    int downsampled = ac->m4ac.ext_sample_rate < sbr->sample_rate;
+    int downsampled = ac->oc[1].m4ac.ext_sample_rate < sbr->sample_rate;
     int ch;
     int nch = (id_aac == TYPE_CPE) ? 2 : 1;
     int err;
@@ -1699,7 +1700,7 @@ void ff_sbr_apply(AACContext *ac, SpectralBandReplication *sbr, int id_aac,
                   sbr->X_low, ch);
     }
 
-    if (ac->m4ac.ps == 1) {
+    if (ac->oc[1].m4ac.ps == 1) {
         if (sbr->ps.start) {
             ff_ps_apply(ac->avctx, &sbr->ps, sbr->X[0], sbr->X[1], sbr->kx[1] + sbr->m[1]);
         } else {

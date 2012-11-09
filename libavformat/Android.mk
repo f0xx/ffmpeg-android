@@ -18,8 +18,9 @@ LOCAL_MODULE    := avformat
 #SYSROOT := /opt/android-ndk/platforms/android-8/arch-arm/
 #LOCAL_LDFLAGS += -L$(SYSROOT)/usr/lib -lz -llog -L$(NDK_APP_DST_DIR) -lavcodec -lavutil
 
-
+PLATFORM_C_INCLUDES += $(NDK_ROOT)/platforms/$(APP_PLATFORM)/arch-arm/usr/include
 LOCAL_EXPORT_C_INCLUDES += $(LOCAL_PATH)
+LOCAL_C_INCLUDES += $(PLATFORM_C_INCLUDES)
 LOCAL_C_INCLUDES += $(LOCAL_PATH)
 LOCAL_C_INCLUDES += $(FFMPEG_INCLUDE_DIR)
 LOCAL_C_INCLUDES += $(FFMPEG_INCLUDE_DIR)/libavutil
@@ -86,6 +87,7 @@ LIBAVFORMAT_SRC_FILES := \
 		dnxhddec.c \
 		dsicin.c \
 		dtsdec.c \
+		dtshddec.c \
 		dv.c \
 		dxa.c \
 		eacdata.c \
@@ -115,6 +117,7 @@ LIBAVFORMAT_SRC_FILES := \
 		id3v2.c \
 		idcin.c \
 		idroqdec.c \
+		ilbc.c \
 		iff.c \
 		img2.c \
 		img2dec.c \
@@ -124,6 +127,7 @@ LIBAVFORMAT_SRC_FILES := \
 		iss.c \
 		iv8.c \
 		ivfdec.c \
+		jacosubdec.c \
 		jvdec.c \
 		lmlm4.c \
 		loasdec.c \
@@ -156,6 +160,7 @@ LIBAVFORMAT_SRC_FILES := \
 		mxf.c \
 		mxfdec.c \
 		mxg.c \
+		mux.c \
 		ncdec.c \
 		network.c \
 		nsvdec.c \
@@ -166,6 +171,7 @@ LIBAVFORMAT_SRC_FILES := \
 		oggparsedirac.c \
 		oggparseflac.c \
 		oggparseogm.c \
+		oggparseopus.c \
 		oggparseskeleton.c \
 		oggparsespeex.c \
 		oggparsetheora.c \
@@ -175,6 +181,7 @@ LIBAVFORMAT_SRC_FILES := \
 		omadec.c \
 		options.c \
 		os_support.c \
+		paf.c \
 		pcm.c \
 		pcmdec.c \
 		pmpdec.c \
@@ -185,13 +192,16 @@ LIBAVFORMAT_SRC_FILES := \
 		rawdec.c \
 		rawvideodec.c \
 		rdt.c \
+		realtextdec.c \
 		riff.c \
 		rl2.c \
 		rm.c \
 		rmdec.c \
+		rmsipr.c \
 		rpl.c \
 		rso.c \
 		rsodec.c \
+		rtmphttp.c \
 		rtmppkt.c \
 		rtmpproto.c \
 		rtp.c \
@@ -202,6 +212,8 @@ LIBAVFORMAT_SRC_FILES := \
 		rtpdec_h263.c \
 		rtpdec_h263_rfc2190.c \
 		rtpdec_h264.c \
+		rtpdec_ilbc.c \
+		rtpdec_jpeg.c \
 		rtpdec_latm.c \
 		rtpdec_mpeg4.c \
 		rtpdec_qcelp.c \
@@ -213,10 +225,12 @@ LIBAVFORMAT_SRC_FILES := \
 		rtpproto.c \
 		rtsp.c \
 		rtspdec.c \
+		samidec.c \
 		sapdec.c \
 		sauce.c \
 		sbgdec.c \
 		smjpeg.c \
+		smush.c \
 		sdp.c \
 		seek.c \
 		segafilm.c \
@@ -229,7 +243,11 @@ LIBAVFORMAT_SRC_FILES := \
 		spdif.c \
 		spdifdec.c \
 		srtdec.c \
+		subviewerdec.c \
+		subtitles.c \
+		swf.c \
 		swfdec.c \
+		takdec.c \
 		tcp.c \
 		thp.c \
 		tiertexseq.c \
@@ -244,8 +262,9 @@ LIBAVFORMAT_SRC_FILES := \
 		vocdec.c \
 		vorbiscomment.c \
 		vqf.c \
-		wav.c \
+		wavdec.c \
 		wc3movie.c \
+		webvttdec.c \
 		westwood_aud.c \
 		westwood_vqa.c \
 		wtv.c \
@@ -254,6 +273,7 @@ LIBAVFORMAT_SRC_FILES := \
 		xa.c \
 		xmv.c \
 		xwma.c \
+		urldecode.c \
 		yop.c \
 		yuv4mpeg.c \
 

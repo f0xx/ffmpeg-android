@@ -21,10 +21,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include "libavutil/intmath.h"
 #include "avcodec.h"
 #include "bytestream.h"
 #include "internal.h"
+#include "mathops.h"
 
 #define ROQ_FRAME_SIZE           735
 #define ROQ_HEADER_SIZE   8
@@ -158,6 +158,8 @@ static int roq_dpcm_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
             context->input_frames++;
             return 0;
         }
+    }
+    if (context->input_frames < 8) {
         in = context->frame_buffer;
     }
 
@@ -203,12 +205,13 @@ static int roq_dpcm_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
 AVCodec ff_roq_dpcm_encoder = {
     .name           = "roq_dpcm",
     .type           = AVMEDIA_TYPE_AUDIO,
-    .id             = CODEC_ID_ROQ_DPCM,
+    .id             = AV_CODEC_ID_ROQ_DPCM,
     .priv_data_size = sizeof(ROQDPCMContext),
     .init           = roq_dpcm_encode_init,
     .encode2        = roq_dpcm_encode_frame,
     .close          = roq_dpcm_encode_close,
     .capabilities   = CODEC_CAP_DELAY,
-    .sample_fmts = (const enum AVSampleFormat[]){AV_SAMPLE_FMT_S16,AV_SAMPLE_FMT_NONE},
-    .long_name = NULL_IF_CONFIG_SMALL("id RoQ DPCM"),
+    .sample_fmts    = (const enum AVSampleFormat[]){ AV_SAMPLE_FMT_S16,
+                                                     AV_SAMPLE_FMT_NONE },
+    .long_name      = NULL_IF_CONFIG_SMALL("id RoQ DPCM"),
 };
