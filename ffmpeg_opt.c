@@ -30,10 +30,10 @@
 #include "libavfilter/avfilter.h"
 #include "libavfilter/avfiltergraph.h"
 
-#include "libavutil/audioconvert.h"
 #include "libavutil/avassert.h"
 #include "libavutil/avstring.h"
 #include "libavutil/avutil.h"
+#include "libavutil/channel_layout.h"
 #include "libavutil/intreadwrite.h"
 #include "libavutil/fifo.h"
 #include "libavutil/mathematics.h"
@@ -456,9 +456,9 @@ static int copy_metadata(char *outspec, char *inspec, AVFormatContext *oc, AVFor
             METADATA_CHECK_INDEX(index, context->nb_programs, "program")\
             meta = &context->programs[index]->metadata;\
             break;\
-        default: av_assert0(0);\
         case 's':\
-            break;\
+            break; /* handled separately below */ \
+        default: av_assert0(0);\
         }\
 
     SET_DICT(type_in, meta_in, ic, idx_in);
@@ -807,7 +807,7 @@ static int opt_input_file(void *optctx, const char *opt, const char *filename)
 
     /* if seeking requested, we execute it */
     if (o->start_time != 0) {
-        ret = av_seek_frame(ic, -1, timestamp, AVSEEK_FLAG_BACKWARD);
+        ret = avformat_seek_file(ic, -1, INT64_MIN, timestamp, timestamp, 0);
         if (ret < 0) {
             av_log(NULL, AV_LOG_WARNING, "%s: could not seek to position %0.3f\n",
                    filename, (double)timestamp / AV_TIME_BASE);
@@ -1015,6 +1015,7 @@ static OutputStream *new_output_stream(OptionsContext *o, AVFormatContext *oc, e
         st->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
 
     av_opt_get_int(sws_opts, "sws_flags", 0, &ost->sws_flags);
+    av_opt_get_int   (swr_opts, "filter_type"  , 0, &ost->swr_filter_type);
     av_opt_get_int   (swr_opts, "dither_method", 0, &ost->swr_dither_method);
     av_opt_get_double(swr_opts, "dither_scale" , 0, &ost->swr_dither_scale);
 
@@ -2251,7 +2252,7 @@ static int opt_progress(void *optctx, const char *opt, const char *arg)
         arg = "pipe:";
     ret = avio_open2(&avio, arg, AVIO_FLAG_WRITE, &int_cb, NULL);
     if (ret < 0) {
-        av_log(0, AV_LOG_ERROR, "Failed to open progress URL \"%s\": %s\n",
+        av_log(NULL, AV_LOG_ERROR, "Failed to open progress URL \"%s\": %s\n",
                arg, av_err2str(ret));
         return ret;
     }

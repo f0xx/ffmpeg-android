@@ -395,6 +395,9 @@ static void vc1_mc_1mv(VC1Context *v, int dir)
         }
     }
 
+    if(!srcY)
+        return;
+
     src_x   = s->mb_x * 16 + (mx   >> 2);
     src_y   = s->mb_y * 16 + (my   >> 2);
     uvsrc_x = s->mb_x *  8 + (uvmx >> 2);
@@ -569,6 +572,9 @@ static void vc1_mc_4mv_luma(VC1Context *v, int n, int dir)
             srcY = s->last_picture.f.data[0];
     } else
         srcY = s->next_picture.f.data[0];
+
+    if(!srcY)
+        return;
 
     if (v->field_mode) {
         if (v->cur_field_type != v->ref_field_type[dir])
@@ -844,20 +850,26 @@ static void vc1_mc_4mv_chroma(VC1Context *v, int dir)
     if (!dir) {
         if (v->field_mode) {
             if ((v->cur_field_type != chroma_ref_type) && v->cur_field_type) {
-                srcU = s->current_picture.f.data[1] + uvsrc_y * s->uvlinesize + uvsrc_x;
-                srcV = s->current_picture.f.data[2] + uvsrc_y * s->uvlinesize + uvsrc_x;
+                srcU = s->current_picture.f.data[1];
+                srcV = s->current_picture.f.data[2];
             } else {
-                srcU = s->last_picture.f.data[1] + uvsrc_y * s->uvlinesize + uvsrc_x;
-                srcV = s->last_picture.f.data[2] + uvsrc_y * s->uvlinesize + uvsrc_x;
+                srcU = s->last_picture.f.data[1];
+                srcV = s->last_picture.f.data[2];
             }
         } else {
-            srcU = s->last_picture.f.data[1] + uvsrc_y * s->uvlinesize + uvsrc_x;
-            srcV = s->last_picture.f.data[2] + uvsrc_y * s->uvlinesize + uvsrc_x;
+            srcU = s->last_picture.f.data[1];
+            srcV = s->last_picture.f.data[2];
         }
     } else {
-        srcU = s->next_picture.f.data[1] + uvsrc_y * s->uvlinesize + uvsrc_x;
-        srcV = s->next_picture.f.data[2] + uvsrc_y * s->uvlinesize + uvsrc_x;
+        srcU = s->next_picture.f.data[1];
+        srcV = s->next_picture.f.data[2];
     }
+
+    if(!srcU)
+        return;
+
+    srcU += uvsrc_y * s->uvlinesize + uvsrc_x;
+    srcV += uvsrc_y * s->uvlinesize + uvsrc_x;
 
     if (v->field_mode) {
         if (chroma_ref_type) {
@@ -969,7 +981,8 @@ static void vc1_mc_4mv_chroma4(VC1Context *v)
         uvmy_field[i] = (uvmy_field[i] & 3) << 1;
 
         if (fieldmv && !(uvsrc_y & 1))
-            v_edge_pos--;
+            v_edge_pos = (s->v_edge_pos >> 1) - 1;
+
         if (fieldmv && (uvsrc_y & 1) && uvsrc_y < 2)
             uvsrc_y--;
         if ((v->mv_mode == MV_PMODE_INTENSITY_COMP)
@@ -4733,9 +4746,11 @@ static void vc1_decode_skip_blocks(VC1Context *v)
         s->mb_x = 0;
         ff_init_block_index(s);
         ff_update_block_index(s);
-        memcpy(s->dest[0], s->last_picture.f.data[0] + s->mb_y * 16 * s->linesize,   s->linesize   * 16);
-        memcpy(s->dest[1], s->last_picture.f.data[1] + s->mb_y *  8 * s->uvlinesize, s->uvlinesize *  8);
-        memcpy(s->dest[2], s->last_picture.f.data[2] + s->mb_y *  8 * s->uvlinesize, s->uvlinesize *  8);
+        if (s->last_picture.f.data[0]) {
+            memcpy(s->dest[0], s->last_picture.f.data[0] + s->mb_y * 16 * s->linesize,   s->linesize   * 16);
+            memcpy(s->dest[1], s->last_picture.f.data[1] + s->mb_y *  8 * s->uvlinesize, s->uvlinesize *  8);
+            memcpy(s->dest[2], s->last_picture.f.data[2] + s->mb_y *  8 * s->uvlinesize, s->uvlinesize *  8);
+        }
         ff_draw_horiz_band(s, s->mb_y * 16, 16);
         s->first_slice_line = 0;
     }
@@ -5026,7 +5041,7 @@ static int vc1_decode_sprites(VC1Context *v, GetBitContext* gb)
 
     v->sprite_output_frame.buffer_hints = FF_BUFFER_HINTS_VALID;
     v->sprite_output_frame.reference = 0;
-    if (avctx->get_buffer(avctx, &v->sprite_output_frame) < 0) {
+    if (ff_get_buffer(avctx, &v->sprite_output_frame) < 0) {
         av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
         return -1;
     }
@@ -5168,6 +5183,15 @@ static av_cold int vc1_decode_init(AVCodecContext *avctx)
 
     if (ff_vc1_init_common(v) < 0)
         return -1;
+    // ensure static VLC tables are initialized
+    if (ff_msmpeg4_decode_init(avctx) < 0)
+        return -1;
+    if (ff_vc1_decode_init_alloc_tables(v) < 0)
+        return -1;
+    // Hack to ensure the above functions will be called
+    // again once we know all necessary settings.
+    // That this is necessary might indicate a bug.
+    ff_vc1_decode_end(avctx);
     ff_vc1dsp_init(&v->vc1dsp);
 
     if (avctx->codec_id == AV_CODEC_ID_WMV3 || avctx->codec_id == AV_CODEC_ID_WMV3IMAGE) {
@@ -5312,7 +5336,7 @@ av_cold int ff_vc1_decode_end(AVCodecContext *avctx)
  * @todo TODO: Handle VC-1 IDUs (Transport level?)
  */
 static int vc1_decode_frame(AVCodecContext *avctx, void *data,
-                            int *data_size, AVPacket *avpkt)
+                            int *got_frame, AVPacket *avpkt)
 {
     const uint8_t *buf = avpkt->data;
     int buf_size = avpkt->size, n_slices = 0, i;
@@ -5340,7 +5364,7 @@ static int vc1_decode_frame(AVCodecContext *avctx, void *data,
             *pict = s->next_picture_ptr->f;
             s->next_picture_ptr = NULL;
 
-            *data_size = sizeof(AVFrame);
+            *got_frame = 1;
         }
 
         return buf_size;
@@ -5486,6 +5510,8 @@ static int vc1_decode_frame(AVCodecContext *avctx, void *data,
         s->low_delay = !avctx->has_b_frames || v->res_sprite;
 
         if (v->profile == PROFILE_ADVANCED) {
+            if(avctx->coded_width<=1 || avctx->coded_height<=1)
+                goto err;
             s->h_edge_pos = avctx->coded_width;
             s->v_edge_pos = avctx->coded_height;
         }
@@ -5502,6 +5528,7 @@ static int vc1_decode_frame(AVCodecContext *avctx, void *data,
 
     // do parse frame header
     v->pic_header_flag = 0;
+    v->first_pic_header_flag = 1;
     if (v->profile < PROFILE_ADVANCED) {
         if (ff_vc1_parse_frame_header(v, &s->gb) < 0) {
             goto err;
@@ -5511,6 +5538,7 @@ static int vc1_decode_frame(AVCodecContext *avctx, void *data,
             goto err;
         }
     }
+    v->first_pic_header_flag = 0;
 
     if (avctx->debug & FF_DEBUG_PICT_INFO)
         av_log(v->s.avctx, AV_LOG_DEBUG, "pict_type: %c\n", av_get_picture_type_char(s->pict_type));
@@ -5518,6 +5546,11 @@ static int vc1_decode_frame(AVCodecContext *avctx, void *data,
     if ((avctx->codec_id == AV_CODEC_ID_WMV3IMAGE || avctx->codec_id == AV_CODEC_ID_VC1IMAGE)
         && s->pict_type != AV_PICTURE_TYPE_I) {
         av_log(v->s.avctx, AV_LOG_ERROR, "Sprite decoder: expected I-frame\n");
+        goto err;
+    }
+
+    if ((s->mb_height >> v->field_mode) == 0) {
+        av_log(v->s.avctx, AV_LOG_ERROR, "image too short\n");
         goto err;
     }
 
@@ -5663,8 +5696,13 @@ static int vc1_decode_frame(AVCodecContext *avctx, void *data,
             s->start_mb_y = (i == 0) ? 0 : FFMAX(0, slices[i-1].mby_start % mb_height);
             if (!v->field_mode || v->second_field)
                 s->end_mb_y = (i == n_slices     ) ? mb_height : FFMIN(mb_height, slices[i].mby_start % mb_height);
-            else
+            else {
+                if (i >= n_slices) {
+                    av_log(v->s.avctx, AV_LOG_ERROR, "first field slice count too large\n");
+                    continue;
+                }
                 s->end_mb_y = (i <= n_slices1 + 1) ? mb_height : FFMIN(mb_height, slices[i].mby_start % mb_height);
+            }
             if (s->end_mb_y <= s->start_mb_y) {
                 av_log(v->s.avctx, AV_LOG_ERROR, "end mb y %d %d invalid\n", s->end_mb_y, s->start_mb_y);
                 continue;
@@ -5708,7 +5746,7 @@ image:
             goto err;
 #endif
         *pict      = v->sprite_output_frame;
-        *data_size = sizeof(AVFrame);
+        *got_frame = 1;
     } else {
         if (s->pict_type == AV_PICTURE_TYPE_B || s->low_delay) {
             *pict = s->current_picture_ptr->f;
@@ -5716,7 +5754,7 @@ image:
             *pict = s->last_picture_ptr->f;
         }
         if (s->last_picture_ptr || s->low_delay) {
-            *data_size = sizeof(AVFrame);
+            *got_frame = 1;
             ff_print_debug_info(s, pict);
         }
     }

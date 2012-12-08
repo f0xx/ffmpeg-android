@@ -21,7 +21,6 @@
 
 #include "avformat.h"
 #include "caf.h"
-#include "riff.h"
 #include "isom.h"
 #include "avio_internal.h"
 #include "libavutil/intfloat.h"
@@ -75,6 +74,7 @@ static uint32_t samples_per_packet(enum AVCodecID codec_id, int channels) {
         return 64;
     case AV_CODEC_ID_AMR_NB:
     case AV_CODEC_ID_GSM:
+    case AV_CODEC_ID_ILBC:
     case AV_CODEC_ID_QCELP:
         return 160;
     case AV_CODEC_ID_GSM_MS:

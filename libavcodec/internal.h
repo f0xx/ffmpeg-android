@@ -39,9 +39,6 @@ typedef struct InternalBuffer {
     int width;
     int height;
     enum AVPixelFormat pix_fmt;
-    uint8_t **extended_data;
-    int audio_data_size;
-    int nb_channels;
 } InternalBuffer;
 
 typedef struct AVCodecInternal {
@@ -80,6 +77,12 @@ typedef struct AVCodecInternal {
     int last_audio_frame;
 
     /**
+     * The data for the last allocated audio frame.
+     * Stored here so we can free it.
+     */
+    uint8_t *audio_data;
+
+    /**
      * temporary buffer used for encoders to store their bitstream
      */
     uint8_t *byte_buffer;
@@ -97,12 +100,6 @@ struct AVCodecDefault {
     const uint8_t *key;
     const uint8_t *value;
 };
-
-/**
- * Determine whether pix_fmt is a hardware accelerated format.
- */
-av_export
-int ff_is_hwaccel_pix_fmt(enum AVPixelFormat pix_fmt);
 
 /**
  * Return the hardware accelerated codec for codec codec_id and
@@ -136,6 +133,13 @@ void ff_init_buffer_info(AVCodecContext *s, AVFrame *frame);
  */
 av_export
 void ff_packet_free_side_data(AVPacket *pkt);
+
+av_export
+extern volatile int ff_avcodec_locked;
+av_export
+int ff_lock_avcodec(AVCodecContext *log_ctx);
+av_export
+int ff_unlock_avcodec(void);
 
 av_export
 int avpriv_lock_avformat(void);
@@ -181,6 +185,13 @@ static av_always_inline int64_t ff_samples_to_time_base(AVCodecContext *avctx,
     return av_rescale_q(samples, (AVRational){ 1, avctx->sample_rate },
                         avctx->time_base);
 }
+
+/**
+ * Get a buffer for a frame. This is a wrapper around
+ * AVCodecContext.get_buffer() and should be used instead calling get_buffer()
+ * directly.
+ */
+int ff_get_buffer(AVCodecContext *avctx, AVFrame *frame);
 
 int ff_thread_can_start_frame(AVCodecContext *avctx);
 

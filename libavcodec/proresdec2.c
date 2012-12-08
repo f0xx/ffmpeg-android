@@ -30,6 +30,7 @@
 
 #include "avcodec.h"
 #include "get_bits.h"
+#include "internal.h"
 #include "simple_idct.h"
 #include "proresdec.h"
 
@@ -133,6 +134,10 @@ static int decode_frame_header(ProresContext *ctx, const uint8_t *buf,
     av_dlog(avctx, "flags %x\n", flags);
 
     if (flags & 2) {
+        if(buf + data_size - ptr < 64) {
+            av_log(avctx, AV_LOG_ERROR, "Header truncated\n");
+            return -1;
+        }
         permute(ctx->qmat_luma, ctx->prodsp.idct_permutation, ptr);
         ptr += 64;
     } else {
@@ -140,6 +145,10 @@ static int decode_frame_header(ProresContext *ctx, const uint8_t *buf,
     }
 
     if (flags & 1) {
+        if(buf + data_size - ptr < 64) {
+            av_log(avctx, AV_LOG_ERROR, "Header truncated\n");
+            return -1;
+        }
         permute(ctx->qmat_chroma, ctx->prodsp.idct_permutation, ptr);
     } else {
         memset(ctx->qmat_chroma, 4, 64);
@@ -513,7 +522,7 @@ static int decode_picture(AVCodecContext *avctx)
     return 0;
 }
 
-static int decode_frame(AVCodecContext *avctx, void *data, int *data_size,
+static int decode_frame(AVCodecContext *avctx, void *data, int *got_frame,
                         AVPacket *avpkt)
 {
     ProresContext *ctx = avctx->priv_data;
@@ -542,7 +551,7 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size,
     if (frame->data[0])
         avctx->release_buffer(avctx, frame);
 
-    if (avctx->get_buffer(avctx, frame) < 0)
+    if (ff_get_buffer(avctx, frame) < 0)
         return -1;
 
  decode_picture:
@@ -565,7 +574,7 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size,
         goto decode_picture;
     }
 
-    *data_size = sizeof(AVFrame);
+    *got_frame      = 1;
     *(AVFrame*)data = *frame;
 
     return avpkt->size;

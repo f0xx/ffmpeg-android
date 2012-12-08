@@ -25,8 +25,10 @@
  * @author Paul B Mahol
  */
 
+#include "libavutil/samplefmt.h"
 #include "tak.h"
 #include "avcodec.h"
+#include "internal.h"
 #include "unary.h"
 #include "dsputil.h"
 
@@ -48,8 +50,8 @@ typedef struct TAKDecContext {
     GetBitContext  gb;                          ///< bitstream reader initialized to start at the current frame
 
     int            nb_samples;                  ///< number of samples in the current frame
-    int32_t        *decode_buffer;
-    int            decode_buffer_size;
+    uint8_t        *decode_buffer;
+    unsigned int   decode_buffer_size;
     int32_t        *decoded[TAK_MAX_CHANNELS];  ///< decoded samples for each channel
 
     int8_t         lpc_mode[TAK_MAX_CHANNELS];
@@ -146,9 +148,9 @@ static const struct CParam {
     { 0x1A, 0x1800000, 0x1800000, 0x6800000, 0xC000000 },
 };
 
-static int tak_set_bps(AVCodecContext *avctx, int bps)
+static int set_bps_params(AVCodecContext *avctx)
 {
-    switch (bps) {
+    switch (avctx->bits_per_raw_sample) {
     case 8:
         avctx->sample_fmt = AV_SAMPLE_FMT_U8P;
         break;
@@ -166,31 +168,18 @@ static int tak_set_bps(AVCodecContext *avctx, int bps)
     return 0;
 }
 
-static int get_shift(int sample_rate)
+static void set_sample_rate_params(AVCodecContext *avctx)
 {
-    int shift;
-
-    if (sample_rate < 11025)
-        shift = 3;
-    else if (sample_rate < 22050)
-        shift = 2;
-    else if (sample_rate < 44100)
-        shift = 1;
-    else
-        shift = 0;
-
-    return shift;
-}
-
-static int get_scale(int sample_rate, int shift)
-{
-    return FFALIGN(sample_rate + 511 >> 9, 4) << shift;
+    TAKDecContext *s  = avctx->priv_data;
+    int shift         = 3 - (avctx->sample_rate / 11025);
+    shift             = FFMAX(0, shift);
+    s->uval           = FFALIGN(avctx->sample_rate + 511 >> 9, 4) << shift;
+    s->subframe_scale = FFALIGN(avctx->sample_rate + 511 >> 9, 4) << 1;
 }
 
 static av_cold int tak_decode_init(AVCodecContext *avctx)
 {
     TAKDecContext *s = avctx->priv_data;
-    int ret;
 
     ff_tak_init_crc();
     ff_dsputil_init(&s->dsp, avctx);
@@ -198,24 +187,11 @@ static av_cold int tak_decode_init(AVCodecContext *avctx)
     s->avctx = avctx;
     avcodec_get_frame_defaults(&s->frame);
     avctx->coded_frame = &s->frame;
+    avctx->bits_per_raw_sample = avctx->bits_per_coded_sample;
 
-    s->uval = get_scale(avctx->sample_rate, get_shift(avctx->sample_rate));
-    s->subframe_scale = get_scale(avctx->sample_rate, 1);
+    set_sample_rate_params(avctx);
 
-    if ((ret = tak_set_bps(avctx, avctx->bits_per_coded_sample)) < 0)
-        return ret;
-
-    return 0;
-}
-
-static int get_code(GetBitContext *gb, int nbits)
-{
-    if (nbits == 1) {
-        skip_bits1(gb);
-        return 0;
-    } else {
-        return get_sbits(gb, nbits);
-    }
+    return set_bps_params(avctx);
 }
 
 static void decode_lpc(int32_t *coeffs, int mode, int length)
@@ -413,7 +389,7 @@ static int decode_coeffs(TAKDecContext *s, int32_t *dst, int length)
     return 0;
 }
 
-static int get_b(GetBitContext *gb)
+static int get_bits_esc4(GetBitContext *gb)
 {
     if (get_bits1(gb))
         return get_bits(gb, 4) + 1;
@@ -456,7 +432,7 @@ static int decode_subframe(TAKDecContext *s, int32_t *ptr, int subframe_size,
             decode_lpc(ptr, lpc, s->filter_order);
         }
 
-        s->xred = get_b(gb);
+        s->xred = get_bits_esc4(gb);
         s->size = get_bits1(gb) + 5;
 
         if (get_bits1(gb)) {
@@ -466,17 +442,17 @@ static int decode_subframe(TAKDecContext *s, int32_t *ptr, int subframe_size,
         } else {
             s->ared = 0;
         }
-        s->predictors[0] = get_code(gb, 10);
-        s->predictors[1] = get_code(gb, 10);
-        s->predictors[2] = get_code(gb, s->size + 1) << (9 - s->size);
-        s->predictors[3] = get_code(gb, s->size + 1) << (9 - s->size);
+        s->predictors[0] = get_sbits(gb, 10);
+        s->predictors[1] = get_sbits(gb, 10);
+        s->predictors[2] = get_sbits(gb, s->size + 1) << (9 - s->size);
+        s->predictors[3] = get_sbits(gb, s->size + 1) << (9 - s->size);
         if (s->filter_order > 4) {
             tmp = s->size + 1 - get_bits1(gb);
 
             for (i = 4; i < s->filter_order; i++) {
                 if (!(i & 3))
                     x = tmp - get_bits(gb, 2);
-                s->predictors[i] = get_code(gb, x) << (9 - s->size);
+                s->predictors[i] = get_sbits(gb, x) << (9 - s->size);
             }
         }
 
@@ -570,11 +546,11 @@ static int decode_channel(TAKDecContext *s, int chan)
     int i = 0, ret, prev = 0;
     int left = s->nb_samples - 1;
 
-    s->sample_shift[chan] = get_b(gb);
+    s->sample_shift[chan] = get_bits_esc4(gb);
     if (s->sample_shift[chan] >= avctx->bits_per_raw_sample)
         return AVERROR_INVALIDDATA;
 
-    *dst++ = get_code(gb, avctx->bits_per_raw_sample - s->sample_shift[chan]);
+    *dst++ = get_sbits(gb, avctx->bits_per_raw_sample - s->sample_shift[chan]);
     s->lpc_mode[chan] = get_bits(gb, 2);
     s->nb_subframes   = get_bits(gb, 3) + 1;
 
@@ -617,7 +593,7 @@ static int decorrelate(TAKDecContext *s, int c1, int c2, int length)
     int a, b, i, x, tmp;
 
     if (s->dmode > 3) {
-        s->dshift = get_b(gb);
+        s->dshift = get_bits_esc4(gb);
         if (s->dmode > 5) {
             if (get_bits1(gb))
                 s->filter_order = 16;
@@ -630,10 +606,10 @@ static int decorrelate(TAKDecContext *s, int c1, int c2, int length)
             for (i = 0; i < s->filter_order; i++) {
                 if (!(i & 3))
                     x = 14 - get_bits(gb, 3);
-                s->filter[i] = get_code(gb, x);
+                s->filter[i] = get_sbits(gb, x);
             }
         } else {
-            s->dfactor = get_code(gb, 10);
+            s->dfactor = get_sbits(gb, 10);
         }
     }
 
@@ -782,13 +758,12 @@ static int tak_decode_frame(AVCodecContext *avctx, void *data,
 
     if (s->ti.bps != avctx->bits_per_raw_sample) {
         avctx->bits_per_raw_sample = s->ti.bps;
-        if ((ret = tak_set_bps(avctx, avctx->bits_per_raw_sample)) < 0)
+        if ((ret = set_bps_params(avctx)) < 0)
             return ret;
     }
     if (s->ti.sample_rate != avctx->sample_rate) {
         avctx->sample_rate = s->ti.sample_rate;
-        s->uval = get_scale(avctx->sample_rate, get_shift(avctx->sample_rate));
-        s->subframe_scale = get_scale(avctx->sample_rate, 1);
+        set_sample_rate_params(avctx);
     }
     if (s->ti.ch_layout)
         avctx->channel_layout = s->ti.ch_layout;
@@ -798,18 +773,21 @@ static int tak_decode_frame(AVCodecContext *avctx, void *data,
                                                s->ti.frame_samples;
 
     s->frame.nb_samples = s->nb_samples;
-    if ((ret = avctx->get_buffer(avctx, &s->frame)) < 0)
+    if ((ret = ff_get_buffer(avctx, &s->frame)) < 0)
         return ret;
 
     if (avctx->bits_per_raw_sample <= 16) {
-        av_fast_malloc(&s->decode_buffer, &s->decode_buffer_size,
-                       sizeof(*s->decode_buffer) * FFALIGN(s->nb_samples, 8) *
-                       avctx->channels + FF_INPUT_BUFFER_PADDING_SIZE);
+        int buf_size = av_samples_get_buffer_size(NULL, avctx->channels,
+                                                  s->nb_samples,
+                                                  AV_SAMPLE_FMT_S32P, 0);
+        av_fast_malloc(&s->decode_buffer, &s->decode_buffer_size, buf_size);
         if (!s->decode_buffer)
             return AVERROR(ENOMEM);
-        for (chan = 0; chan < avctx->channels; chan++)
-            s->decoded[chan] = s->decode_buffer +
-                               chan * FFALIGN(s->nb_samples, 8);
+        ret = av_samples_fill_arrays((uint8_t **)s->decoded, NULL,
+                                     s->decode_buffer, avctx->channels,
+                                     s->nb_samples, AV_SAMPLE_FMT_S32P, 0);
+        if (ret < 0)
+            return ret;
     } else {
         for (chan = 0; chan < avctx->channels; chan++)
             s->decoded[chan] = (int32_t *)s->frame.data[chan];
@@ -819,7 +797,7 @@ static int tak_decode_frame(AVCodecContext *avctx, void *data,
         for (chan = 0; chan < avctx->channels; chan++) {
             p = s->decoded[chan];
             for (i = 0; i < s->nb_samples; i++)
-                *p++ = get_code(gb, avctx->bits_per_raw_sample);
+                *p++ = get_sbits(gb, avctx->bits_per_raw_sample);
         }
     } else {
         if (s->ti.codec == 2) {
@@ -977,4 +955,8 @@ AVCodec ff_tak_decoder = {
     .decode         = tak_decode_frame,
     .capabilities   = CODEC_CAP_DR1,
     .long_name      = NULL_IF_CONFIG_SMALL("TAK (Tom's lossless Audio Kompressor)"),
+    .sample_fmts    = (const enum AVSampleFormat[]) { AV_SAMPLE_FMT_U8P,
+                                                      AV_SAMPLE_FMT_S16P,
+                                                      AV_SAMPLE_FMT_S32P,
+                                                      AV_SAMPLE_FMT_NONE },
 };

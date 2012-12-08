@@ -268,7 +268,7 @@ static int decode_slice(MpegEncContext *s){
         s->mb_x= 0;
     }
 
-    assert(s->mb_x==0 && s->mb_y==s->mb_height);
+    av_assert1(s->mb_x==0 && s->mb_y==s->mb_height);
 
     if(s->codec_id==AV_CODEC_ID_MPEG4
        && (s->workaround_bugs&FF_BUG_AUTODETECT)
@@ -346,7 +346,7 @@ static int decode_slice(MpegEncContext *s){
 }
 
 int ff_h263_decode_frame(AVCodecContext *avctx,
-                             void *data, int *data_size,
+                             void *data, int *got_frame,
                              AVPacket *avpkt)
 {
     const uint8_t *buf = avpkt->data;
@@ -368,7 +368,7 @@ uint64_t time= rdtsc();
             *pict = s->next_picture_ptr->f;
             s->next_picture_ptr= NULL;
 
-            *data_size = sizeof(AVFrame);
+            *got_frame = 1;
         }
 
         return 0;
@@ -705,7 +705,7 @@ retry:
             s->error_status_table[s->mb_num-1]= ER_MB_ERROR;
         }
 
-    assert(s->bitstream_buffer_size==0);
+    av_assert1(s->bitstream_buffer_size==0);
 frame_end:
     /* divx 5.01+ bistream reorder stuff */
     if(s->codec_id==AV_CODEC_ID_MPEG4 && s->divx_packed){
@@ -753,7 +753,7 @@ intrax8_decoded:
     }
 
     if(s->last_picture_ptr || s->low_delay){
-        *data_size = sizeof(AVFrame);
+        *got_frame = 1;
         ff_print_debug_info(s, pict);
     }
 

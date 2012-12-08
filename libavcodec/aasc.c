@@ -75,13 +75,18 @@ static av_cold int aasc_decode_init(AVCodecContext *avctx)
 }
 
 static int aasc_decode_frame(AVCodecContext *avctx,
-                              void *data, int *data_size,
+                              void *data, int *got_frame,
                               AVPacket *avpkt)
 {
     const uint8_t *buf = avpkt->data;
     int buf_size = avpkt->size;
     AascContext *s = avctx->priv_data;
     int compr, i, stride, psize;
+
+    if (buf_size < 4) {
+        av_log(avctx, AV_LOG_ERROR, "frame too short\n");
+        return AVERROR_INVALIDDATA;
+    }
 
     s->frame.reference = 3;
     s->frame.buffer_hints = FF_BUFFER_HINTS_VALID | FF_BUFFER_HINTS_PRESERVE | FF_BUFFER_HINTS_REUSABLE;
@@ -130,7 +135,7 @@ static int aasc_decode_frame(AVCodecContext *avctx,
     if (avctx->pix_fmt == AV_PIX_FMT_PAL8)
         memcpy(s->frame.data[1], s->palette, s->palette_size);
 
-    *data_size = sizeof(AVFrame);
+    *got_frame = 1;
     *(AVFrame*)data = s->frame;
 
     /* report that the buffer was completely consumed */

@@ -19,6 +19,7 @@
 #include <zlib.h>
 
 #include "avcodec.h"
+#include "internal.h"
 #include "libavutil/common.h"
 
 typedef struct {
@@ -28,7 +29,7 @@ typedef struct {
 } ZeroCodecContext;
 
 static int zerocodec_decode_frame(AVCodecContext *avctx, void *data,
-                                  int *data_size, AVPacket *avpkt)
+                                  int *got_frame, AVPacket *avpkt)
 {
     ZeroCodecContext *zc = avctx->priv_data;
     AVFrame *pic         = avctx->coded_frame;
@@ -58,7 +59,7 @@ static int zerocodec_decode_frame(AVCodecContext *avctx, void *data,
         return AVERROR_INVALIDDATA;
     }
 
-    if (avctx->get_buffer(avctx, pic) < 0) {
+    if (ff_get_buffer(avctx, pic) < 0) {
         av_log(avctx, AV_LOG_ERROR, "Could not allocate buffer.\n");
         return AVERROR(ENOMEM);
     }
@@ -97,7 +98,7 @@ static int zerocodec_decode_frame(AVCodecContext *avctx, void *data,
     if (prev_pic->data[0])
         avctx->release_buffer(avctx, prev_pic);
 
-    *data_size       = sizeof(AVFrame);
+    *got_frame = 1;
     *(AVFrame *)data = *pic;
 
     /* Store the previous frame for use later.

@@ -25,6 +25,7 @@
 #include "libavutil/imgutils.h"
 #include "avcodec.h"
 #include "bytestream.h"
+#include "internal.h"
 #include "png.h"
 #include "pngdsp.h"
 
@@ -504,7 +505,7 @@ static int decode_text_chunk(PNGDecContext *s, uint32_t length, int compressed,
 }
 
 static int decode_frame(AVCodecContext *avctx,
-                        void *data, int *data_size,
+                        void *data, int *got_frame,
                         AVPacket *avpkt)
 {
     const uint8_t *buf = avpkt->data;
@@ -648,7 +649,7 @@ static int decode_frame(AVCodecContext *avctx,
                     avctx->release_buffer(avctx, p);
 
                 p->reference= 3;
-                if(avctx->get_buffer(avctx, p) < 0){
+                if(ff_get_buffer(avctx, p) < 0){
                     av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
                     goto fail;
                 }
@@ -825,6 +826,7 @@ static int decode_frame(AVCodecContext *avctx,
          if(   !(avpkt->flags & AV_PKT_FLAG_KEY)
             && s->last_picture->width == s->current_picture->width
             && s->last_picture->height== s->current_picture->height
+            && s->last_picture->format== s->current_picture->format
          ) {
             int i, j;
             uint8_t *pd = s->current_picture->data[0];
@@ -843,7 +845,7 @@ static int decode_frame(AVCodecContext *avctx,
     s->current_picture->metadata = metadata;
     metadata = NULL;
     *picture= *s->current_picture;
-    *data_size = sizeof(AVFrame);
+    *got_frame = 1;
 
     ret = bytestream2_tell(&s->gb);
  the_end:

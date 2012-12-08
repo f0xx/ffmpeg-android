@@ -29,12 +29,14 @@
 #include <stdint.h>
 #include "avcodec.h"
 
-extern const int8_t  ff_adpcm_index_table[16] av_export ;
-extern const int16_t ff_adpcm_step_table[89] av_export ;
-extern const int16_t ff_adpcm_AdaptationTable[] av_export ;
-extern const uint8_t ff_adpcm_AdaptCoeff1[] av_export ;
-extern const int8_t  ff_adpcm_AdaptCoeff2[] av_export ;
-extern const int16_t ff_adpcm_yamaha_indexscale[] av_export ;
-extern const int8_t  ff_adpcm_yamaha_difflookup[] av_export ;
+extern const int8_t  ff_adpcm_index_table[16] av_export;
+extern const int16_t ff_adpcm_step_table[89] av_export;
+extern const int16_t ff_adpcm_oki_step_table[49] av_export;
+extern const int16_t ff_adpcm_AdaptationTable[] av_export;
+extern const uint8_t ff_adpcm_AdaptCoeff1[] av_export;
+extern const int8_t  ff_adpcm_AdaptCoeff2[] av_export;
+extern const int16_t ff_adpcm_yamaha_indexscale[] av_export;
+extern const int8_t  ff_adpcm_yamaha_difflookup[] av_export;
+extern const int16_t ff_adpcm_afc_coeffs[2][16] av_export;
 
 #endif /* AVCODEC_ADPCM_DATA_H */

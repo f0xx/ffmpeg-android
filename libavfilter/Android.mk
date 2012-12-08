@@ -21,6 +21,7 @@ LOCAL_LDFLAGS += $(GLOBAL_LDFLAGS)
 LOCAL_LDFLAGS := -lz -llog
 
 #$(wildcard $(LOCAL_PATH)/*.c)
+#		vf_ass.c
 LIBAVFILTER_SRC_FILES := \
 		avcodec.c \
 		af_anull.c \
@@ -40,7 +41,8 @@ LIBAVFILTER_SRC_FILES := \
 		af_join.c \
 		af_pan.c \
 		af_resample.c \
-		af_volume.c \
+		af_volume_justin.c \
+		af_volume_stefano.c \
 		af_volumedetect.c \
 		af_silencedetect.c \
 		allfilters.c \
@@ -90,6 +92,7 @@ LIBAVFILTER_SRC_FILES := \
 		vf_delogo.c \
 		vf_edgedetect.c \
 		vf_fps.c \
+		vf_geq.c \
 		vf_gradfun.c \
 		vf_fade.c \
 		vf_field.c \
@@ -113,7 +116,6 @@ LIBAVFILTER_SRC_FILES := \
 		vf_smartblur.c \
 		vf_showinfo.c \
 		vf_super2xsai.c \
-		vf_slicify.c \
 		vf_tile.c \
 		vf_transpose.c \
 		vf_thumbnail.c \
@@ -128,7 +130,7 @@ LIBAVFILTER_SRC_FILES := \
 		vsrc_cellauto.c \
 		vsrc_life.c \
 		vf_swapuv.c \
-		
+
 #		vf_drawtext.c \
 #		vf_frei0r.c \
 #		vf_libopencv.c \
@@ -150,9 +152,7 @@ LIBMPCODECS_SRC_FILES := \
 		vf_eq2.c \
 		vf_eq.c \
 		vf_fil.c \
-		vf_fixpts.c \
 		vf_fspp.c \
-		vf_geq.c \
 		vf_harddup.c \
 		vf_il.c \
 		vf_ilpack.c \
@@ -173,7 +173,6 @@ LIBMPCODECS_SRC_FILES := \
 		vf_spp.c \
 		vf_stereo3d.c \
 		vf_telecine.c \
-		vf_tile.c \
 		vf_tinterlace.c \
 		vf_unsharp.c \
 		vf_uspp.c \

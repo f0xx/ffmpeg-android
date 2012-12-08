@@ -152,6 +152,7 @@ typedef struct IVIBandDesc {
     int             quant_mat;      ///< dequant matrix index
     int             glob_quant;     ///< quant base for this band
     const uint8_t   *scan;          ///< ptr to the scan pattern
+    int             scan_size;      ///< size of the scantable
 
     IVIHuffTab      blk_vlc;        ///< vlc table for decoding block data
 
@@ -388,7 +389,7 @@ int  ff_ivi_decode_blocks(GetBitContext *gb, IVIBandDesc *band, IVITile *tile);
  */
 void ff_ivi_output_plane(IVIPlaneDesc *plane, uint8_t *dst, int dst_pitch);
 
-int ff_ivi_decode_frame(AVCodecContext *avctx, void *data, int *data_size,
+int ff_ivi_decode_frame(AVCodecContext *avctx, void *data, int *got_frame,
                         AVPacket *avpkt);
 av_cold int ff_ivi_decode_close(AVCodecContext *avctx);
 

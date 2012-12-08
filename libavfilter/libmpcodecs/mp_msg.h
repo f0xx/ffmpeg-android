@@ -20,8 +20,9 @@
 #define MPLAYER_MP_MSG_H
 
 #include <stdarg.h>
-
+#include "avfilter.h"
 // defined in mplayer.c and mencoder.c
+av_export
 extern int verbose;
 
 // verbosity elevel:
@@ -129,36 +130,46 @@ extern int verbose;
 #define MSGT_MAX 64
 
 
-extern char *mp_msg_charset;
-extern int mp_msg_color;
-extern int mp_msg_module;
+av_export
+extern char *ff_mp_msg_charset;
+av_export
+extern int ff_mp_msg_color;
+av_export
+extern int ff_mp_msg_module;
 
-extern int mp_msg_levels[MSGT_MAX];
-extern int mp_msg_level_all;
+av_export
+extern int ff_mp_msg_levels[MSGT_MAX];
+av_export
+extern int ff_mp_msg_level_all;
 
 
-void mp_msg_init(void);
-int mp_msg_test(int mod, int lev);
+av_export
+void ff_mp_msg_init(void);
+av_export
+int ff_mp_msg_test(int mod, int lev);
 
 #include "config.h"
 
-void mp_msg_va(int mod, int lev, const char *format, va_list va);
+av_export
+void ff_mp_msg_va(int mod, int lev, const char *format, va_list va);
+av_export
 #ifdef __GNUC__
-void mp_msg(int mod, int lev, const char *format, ... ) __attribute__ ((format (printf, 3, 4)));
+void ff_mp_msg(int mod, int lev, const char *format, ... ) __attribute__ ((format (printf, 3, 4)));
 #   ifdef MP_DEBUG
-#      define mp_dbg(mod,lev, args... ) mp_msg(mod, lev, ## args )
+#      define mp_dbg(mod,lev, args... ) ff_mp_msg(mod, lev, ## args )
 #   else
 #      define mp_dbg(mod,lev, args... ) /* only useful for developers */
 #   endif
 #else // not GNU C
-void mp_msg(int mod, int lev, const char *format, ... );
+void ff_mp_msg(int mod, int lev, const char *format, ... );
 #   ifdef MP_DEBUG
-#      define mp_dbg(mod,lev, ... ) mp_msg(mod, lev, __VA_ARGS__)
+#      define mp_dbg(mod,lev, ... ) ff_mp_msg(mod, lev, __VA_ARGS__)
 #   else
 #      define mp_dbg(mod,lev, ... ) /* only useful for developers */
 #   endif
 #endif /* __GNUC__ */
 
-const char* filename_recode(const char* filename);
+av_export
+const char* ff_filename_recode(const char* filename);
 
 #endif /* MPLAYER_MP_MSG_H */

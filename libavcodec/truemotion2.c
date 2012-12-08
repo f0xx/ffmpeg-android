@@ -200,6 +200,8 @@ static inline int tm2_get_token(GetBitContext *gb, TM2Codes *code)
 {
     int val;
     val = get_vlc2(gb, code->vlc.table, code->bits, 1);
+    if(val<0)
+        return -1;
     return code->recode[val];
 }
 
@@ -325,7 +327,7 @@ static int tm2_read_stream(TM2Context *ctx, const uint8_t *buf, int stream_id, i
                 return AVERROR_INVALIDDATA;
             }
             ctx->tokens[stream_id][i] = tm2_get_token(&ctx->gb, &codes);
-            if (stream_id <= TM2_MOT && ctx->tokens[stream_id][i] >= TM2_DELTAS) {
+            if (stream_id <= TM2_MOT && ctx->tokens[stream_id][i] >= TM2_DELTAS || ctx->tokens[stream_id][i]<0) {
                 av_log(ctx->avctx, AV_LOG_ERROR, "Invalid delta token index %d for type %d, n=%d\n",
                        ctx->tokens[stream_id][i], stream_id, i);
                 return AVERROR_INVALIDDATA;
@@ -663,7 +665,7 @@ static inline void tm2_motion_block(TM2Context *ctx, AVFrame *pic, int bx, int b
     my = av_clip(my, -(by * 4 + 4), ctx->avctx->height - by * 4);
 
     if (4*bx+mx<0 || 4*by+my<0 || 4*bx+mx+4 > ctx->avctx->width || 4*by+my+4 > ctx->avctx->height) {
-        av_log(0,0, "MV out of picture\n");
+        av_log(ctx->avctx, AV_LOG_ERROR, "MV out of picture\n");
         return;
     }
 
@@ -824,7 +826,7 @@ static const int tm2_stream_order[TM2_NUM_STREAMS] = {
 };
 
 static int decode_frame(AVCodecContext *avctx,
-                        void *data, int *data_size,
+                        void *data, int *got_frame,
                         AVPacket *avpkt)
 {
     const uint8_t *buf = avpkt->data;
@@ -871,7 +873,7 @@ static int decode_frame(AVCodecContext *avctx,
         p->pict_type = AV_PICTURE_TYPE_P;
 
     l->cur = !l->cur;
-    *data_size = sizeof(AVFrame);
+    *got_frame      = 1;
     *(AVFrame*)data = l->pic;
 
     return buf_size;

@@ -447,6 +447,7 @@ typedef struct H264Context {
     int nal_unit_type;
     uint8_t *rbsp_buffer[2];
     unsigned int rbsp_buffer_size[2];
+    int decoding_extradata;
 
     /**
      * Used to parse AVC variant of h264
@@ -594,6 +595,7 @@ typedef struct H264Context {
     int initial_cpb_removal_delay[32];  ///< Initial timestamps for CPBs
 
     int cur_chroma_format_idc;
+    uint8_t *bipred_scratchpad;
 
     int16_t slice_row[MAX_SLICES]; ///< to detect when MAX_SLICES is too low
 

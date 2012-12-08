@@ -38,6 +38,7 @@
 #include "bytestream.h"
 #define BITSTREAM_READER_LE
 #include "get_bits.h"
+#include "internal.h"
 
 #define RUNTIME_GAMMA 0
 
@@ -359,17 +360,29 @@ static int xan_wc3_decode_frame(XanContext *s) {
 
         case 9:
         case 19:
+            if (buf_end - size_segment < 1) {
+                av_log(s->avctx, AV_LOG_ERROR, "size_segment overread\n");
+                return AVERROR_INVALIDDATA;
+            }
             size = *size_segment++;
             break;
 
         case 10:
         case 20:
+            if (buf_end - size_segment < 2) {
+                av_log(s->avctx, AV_LOG_ERROR, "size_segment overread\n");
+                return AVERROR_INVALIDDATA;
+            }
             size = AV_RB16(&size_segment[0]);
             size_segment += 2;
             break;
 
         case 11:
         case 21:
+            if (buf_end - size_segment < 3) {
+                av_log(s->avctx, AV_LOG_ERROR, "size_segment overread\n");
+                return AVERROR_INVALIDDATA;
+            }
             size = AV_RB24(size_segment);
             size_segment += 3;
             break;
@@ -499,7 +512,7 @@ static const uint8_t gamma_lookup[256] = {
 #endif
 
 static int xan_decode_frame(AVCodecContext *avctx,
-                            void *data, int *data_size,
+                            void *data, int *got_frame,
                             AVPacket *avpkt)
 {
     const uint8_t *buf = avpkt->data;
@@ -570,7 +583,7 @@ static int xan_decode_frame(AVCodecContext *avctx,
         return AVERROR_INVALIDDATA;
     }
 
-    if ((ret = avctx->get_buffer(avctx, &s->current_frame))) {
+    if ((ret = ff_get_buffer(avctx, &s->current_frame))) {
         av_log(s->avctx, AV_LOG_ERROR, "get_buffer() failed\n");
         return ret;
     }
@@ -592,7 +605,7 @@ static int xan_decode_frame(AVCodecContext *avctx,
     if (s->last_frame.data[0])
         avctx->release_buffer(avctx, &s->last_frame);
 
-    *data_size = sizeof(AVFrame);
+    *got_frame = 1;
     *(AVFrame*)data = s->current_frame;
 
     /* shuffle frames */

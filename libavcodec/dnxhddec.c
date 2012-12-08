@@ -30,6 +30,7 @@
 #include "get_bits.h"
 #include "dnxhddata.h"
 #include "dsputil.h"
+#include "internal.h"
 #include "thread.h"
 
 typedef struct DNXHDContext {
@@ -357,7 +358,7 @@ static int dnxhd_decode_macroblocks(DNXHDContext *ctx, const uint8_t *buf, int b
     return 0;
 }
 
-static int dnxhd_decode_frame(AVCodecContext *avctx, void *data, int *data_size,
+static int dnxhd_decode_frame(AVCodecContext *avctx, void *data, int *got_frame,
                               AVPacket *avpkt)
 {
     const uint8_t *buf = avpkt->data;
@@ -403,7 +404,7 @@ static int dnxhd_decode_frame(AVCodecContext *avctx, void *data, int *data_size,
     }
 
     *picture = ctx->picture;
-    *data_size = sizeof(AVPicture);
+    *got_frame = 1;
     return buf_size;
 }
 

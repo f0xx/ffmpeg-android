@@ -23,6 +23,7 @@
 ;* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 ;******************************************************************************
 
+%define program_name ff
 %define cpuflags_mmxext cpuflags_mmx2
 
 %include "libavutil/x86/x86inc.asm"
@@ -280,7 +281,14 @@
 %endif
 %endmacro
 
-%macro PALIGNR_MMX 4-5 ; [dst,] src1, src2, imm, tmp
+%macro PALIGNR 4-5
+%if cpuflag(ssse3)
+%if %0==5
+    palignr %1, %2, %3, %4
+%else
+    palignr %1, %2, %3
+%endif
+%elif cpuflag(mmx) ; [dst,] src1, src2, imm, tmp
     %define %%dst %1
 %if %0==5
 %ifnidn %1, %2
@@ -299,13 +307,6 @@
     psrldq  %4, %3
 %endif
     por     %%dst, %4
-%endmacro
-
-%macro PALIGNR_SSSE3 4-5
-%if %0==5
-    palignr %1, %2, %3, %4
-%else
-    palignr %1, %2, %3
 %endif
 %endmacro
 
@@ -554,7 +555,7 @@
 %if mmsize == 16
     pshuflw    %1, %2, (%3)*0x55
     punpcklqdq %1, %1
-%elif cpuflag(mmx2)
+%elif cpuflag(mmxext)
     pshufw     %1, %2, (%3)*0x55
 %else
     %ifnidn %1, %2
@@ -573,24 +574,14 @@
 %endif
 %endmacro
 
-%macro SPLATD 2-3 0
-%if mmsize == 16
-    pshufd %1, %2, (%3)*0x55
-%else
-    pshufw %1, %2, (%3)*0x11 + ((%3)+1)*0x44
-%endif
-%endmacro
-
-%macro SPLATD_MMX 1
+%macro SPLATD 1
+%if mmsize == 8
     punpckldq  %1, %1
-%endmacro
-
-%macro SPLATD_SSE 1
-    shufps  %1, %1, 0
-%endmacro
-
-%macro SPLATD_SSE2 1
+%elif cpuflag(sse2)
     pshufd  %1, %1, 0
+%elif cpuflag(sse)
+    shufps  %1, %1, 0
+%endif
 %endmacro
 
 %macro CLIPW 3 ;(dst, min, max)
@@ -637,6 +628,17 @@
 %else ; sse
     movss        %1, %2
     shufps       %1, %1, 0
+%endif
+%endmacro
+
+%macro VBROADCASTSD 2 ; dst xmm/ymm, src m64
+%if cpuflag(avx) && mmsize == 32
+    vbroadcastsd %1, %2
+%elif cpuflag(sse3)
+    movddup      %1, %2
+%else ; sse2
+    movsd        %1, %2
+    movlhps      %1, %1
 %endif
 %endmacro
 

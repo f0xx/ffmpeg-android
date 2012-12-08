@@ -200,7 +200,7 @@ static const OptionDef *find_option(const OptionDef *po, const char *name)
     return po;
 }
 
-#if defined(_WIN32) && !defined(__MINGW32CE__)
+#if HAVE_COMMANDLINETOARGVW
 #include <windows.h>
 #include <shellapi.h>
 /* Will be leaked on exit */
@@ -260,7 +260,7 @@ static inline void prepare_app_arguments(int *argc_ptr, char ***argv_ptr)
 {
     /* nothing to do */
 }
-#endif /* WIN32 && !__MINGW32CE__ */
+#endif /* HAVE_COMMANDLINETOARGVW */
 
 int parse_option(void *optctx, const char *opt, const char *arg,
                  const OptionDef *options)
@@ -562,7 +562,7 @@ static void expand_filename_template(AVBPrint *bp, const char *template,
 
 static int init_report(const char *env)
 {
-    const char *filename_template = "%p-%t.log";
+    char *filename_template = NULL;
     char *key, *val;
     int ret, count = 0;
     time_t now;
@@ -582,8 +582,11 @@ static int init_report(const char *env)
                        av_err2str(ret));
             break;
         }
+        if (*env)
+            env++;
         count++;
         if (!strcmp(key, "file")) {
+            av_free(filename_template);
             filename_template = val;
             val = NULL;
         } else {
@@ -594,7 +597,9 @@ static int init_report(const char *env)
     }
 
     av_bprint_init(&filename, 0, 1);
-    expand_filename_template(&filename, filename_template, tm);
+    expand_filename_template(&filename,
+                             av_x_if_null(filename_template, "%p-%t.log"), tm);
+    av_free(filename_template);
     if (!av_bprint_is_complete(&filename)) {
         av_log(NULL, AV_LOG_ERROR, "Out of memory building report file name\n");
         return AVERROR(ENOMEM);
@@ -986,7 +991,7 @@ static unsigned get_codecs_sorted(const AVCodecDescriptor ***rcodecs)
     while ((desc = avcodec_descriptor_next(desc)))
         nb_codecs++;
     if (!(codecs = av_calloc(nb_codecs, sizeof(*codecs)))) {
-        av_log(0, AV_LOG_ERROR, "Out of memory\n");
+        av_log(NULL, AV_LOG_ERROR, "Out of memory\n");
         exit(1);
     }
     desc = NULL;
@@ -1652,11 +1657,6 @@ int codec_get_buffer(AVCodecContext *s, AVFrame *frame)
     frame->opaque        = buf;
     frame->type          = FF_BUFFER_TYPE_USER;
     frame->extended_data = frame->data;
-    frame->pkt_pts       = s->pkt ? s->pkt->pts : AV_NOPTS_VALUE;
-    frame->width         = buf->w;
-    frame->height        = buf->h;
-    frame->format        = buf->pix_fmt;
-    frame->sample_aspect_ratio = s->sample_aspect_ratio;
 
     for (i = 0; i < FF_ARRAY_ELEMS(buf->data); i++) {
         frame->base[i]     = buf->base[i];  // XXX h264.c uses base though it shouldn't

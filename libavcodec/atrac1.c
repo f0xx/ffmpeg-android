@@ -36,6 +36,7 @@
 #include "get_bits.h"
 #include "dsputil.h"
 #include "fft.h"
+#include "internal.h"
 #include "sinewin.h"
 
 #include "atrac.h"
@@ -286,7 +287,7 @@ static int atrac1_decode_frame(AVCodecContext *avctx, void *data,
 
     /* get output buffer */
     q->frame.nb_samples = AT1_SU_SAMPLES;
-    if ((ret = avctx->get_buffer(avctx, &q->frame)) < 0) {
+    if ((ret = ff_get_buffer(avctx, &q->frame)) < 0) {
         av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
         return ret;
     }
@@ -341,6 +342,11 @@ static av_cold int atrac1_decode_init(AVCodecContext *avctx)
         av_log(avctx, AV_LOG_ERROR, "Unsupported number of channels: %d\n",
                avctx->channels);
         return AVERROR(EINVAL);
+    }
+
+    if (avctx->block_align <= 0) {
+        av_log_ask_for_sample(avctx, "unsupported block align\n");
+        return AVERROR_PATCHWELCOME;
     }
 
     /* Init the mdct transforms */

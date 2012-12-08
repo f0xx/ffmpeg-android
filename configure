@@ -78,6 +78,7 @@ Help options:
 Standard options:
   --logfile=FILE           log tests and output to FILE [config.log]
   --disable-logging        do not log configure debug information
+  --fatal-warnings         fail if any configure warning is generated
   --prefix=PREFIX          install in PREFIX [$prefix]
   --bindir=DIR             install binaries in DIR [PREFIX/bin]
   --datadir=DIR            install data files in DIR [PREFIX/share/ffmpeg]
@@ -101,6 +102,13 @@ Configuration options:
   --enable-gray            enable full grayscale support (slower color)
   --disable-swscale-alpha  disable alpha channel support in swscale
 
+Program options:
+  --disable-programs       do not build command line programs
+  --disable-ffmpeg         disable ffmpeg build
+  --disable-ffplay         disable ffplay build
+  --disable-ffprobe        disable ffprobe build
+  --disable-ffserver       disable ffserver build
+
 Documentation options:
   --disable-doc            do not build documentation
   --disable-htmlpages      do not build HTML documentation pages
@@ -109,13 +117,10 @@ Documentation options:
   --disable-txtpages       do not build text documentation pages
 
 Component options:
-  --disable-ffmpeg         disable ffmpeg build
-  --disable-ffplay         disable ffplay build
-  --disable-ffprobe        disable ffprobe build
-  --disable-ffserver       disable ffserver build
   --disable-avdevice       disable libavdevice build
   --disable-avcodec        disable libavcodec build
   --disable-avformat       disable libavformat build
+  --disable-avutil         disable libavutil build
   --disable-swresample     disable libswresample build
   --disable-swscale        disable libswscale build
   --disable-postproc       disable libpostproc build
@@ -638,11 +643,10 @@ print_config(){
 }
 
 print_enabled(){
-    test x"$1" = x-n && end=" " && shift || end="\n"
     suf=$1
     shift
     for v; do
-        enabled $v && printf "%s$end" ${v%$suf};
+        enabled $v && printf "%s\n" ${v%$suf};
     done
 }
 
@@ -1088,6 +1092,17 @@ DOCUMENT_LIST="
     txtpages
 "
 
+LIBRARY_LIST="
+    avcodec
+    avdevice
+    avfilter
+    avformat
+    avresample
+    avutil
+    swresample
+    swscale
+"
+
 PROGRAM_LIST="
     ffplay
     ffprobe
@@ -1098,12 +1113,8 @@ PROGRAM_LIST="
 CONFIG_LIST="
     $COMPONENT_LIST
     $DOCUMENT_LIST
+    $LIBRARY_LIST
     $PROGRAM_LIST
-    avcodec
-    avdevice
-    avfilter
-    avformat
-    avresample
     avisynth
     bzlib
     crystalhd
@@ -1176,8 +1187,6 @@ CONFIG_LIST="
     small
     sram
     static
-    swresample
-    swscale
     swscale_alpha
     thumb
     vaapi
@@ -1196,6 +1205,7 @@ THREADS_LIST='
 '
 
 ARCH_LIST='
+    aarch64
     alpha
     arm
     avr32
@@ -1221,6 +1231,15 @@ ARCH_LIST='
     x86_64
 '
 
+ARCH_EXT_LIST_ARM='
+    armv5te
+    armv6
+    armv6t2
+    armvfp
+    neon
+    vfpv3
+'
+
 ARCH_EXT_LIST_X86='
     amd3dnow
     amd3dnowext
@@ -1237,15 +1256,10 @@ ARCH_EXT_LIST_X86='
 '
 
 ARCH_EXT_LIST="
+    $ARCH_EXT_LIST_ARM
     $ARCH_EXT_LIST_X86
     altivec
-    armv5te
-    armv6
-    armv6t2
-    armvfp
-    neon
     ppc4xx
-    vfpv3
     vis
     mipsfpu
     mips32r2
@@ -1300,6 +1314,7 @@ HAVE_LIST="
     $HAVE_LIST_PUB
     $THREADS_LIST
     $MATH_FUNCS
+    access
     aligned_malloc
     aligned_stack
     alsa_asoundlib_h
@@ -1313,6 +1328,7 @@ HAVE_LIST="
     clock_gettime
     closesocket
     cmov
+    CommandLineToArgvW
     cpunop
     CryptGenRandom
     dcbzl
@@ -1381,6 +1397,7 @@ HAVE_LIST="
     sched_getaffinity
     sdl
     sdl_video_size
+    SetConsoleTextAttribute
     setmode
     setrlimit
     Sleep
@@ -1427,7 +1444,6 @@ HAVE_LIST="
 CONFIG_EXTRA="
     aandcttables
     ac3dsp
-    avutil
     error_resilience
     gcrypt
     golomb
@@ -1828,6 +1844,7 @@ eac3_demuxer_select="ac3_parser"
 f4v_muxer_select="mov_muxer"
 flac_demuxer_select="flac_parser"
 ipod_muxer_select="mov_muxer"
+ismv_muxer_select="mov_muxer"
 libnut_demuxer_deps="libnut"
 libnut_muxer_deps="libnut"
 matroska_audio_muxer_select="matroska_muxer"
@@ -1853,6 +1870,7 @@ spdif_muxer_select="aac_parser"
 tak_demuxer_select="tak_parser"
 tg2_muxer_select="mov_muxer"
 tgp_muxer_select="mov_muxer"
+vobsub_demuxer_select="mpegps_demuxer"
 w64_demuxer_deps="wav_demuxer"
 
 # indevs / outdevs
@@ -1939,6 +1957,7 @@ frei0r_filter_deps="frei0r dlopen"
 frei0r_filter_extralibs='$ldl'
 frei0r_src_filter_deps="frei0r dlopen"
 frei0r_src_filter_extralibs='$ldl'
+geq_filter_deps="gpl"
 hqdn3d_filter_deps="gpl"
 hue_filter_deps="gpl"
 movie_filter_deps="avcodec avformat"
@@ -1952,6 +1971,7 @@ removelogo_filter_deps="avcodec avformat swscale"
 scale_filter_deps="swscale"
 smartblur_filter_deps="gpl swscale"
 showspectrum_filter_deps="avcodec rdft"
+subtitles_filter_deps="avformat avcodec libass"
 super2xsai_filter_deps="gpl"
 tinterlace_filter_deps="gpl"
 yadif_filter_deps="gpl"
@@ -1960,9 +1980,13 @@ tinterlace_merge_test_deps="tinterlace_filter"
 tinterlace_pad_test_deps="tinterlace_filter"
 
 # libraries
-avdevice_deps="avcodec avformat"
-avformat_deps="avcodec"
+avcodec_deps="avutil"
+avdevice_deps="avutil avcodec avformat"
+avfilter_deps="avutil"
+avformat_deps="avutil avcodec"
+avresample_deps="avutil"
 postproc_deps="gpl"
+swscale_deps="avutil"
 
 # programs
 ffmpeg_deps="avcodec avfilter avformat swscale swresample"
@@ -2029,16 +2053,9 @@ ALT_PP_VER=$ALT_PP_VER_MAJOR.$ALT_PP_VER_MINOR.$ALT_PP_VER_MICRO
 # configurable options
 enable $PROGRAM_LIST
 enable $DOCUMENT_LIST
-
-enable avcodec
-enable avdevice
-enable avfilter
-enable avformat
-enable avutil
+enable $(filter_out avresample $LIBRARY_LIST)
 enable postproc
 enable stripping
-enable swresample
-enable swscale
 
 enable asm
 enable debug
@@ -2192,63 +2209,70 @@ do_random(){
 for opt do
     optval="${opt#*=}"
     case "$opt" in
-    --extra-ldflags=*) add_ldflags $optval
-    ;;
-    --extra-libs=*) add_extralibs $optval
-    ;;
-    --disable-devices) disable $INDEV_LIST $OUTDEV_LIST
-    ;;
-    --enable-debug=*) debuglevel="$optval"
-    ;;
-    --disable-everything)
-    map 'eval unset \${$(toupper ${v%s})_LIST}' $COMPONENT_LIST
-    ;;
-    --enable-random|--disable-random)
-    action=${opt%%-random}
-    do_random ${action#--} $COMPONENT_LIST
-    ;;
-    --enable-random=*|--disable-random=*)
-    action=${opt%%-random=*}
-    do_random ${action#--} $optval
-    ;;
-    --enable-*=*|--disable-*=*)
-    eval $(echo "${opt%%=*}" | sed 's/--/action=/;s/-/ thing=/')
-    is_in "${thing}s" $COMPONENT_LIST || die_unknown "$opt"
-    eval list=\$$(toupper $thing)_LIST
-    name=$(echo "${optval}" | sed "s/,/_${thing}|/g")_${thing}
-    $action $(filter "$name" $list)
-    ;;
-    --enable-?*|--disable-?*)
-    eval $(echo "$opt" | sed 's/--/action=/;s/-/ option=/;s/-/_/g')
-    if is_in $option $COMPONENT_LIST; then
-        test $action = disable && action=unset
-        eval $action \$$(toupper ${option%s})_LIST
-    elif is_in $option $CMDLINE_SELECT; then
-        $action $option
-    else
-        die_unknown $opt
-    fi
-    ;;
-    --list-*)
-        NAME="${opt#--list-}"
-        is_in $NAME $COMPONENT_LIST || die_unknown $opt
-        NAME=${NAME%s}
-        eval show_list $NAME \$$(toupper $NAME)_LIST
-    ;;
-    --help|-h) show_help
-    ;;
-    *)
-    optname="${opt%%=*}"
-    optname="${optname#--}"
-    optname=$(echo "$optname" | sed 's/-/_/g')
-    if is_in $optname $CMDLINE_SET; then
-        eval $optname='$optval'
-    elif is_in $optname $CMDLINE_APPEND; then
-        append $optname "$optval"
-    else
-         die_unknown $opt
-    fi
-    ;;
+        --extra-ldflags=*) add_ldflags $optval
+        ;;
+        --extra-libs=*) add_extralibs $optval
+        ;;
+        --disable-devices) disable $INDEV_LIST $OUTDEV_LIST
+        ;;
+        --enable-debug=*) debuglevel="$optval"
+        ;;
+        --disable-programs)
+            disable $PROGRAM_LIST
+        ;;
+        --disable-everything)
+            map 'eval unset \${$(toupper ${v%s})_LIST}' $COMPONENT_LIST
+        ;;
+        --enable-random|--disable-random)
+            action=${opt%%-random}
+            do_random ${action#--} $COMPONENT_LIST
+        ;;
+        --enable-random=*|--disable-random=*)
+            action=${opt%%-random=*}
+            do_random ${action#--} $optval
+        ;;
+        --enable-*=*|--disable-*=*)
+            eval $(echo "${opt%%=*}" | sed 's/--/action=/;s/-/ thing=/')
+            is_in "${thing}s" $COMPONENT_LIST || die_unknown "$opt"
+            eval list=\$$(toupper $thing)_LIST
+            name=$(echo "${optval}" | sed "s/,/_${thing}|/g")_${thing}
+            list=$(filter "$name" $list)
+            [ "$list" = "" ] && warn "Option $opt did not match anything"
+            $action $list
+        ;;
+        --enable-?*|--disable-?*)
+            eval $(echo "$opt" | sed 's/--/action=/;s/-/ option=/;s/-/_/g')
+            if is_in $option $COMPONENT_LIST; then
+                test $action = disable && action=unset
+                eval $action \$$(toupper ${option%s})_LIST
+            elif is_in $option $CMDLINE_SELECT; then
+                $action $option
+            else
+                die_unknown $opt
+            fi
+        ;;
+        --list-*)
+            NAME="${opt#--list-}"
+            is_in $NAME $COMPONENT_LIST || die_unknown $opt
+            NAME=${NAME%s}
+            eval show_list $NAME \$$(toupper $NAME)_LIST
+        ;;
+        --help|-h) show_help
+        ;;
+        --fatal-warnings) enable fatal_warnings
+        ;;
+        *)
+            optname="${opt%%=*}"
+            optname="${optname#--}"
+            optname=$(echo "$optname" | sed 's/-/_/g')
+            if is_in $optname $CMDLINE_SET; then
+                eval $optname='$optval'
+            elif is_in $optname $CMDLINE_APPEND; then
+                append $optname "$optval"
+            else
+                die_unknown $opt
+            fi
+        ;;
     esac
 done
 
@@ -2377,6 +2401,24 @@ EOF
     die "Sanity test failed."
 fi
 
+ccc_flags(){
+    for flag; do
+        case $flag in
+            -std=c99)           echo -c99                       ;;
+            -mcpu=*)            echo -arch ${flag#*=}           ;;
+            -mieee)             echo -ieee                      ;;
+            -O*|-fast)          echo $flag                      ;;
+            -fno-math-errno)    echo -assume nomath_errno       ;;
+            -g)                 echo -g3                        ;;
+            -Wall)              echo -msg_enable level2         ;;
+            -Wno-pointer-sign)  echo -msg_disable ptrmismatch1  ;;
+            -Wl,*)              echo $flag                      ;;
+            -f*|-W*)                                            ;;
+            *)                  echo $flag                      ;;
+        esac
+   done
+}
+
 msvc_flags(){
     for flag; do
         case $flag in
@@ -2428,6 +2470,8 @@ suncc_flags(){
                     prescott|nocona)    echo -xarch=sse3 -xchip=pentium4 ;;
                     *-sse3)             echo -xarch=sse3                 ;;
                     core2)              echo -xarch=ssse3 -xchip=core2   ;;
+                    corei7)           echo -xarch=sse4_2 -xchip=nehalem  ;;
+                    corei7-avx)       echo -xarch=avx -xchip=sandybridge ;;
                     amdfam10|barcelona|bdver*) echo -xarch=sse4_1        ;;
                     athlon-4|athlon-[mx]p)    echo -xarch=ssea           ;;
                     k8|opteron|athlon64|athlon-fx)
@@ -2518,10 +2562,9 @@ probe_cc(){
         _type=ccc
         _ident=$($_cc -V | head -n1 | cut -d' ' -f1-3)
         _DEPFLAGS='-M'
-        debuglevel=3
-        _ldflags='-Wl,-z,now' # calls to libots crash without this
         _cflags_speed='-fast'
         _cflags_size='-O1'
+        _flags_filter=ccc_flags
     elif $_cc --vsn 2>/dev/null | grep -q "ARM C/C++ Compiler"; then
         test -d "$sysroot" || die "No valid sysroot specified."
         _type=armcc
@@ -2727,6 +2770,9 @@ fi
 
 # Deal with common $arch aliases
 case "$arch" in
+    aarch64|arm64)
+        arch="aarch64"
+    ;;
     arm*|iPad*)
         arch="arm"
     ;;
@@ -2762,92 +2808,21 @@ enable $arch
 # Add processor-specific flags
 if test "$cpu" = generic; then
     : do nothing
-elif enabled ppc; then
 
-    case $(tolower $cpu) in
-        601|ppc601|powerpc601)
-            cpuflags="-mcpu=601"
-            disable altivec
-        ;;
-        603*|ppc603*|powerpc603*)
-            cpuflags="-mcpu=603"
-            disable altivec
-        ;;
-        604*|ppc604*|powerpc604*)
-            cpuflags="-mcpu=604"
-            disable altivec
-        ;;
-        g3|75*|ppc75*|powerpc75*)
-            cpuflags="-mcpu=750 -mpowerpc-gfxopt"
-            disable altivec
-        ;;
-        g4|745*|ppc745*|powerpc745*)
-            cpuflags="-mcpu=7450 -mpowerpc-gfxopt"
-        ;;
-        74*|ppc74*|powerpc74*)
-            cpuflags="-mcpu=7400 -mpowerpc-gfxopt"
-        ;;
-        g5|970|ppc970|powerpc970)
-            cpuflags="-mcpu=970 -mpowerpc-gfxopt -mpowerpc64"
-        ;;
-        power[3-7]*)
-            cpuflags="-mcpu=$cpu -mpowerpc-gfxopt -mpowerpc64"
-        ;;
-        cell)
-            cpuflags="-mcpu=cell"
-            enable ldbrx
-        ;;
-        e500mc)
-            cpuflags="-mcpu=e500mc"
-            disable altivec
-        ;;
-        e500v2)
-            cpuflags="-mcpu=8548 -mhard-float -mfloat-gprs=double"
-            disable altivec
-        ;;
-        e500)
-            cpuflags="-mcpu=8540 -mhard-float"
-            disable altivec
-        ;;
-    esac
-
-elif enabled x86; then
+elif enabled aarch64; then
 
     case $cpu in
-        i[345]86|pentium)
+        armv*)
             cpuflags="-march=$cpu"
-            disable mmx
         ;;
-        # targets that do NOT support conditional mov (cmov)
-        pentium-mmx|k6|k6-[23]|winchip-c6|winchip2|c3)
-            cpuflags="-march=$cpu"
-            disable cmov
-        ;;
-        # targets that do support conditional mov (cmov)
-        i686|pentiumpro|pentium[23]|pentium-m|athlon|athlon-tbird|athlon-4|athlon-[mx]p|athlon64*|k8*|opteron*|athlon-fx|core2|amdfam10|barcelona|atom|bdver*)
-            cpuflags="-march=$cpu"
-            enable cmov
-            enable fast_cmov
-        ;;
-        # targets that do support conditional mov but on which it's slow
-        pentium4|pentium4m|prescott|nocona)
-            cpuflags="-march=$cpu"
-            enable cmov
-            disable fast_cmov
-        ;;
-    esac
-
-elif enabled sparc; then
-
-    case $cpu in
-        cypress|f93[04]|tsc701|sparcl*|supersparc|hypersparc|niagara|v[789])
-            cpuflags="-mcpu=$cpu"
-            disable vis
-        ;;
-        ultrasparc*|niagara[234])
+        *)
             cpuflags="-mcpu=$cpu"
         ;;
     esac
+
+elif enabled alpha; then
+
+    cpuflags="-mcpu=$cpu"
 
 elif enabled arm; then
 
@@ -2869,9 +2844,26 @@ elif enabled arm; then
         ;;
     esac
 
-elif enabled alpha; then
+elif enabled avr32; then
 
-    enabled ccc && cpuflags="-arch $cpu" || cpuflags="-mcpu=$cpu"
+    case $cpu in
+        ap7[02]0[0-2])
+            subarch="avr32_ap"
+            cpuflags="-mpart=$cpu"
+        ;;
+        ap)
+            subarch="avr32_ap"
+            cpuflags="-march=$cpu"
+        ;;
+        uc3[ab]*)
+            subarch="avr32_uc"
+            cpuflags="-mcpu=$cpu"
+        ;;
+        uc)
+            subarch="avr32_uc"
+            cpuflags="-march=$cpu"
+        ;;
+    esac
 
 elif enabled bfin; then
 
@@ -2903,24 +2895,90 @@ elif enabled mips; then
         ;;
     esac
 
-elif enabled avr32; then
+elif enabled ppc; then
 
-    case $cpu in
-        ap7[02]0[0-2])
-            subarch="avr32_ap"
-            cpuflags="-mpart=$cpu"
+    case $(tolower $cpu) in
+        601|ppc601|powerpc601)
+            cpuflags="-mcpu=601"
+            disable altivec
         ;;
-        ap)
-            subarch="avr32_ap"
-            cpuflags="-march=$cpu"
+        603*|ppc603*|powerpc603*)
+            cpuflags="-mcpu=603"
+            disable altivec
         ;;
-        uc3[ab]*)
-            subarch="avr32_uc"
+        604*|ppc604*|powerpc604*)
+            cpuflags="-mcpu=604"
+            disable altivec
+        ;;
+        g3|75*|ppc75*|powerpc75*)
+            cpuflags="-mcpu=750"
+            disable altivec
+        ;;
+        g4|745*|ppc745*|powerpc745*)
+            cpuflags="-mcpu=7450"
+        ;;
+        74*|ppc74*|powerpc74*)
+            cpuflags="-mcpu=7400"
+        ;;
+        g5|970|ppc970|powerpc970)
+            cpuflags="-mcpu=970"
+        ;;
+        power[3-7]*)
             cpuflags="-mcpu=$cpu"
         ;;
-        uc)
-            subarch="avr32_uc"
+        cell)
+            cpuflags="-mcpu=cell"
+            enable ldbrx
+        ;;
+        e500mc)
+            cpuflags="-mcpu=e500mc"
+            disable altivec
+        ;;
+        e500v2)
+            cpuflags="-mcpu=8548 -mhard-float -mfloat-gprs=double"
+            disable altivec
+        ;;
+        e500)
+            cpuflags="-mcpu=8540 -mhard-float"
+            disable altivec
+        ;;
+    esac
+
+elif enabled sparc; then
+
+    case $cpu in
+        cypress|f93[04]|tsc701|sparcl*|supersparc|hypersparc|niagara|v[789])
+            cpuflags="-mcpu=$cpu"
+            disable vis
+        ;;
+        ultrasparc*|niagara[234])
+            cpuflags="-mcpu=$cpu"
+        ;;
+    esac
+
+elif enabled x86; then
+
+    case $cpu in
+        i[345]86|pentium)
             cpuflags="-march=$cpu"
+            disable mmx
+        ;;
+        # targets that do NOT support conditional mov (cmov)
+        pentium-mmx|k6|k6-[23]|winchip-c6|winchip2|c3)
+            cpuflags="-march=$cpu"
+            disable cmov
+        ;;
+        # targets that do support conditional mov (cmov)
+        i686|pentiumpro|pentium[23]|pentium-m|athlon|athlon-tbird|athlon-4|athlon-[mx]p|athlon64*|k8*|opteron*|athlon-fx|core2|corei7*|amdfam10|barcelona|atom|bdver*)
+            cpuflags="-march=$cpu"
+            enable cmov
+            enable fast_cmov
+        ;;
+        # targets that do support conditional mov but on which it's slow
+        pentium4|pentium4m|prescott|nocona)
+            cpuflags="-march=$cpu"
+            enable cmov
+            disable fast_cmov
         ;;
     esac
 
@@ -2977,6 +3035,7 @@ case "$arch" in
     ;;
     ppc)
         check_64bit ppc ppc64 'sizeof(void *) > 4'
+        spic=$shared
     ;;
     sparc)
         check_64bit sparc sparc64 'sizeof(void *) > 4'
@@ -3083,18 +3142,18 @@ case $target_os in
         SLIBNAME_WITH_MAJOR='$(SLIBPREF)$(FULLNAME)-$(LIBMAJOR)$(SLIBSUF)'
         dlltool="${cross_prefix}dlltool"
         if check_cmd lib.exe -list; then
-            SLIB_EXTRA_CMD='-lib.exe /machine:$(LIBTARGET) /def:$$(@:$(SLIBSUF)=.def) /out:$(SUBDIR)$(SLIBNAME:$(SLIBSUF)=.lib)'
+            SLIB_EXTRA_CMD=-'sed -e "s/ @[^ ]*//" $$(@:$(SLIBSUF)=.orig.def) > $$(@:$(SLIBSUF)=.def); lib.exe /machine:$(LIBTARGET) /def:$$(@:$(SLIBSUF)=.def) /out:$(SUBDIR)$(SLIBNAME:$(SLIBSUF)=.lib)'
             if enabled x86_64; then
                 LIBTARGET=x64
             fi
         elif check_cmd $dlltool --version; then
-            SLIB_EXTRA_CMD=-'$(DLLTOOL) -m $(LIBTARGET) -d $$(@:$(SLIBSUF)=.def) -l $(SUBDIR)$(SLIBNAME:$(SLIBSUF)=.lib) -D $(SLIBNAME_WITH_MAJOR)'
+            SLIB_EXTRA_CMD=-'sed -e "s/ @[^ ]*//" $$(@:$(SLIBSUF)=.orig.def) > $$(@:$(SLIBSUF)=.def); $(DLLTOOL) -m $(LIBTARGET) -d $$(@:$(SLIBSUF)=.def) -l $(SUBDIR)$(SLIBNAME:$(SLIBSUF)=.lib) -D $(SLIBNAME_WITH_MAJOR)'
         fi
         SLIB_INSTALL_NAME='$(SLIBNAME_WITH_MAJOR)'
         SLIB_INSTALL_LINKS=
         SLIB_INSTALL_EXTRA_SHLIB='$(SLIBNAME:$(SLIBSUF)=.lib)'
         SLIB_INSTALL_EXTRA_LIB='lib$(SLIBNAME:$(SLIBSUF)=.dll.a) $(SLIBNAME_WITH_MAJOR:$(SLIBSUF)=.def)'
-        SHFLAGS='-shared -Wl,--output-def,$$(@:$(SLIBSUF)=.def) -Wl,--out-implib,$(SUBDIR)lib$(SLIBNAME:$(SLIBSUF)=.dll.a) -Wl,--enable-runtime-pseudo-reloc -Wl,--enable-auto-image-base'
+        SHFLAGS='-shared -Wl,--output-def,$$(@:$(SLIBSUF)=.orig.def) -Wl,--out-implib,$(SUBDIR)lib$(SLIBNAME:$(SLIBSUF)=.dll.a) -Wl,--enable-runtime-pseudo-reloc -Wl,--enable-auto-image-base'
         objformat="win32"
         ranlib=:
         enable dos_paths
@@ -3137,7 +3196,6 @@ case $target_os in
         SHFLAGS='-shared -Wl,--out-implib,$(SUBDIR)lib$(FULLNAME).dll.a'
         objformat="win32"
         enable dos_paths
-        add_cppflags -U__STRICT_ANSI__
         ;;
     *-dos|freedos|opendos)
         network_extralibs="-lsocket"
@@ -3146,7 +3204,6 @@ case $target_os in
         add_cppflags -U__STRICT_ANSI__
         ;;
     linux)
-        add_cppflags -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600
         enable dv1394
         ;;
     irix*)
@@ -3179,10 +3236,9 @@ case $target_os in
         enable_weak os2threads
         ;;
     gnu/kfreebsd)
-        add_cppflags -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600 -D_BSD_SOURCE
+        add_cppflags -D_BSD_SOURCE
         ;;
     gnu)
-        add_cppflags -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600
         ;;
     qnx)
         add_cppflags -D_QNX_SOURCE
@@ -3230,8 +3286,10 @@ esac
 
 if check_cpp_condition features.h "defined __UCLIBC__"; then
     libc_type=uclibc
+    add_cppflags -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600
 elif check_cpp_condition features.h "defined __GLIBC__"; then
     libc_type=glibc
+    add_cppflags -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600
 elif check_header _mingw.h; then
     libc_type=mingw
     check_cpp_condition _mingw.h \
@@ -3245,6 +3303,7 @@ elif check_header _mingw.h; then
     fi
 elif check_cpp_condition newlib.h "defined _NEWLIB_VERSION"; then
     libc_type=newlib
+    add_cppflags -U__STRICT_ANSI__
 elif check_func_headers stdlib.h _get_doserrno; then
     libc_type=msvcrt
     add_compat strtod.o strtod=avpriv_strtod
@@ -3265,6 +3324,10 @@ if enabled_all tms470 glibc; then
     add_cppflags -D__builtin_memset=memset
     add_cppflags -D__gnuc_va_list=va_list -D_VA_LIST_DEFINED
     add_cflags   -pds=48    # incompatible redefinition of macro
+fi
+
+if enabled_all ccc glibc; then
+    add_ldflags -Wl,-z,now  # calls to libots crash without this
 fi
 
 esc(){
@@ -3363,6 +3426,10 @@ if enabled alpha; then
 
 elif enabled arm; then
 
+    check_cpp_condition stddef.h "defined __thumb__" && check_cc <<EOF && enable_weak thumb
+float func(float a, float b){ return a+b; }
+EOF
+
     enabled thumb && check_cflags -mthumb || check_cflags -marm
     nogas=die
 
@@ -3402,6 +3469,14 @@ elif enabled mips; then
      check_inline_asm mipsdspr2 '"absq_s.qb $t0, $t1"'
     enabled mipsfpu   && add_cflags "-mhard-float" && add_asflags "-mhard-float" &&
      check_inline_asm mipsfpu   '"madd.d $f0, $f2, $f4, $f6"'
+
+elif enabled parisc; then
+
+    if enabled gcc; then
+        case $($cc -dumpversion) in
+            4.[3-8].*) check_cflags -fno-optimize-sibling-calls ;;
+        esac
+    fi
 
 elif enabled ppc; then
 
@@ -3551,6 +3626,7 @@ fi
 # Solaris has nanosleep in -lrt, OpenSolaris no longer needs that
 check_func nanosleep || { check_func nanosleep -lrt && add_extralibs -lrt; }
 
+check_func  access
 check_func  clock_gettime || { check_func clock_gettime -lrt && add_extralibs -lrt; }
 check_func  fcntl
 check_func  fork
@@ -3585,6 +3661,7 @@ check_func_headers windows.h GetProcessAffinityMask
 check_func_headers windows.h GetProcessTimes
 check_func_headers windows.h GetSystemTimeAsFileTime
 check_func_headers windows.h MapViewOfFile
+check_func_headers windows.h SetConsoleTextAttribute
 check_func_headers windows.h Sleep
 check_func_headers windows.h VirtualAlloc
 check_func_headers glob.h glob
@@ -3622,7 +3699,7 @@ if ! disabled vda && ! enabled ppc; then
 fi
 
 if ! disabled w32threads && ! enabled pthreads; then
-    check_func _beginthreadex && enable w32threads
+    check_func_headers "windows.h process.h" _beginthreadex && enable w32threads
 fi
 
 # check for some common methods of building with pthread support
@@ -3938,12 +4015,10 @@ if enabled icc; then
     fi
 elif enabled ccc; then
     # disable some annoying warnings
-    add_cflags -msg_disable cvtu32to64
-    add_cflags -msg_disable embedcomment
-    add_cflags -msg_disable needconstext
-    add_cflags -msg_disable nomainieee
-    add_cflags -msg_disable ptrmismatch1
-    add_cflags -msg_disable unreachcode
+    add_cflags -msg_disable bitnotint
+    add_cflags -msg_disable mixfuncvoid
+    add_cflags -msg_disable nonstandcast
+    add_cflags -msg_disable unsupieee
 elif enabled gcc; then
     check_optflags -fno-tree-vectorize
     check_cflags -Werror=implicit-function-declaration
@@ -3954,6 +4029,8 @@ elif enabled llvm_gcc; then
 elif enabled clang; then
     check_cflags -mllvm -stack-alignment=16
     check_cflags -Qunused-arguments
+    check_cflags -Werror=implicit-function-declaration
+    check_cflags -Werror=missing-prototypes
 elif enabled armcc; then
     # 2523: use of inline assembler is deprecated
     add_cflags -W${armcc_opt},--diag_suppress=2523
@@ -3971,6 +4048,9 @@ elif enabled msvc; then
 fi
 
 case $target_os in
+    osf1)
+        enabled ccc && add_ldflags '-Wl,-expect_unresolved,*'
+    ;;
     plan9)
         add_cppflags -Dmain=plan9_main
     ;;
@@ -4207,6 +4287,7 @@ ASFLAGS=$ASFLAGS
 AS_C=$AS_C
 AS_O=$AS_O
 CC_C=$CC_C
+CC_E=$CC_E
 CC_O=$CC_O
 CXX_C=$CXX_C
 CXX_O=$CXX_O
@@ -4274,7 +4355,7 @@ NOREDZONE_FLAGS=$noredzone_flags
 EOF
 
 get_version(){
-    lcname=$1
+    lcname=lib${1}
     name=$(toupper $lcname)
     file=$source_path/$lcname/version.h
     eval $(awk "/#define ${name}_VERSION_M/ { print \$2 \"=\" \$3 }" "$file")
@@ -4298,14 +4379,7 @@ fi
 
 get_version_old LIBPOSTPROC libpostproc/version.h
 
-get_version libavcodec
-get_version libavdevice
-get_version libavfilter
-get_version libavformat
-get_version libavresample
-get_version libavutil
-get_version libswresample
-get_version libswscale
+map 'get_version $v' $LIBRARY_LIST
 
 cat > $TMPH <<EOF
 /* Automatically generated by configure - do not modify! */
@@ -4367,7 +4441,10 @@ echo "#endif /* AVUTIL_AVCONFIG_H */" >> $TMPH
 
 cp_if_changed $TMPH libavutil/avconfig.h
 
-test -n "$WARNINGS" && printf "\n$WARNINGS"
+if test -n "$WARNINGS"; then
+    printf "\n$WARNINGS"
+    enabled fatal_warnings && exit 1
+fi
 
 # build pkg-config files
 
@@ -4416,9 +4493,10 @@ Cflags: -I\${includedir}
 EOF
 }
 
-libavfilter_pc_deps=""
+libavfilter_pc_deps="libavutil = $LIBAVUTIL_VERSION"
 enabled libavfilter_deps_avcodec    && prepend libavfilter_pc_deps "libavcodec = $LIBAVCODEC_VERSION,"
 enabled libavfilter_deps_avformat   && prepend libavfilter_pc_deps "libavformat = $LIBAVFORMAT_VERSION,"
+enabled libavfilter_deps_avresample && prepend libavfilter_pc_deps "libavresample = $LIBAVRESAMPLE_VERSION,"
 enabled libavfilter_deps_swscale    && prepend libavfilter_pc_deps "libswscale = $LIBSWSCALE_VERSION,"
 enabled libavfilter_deps_swresample && prepend libavfilter_pc_deps "libswresample = $LIBSWRESAMPLE_VERSION,"
 enabled libavfilter_deps_postproc   && prepend libavfilter_pc_deps "libpostproc = $LIBPOSTPROC_VERSION,"
@@ -4433,9 +4511,9 @@ pkgconfig_generate libavformat "FFmpeg container format library" "$LIBAVFORMAT_V
 pkgconfig_generate libavdevice "FFmpeg device handling library" "$LIBAVDEVICE_VERSION" "$extralibs" "$libavdevice_pc_deps"
 pkgconfig_generate libavfilter "FFmpeg video filtering library" "$LIBAVFILTER_VERSION" "$extralibs" "$libavfilter_pc_deps"
 pkgconfig_generate libpostproc "FFmpeg postprocessing library" "$LIBPOSTPROC_VERSION" "" "libavutil = $LIBAVUTIL_VERSION"
-pkgconfig_generate libavresample "Libav audio resampling library" "$LIBAVRESAMPLE_VERSION" "$extralibs"
+pkgconfig_generate libavresample "Libav audio resampling library" "$LIBAVRESAMPLE_VERSION" "$extralibs" "libavutil = $LIBAVUTIL_VERSION"
 pkgconfig_generate libswscale "FFmpeg image rescaling library" "$LIBSWSCALE_VERSION" "$LIBM" "libavutil = $LIBAVUTIL_VERSION"
-pkgconfig_generate libswresample "FFmpeg audio rescaling library" "$LIBSWRESAMPLE_VERSION" "$LIBM" "libavutil = $LIBAVUTIL_VERSION"
+pkgconfig_generate libswresample "FFmpeg audio resampling library" "$LIBSWRESAMPLE_VERSION" "$LIBM" "libavutil = $LIBAVUTIL_VERSION"
 
 fix_ffmpeg_remote(){
     git_remote_from=$1

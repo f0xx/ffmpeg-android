@@ -29,6 +29,9 @@
 #if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+#if HAVE_IO_H
+#include <io.h>
+#endif
 #include <stdlib.h>
 #include "avutil.h"
 #include "common.h"
@@ -42,9 +45,8 @@
 static int av_log_level = AV_LOG_INFO;
 static int flags;
 
-#if defined(_WIN32) && !defined(__MINGW32CE__)
+#if HAVE_SETCONSOLETEXTATTRIBUTE
 #include <windows.h>
-#include <io.h>
 static const uint8_t color[16 + AV_CLASS_CATEGORY_NB] = {
     [AV_LOG_PANIC  /8] = 12,
     [AV_LOG_FATAL  /8] = 12,
@@ -106,11 +108,10 @@ static int use_color=
 #endif
   ;
 
-#undef fprintf
 static void colored_fputs(int level, const char *str)
 {
     if (use_color < 0) {
-#if defined(_WIN32) && !defined(__MINGW32CE__)
+#if HAVE_SETCONSOLETEXTATTRIBUTE
         CONSOLE_SCREEN_BUFFER_INFO con_info;
         con = GetStdHandle(STD_ERROR_HANDLE);
         use_color = (con != INVALID_HANDLE_VALUE) && !getenv("NO_COLOR") &&
@@ -232,7 +233,6 @@ void av_log_default_callback(void* ptr, int level, const char* fmt, va_list vl)
         is_atty = isatty(2) ? 1 : -1;
 #endif
 
-#undef fprintf
     if (print_prefix && (flags & AV_LOG_SKIP_REPEATED) && !strcmp(line, prev)){
         count++;
         if (is_atty == 1)

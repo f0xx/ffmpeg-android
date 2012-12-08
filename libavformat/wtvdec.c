@@ -25,6 +25,7 @@
  * @author Peter Ross <pross@xvid.org>
  */
 
+#include "libavutil/channel_layout.h"
 #include "libavutil/intreadwrite.h"
 #include "libavutil/intfloat.h"
 #include "avformat.h"
@@ -558,8 +559,14 @@ static void parse_mpeg1waveformatex(AVStream *st)
 
     /* dwHeadMode */
     switch (AV_RL16(st->codec->extradata + 6)) {
-    case 1 : case 2 : case 4 : st->codec->channels = 2; break;
-    case 8 :                   st->codec->channels = 1; break;
+    case 1 :
+    case 2 :
+    case 4 : st->codec->channels       = 2;
+             st->codec->channel_layout = AV_CH_LAYOUT_STEREO;
+             break;
+    case 8 : st->codec->channels       = 1;
+             st->codec->channel_layout = AV_CH_LAYOUT_MONO;
+             break;
     }
 }
 
@@ -756,7 +763,7 @@ static int parse_chunks(AVFormatContext *s, int mode, int64_t seekts, int *len_p
             }
         } else if (!ff_guidcmp(g, ff_stream2_guid)) {
             int stream_index = ff_find_stream_index(s, sid);
-            if (stream_index >= 0 && !((WtvStream*)s->streams[stream_index]->priv_data)->seen_data) {
+            if (stream_index >= 0 && s->streams[stream_index]->priv_data && !((WtvStream*)s->streams[stream_index]->priv_data)->seen_data) {
                 ff_asf_guid mediatype, subtype, formattype;
                 int size;
                 avio_skip(pb, 12);

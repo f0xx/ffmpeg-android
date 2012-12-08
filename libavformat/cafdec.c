@@ -27,7 +27,6 @@
 
 #include "avformat.h"
 #include "internal.h"
-#include "riff.h"
 #include "isom.h"
 #include "mov_chan.h"
 #include "libavutil/intreadwrite.h"
@@ -343,12 +342,14 @@ static int read_packet(AVFormatContext *s, AVPacket *pkt)
     int64_t left      = CAF_MAX_PKT_SIZE;
 
     if (url_feof(pb))
-        return AVERROR(EIO);
+        return AVERROR_EOF;
 
     /* don't read past end of data chunk */
     if (caf->data_size > 0) {
         left = (caf->data_start + caf->data_size) - avio_tell(pb);
-        if (left <= 0)
+        if (!left)
+            return AVERROR_EOF;
+        if (left < 0)
             return AVERROR(EIO);
     }
 
@@ -399,7 +400,7 @@ static int read_seek(AVFormatContext *s, int stream_index,
 
     if (caf->frames_per_packet > 0 && caf->bytes_per_packet > 0) {
         /* calculate new byte position based on target frame position */
-        pos = caf->bytes_per_packet * timestamp / caf->frames_per_packet;
+        pos = caf->bytes_per_packet * (timestamp / caf->frames_per_packet);
         if (caf->data_size > 0)
             pos = FFMIN(pos, caf->data_size);
         packet_cnt = pos / caf->bytes_per_packet;

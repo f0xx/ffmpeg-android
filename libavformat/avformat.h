@@ -641,7 +641,7 @@ typedef struct AVStream {
     /**
      * Format-specific stream ID.
      * decoding: set by libavformat
-     * encoding: set by the user
+     * encoding: set by the user, replaced by libavformat if left unset
      */
     int id;
     /**
@@ -1162,6 +1162,13 @@ typedef struct AVFormatContext {
      */
     enum AVDurationEstimationMethod duration_estimation_method;
 
+    /**
+     * Skip initial bytes when opening stream
+     * - encoding: unused
+     * - decoding: Set by user via AVOptions (NO direct access)
+     */
+    unsigned int skip_initial_bytes;
+
     /*****************************************************************
      * All fields below this line are not part of the public API. They
      * may not be used outside of libavformat and can be changed and
@@ -1245,7 +1252,6 @@ const char *avformat_license(void);
  *
  * @see av_register_input_format()
  * @see av_register_output_format()
- * @see av_register_protocol()
  */
 void av_register_all(void);
 
@@ -1796,9 +1802,9 @@ enum AVCodecID av_guess_codec(AVOutputFormat *fmt, const char *short_name,
  * work in real time.
  * @param s          media file handle
  * @param stream     stream in the media file
- * @param dts[out]   DTS of the last packet output for the stream, in stream
+ * @param[out] dts   DTS of the last packet output for the stream, in stream
  *                   time_base units
- * @param wall[out]  absolute time when that packet whas output,
+ * @param[out] wall  absolute time when that packet whas output,
  *                   in microsecond
  * @return  0 if OK, AVERROR(ENOSYS) if the format does not support it
  * Note: some formats or devices may not allow to measure dts and wall
@@ -1969,6 +1975,9 @@ int av_filename_number_test(const char *filename);
 
 /**
  * Generate an SDP for an RTP session.
+ *
+ * Note, this overwrites the id values of AVStreams in the muxer contexts
+ * for getting unique dynamic payload types.
  *
  * @param ac array of AVFormatContexts describing the RTP streams. If the
  *           array is composed by only one context, such context can contain

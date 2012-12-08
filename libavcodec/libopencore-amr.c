@@ -19,11 +19,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include "libavutil/audioconvert.h"
-#include "avcodec.h"
 #include "libavutil/avstring.h"
+#include "libavutil/channel_layout.h"
 #include "libavutil/common.h"
 #include "libavutil/opt.h"
+#include "avcodec.h"
 #include "audio_frame_queue.h"
 #include "internal.h"
 
@@ -150,7 +150,7 @@ static int amr_nb_decode_frame(AVCodecContext *avctx, void *data,
 
     /* get output buffer */
     s->frame.nb_samples = 160;
-    if ((ret = avctx->get_buffer(avctx, &s->frame)) < 0) {
+    if ((ret = ff_get_buffer(avctx, &s->frame)) < 0) {
         av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
         return ret;
     }
@@ -346,7 +346,7 @@ static int amr_wb_decode_frame(AVCodecContext *avctx, void *data,
 
     /* get output buffer */
     s->frame.nb_samples = 320;
-    if ((ret = avctx->get_buffer(avctx, &s->frame)) < 0) {
+    if ((ret = ff_get_buffer(avctx, &s->frame)) < 0) {
         av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
         return ret;
     }
@@ -357,6 +357,10 @@ static int amr_wb_decode_frame(AVCodecContext *avctx, void *data,
     if (packet_size > buf_size) {
         av_log(avctx, AV_LOG_ERROR, "amr frame too short (%u, should be %u)\n",
                buf_size, packet_size + 1);
+        return AVERROR_INVALIDDATA;
+    }
+    if (!packet_size) {
+        av_log(avctx, AV_LOG_ERROR, "amr packet_size invalid\n");
         return AVERROR_INVALIDDATA;
     }
 

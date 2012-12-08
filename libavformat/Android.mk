@@ -46,6 +46,7 @@ LIBAVFORMAT_SRC_FILES := \
 		ac3dec.c \
 		aea.c \
 		adxdec.c \
+		afc.c \
 		aiffdec.c \
 		allformats.c \
 		amr.c \
@@ -57,6 +58,9 @@ LIBAVFORMAT_SRC_FILES := \
 		asfcrypt.c \
 		asfdec.c \
 		assdec.c \
+		ast.c \
+		astdec.c \
+		astenc.c \
 		au.c \
 		audiointerleave.c \
 		avc.c \
@@ -72,6 +76,7 @@ LIBAVFORMAT_SRC_FILES := \
 		bintext.c \
 		bit.c \
 		bmv.c \
+		brstm.c \
 		c93.c \
 		cache.c \
 		caf.c \
@@ -81,6 +86,7 @@ LIBAVFORMAT_SRC_FILES := \
 		cdxl.c \
 		crypto.c \
 		concat.c \
+		concatdec.c \
 		cutils.c \
 		daud.c \
 		dfa.c \
@@ -93,6 +99,7 @@ LIBAVFORMAT_SRC_FILES := \
 		dxa.c \
 		eacdata.c \
 		electronicarts.c \
+		epafdec.c \
 		ffmdec.c \
 		ffmetadec.c \
 		file.c \
@@ -102,6 +109,7 @@ LIBAVFORMAT_SRC_FILES := \
 		flic.c \
 		flvdec.c \
 		gif.c \
+		gifdec.c \
 		gxf.c \
 		g722.c \
 		g723_1.c \
@@ -125,6 +133,8 @@ LIBAVFORMAT_SRC_FILES := \
 		img2dec.c \
 		ingenientdec.c \
 		ipmovie.c \
+		ircam.c \
+		ircamdec.c \
 		isom.c \
 		iss.c \
 		iv8.c \
@@ -190,6 +200,7 @@ LIBAVFORMAT_SRC_FILES := \
 		pmpdec.c \
 		psxstr.c \
 		pva.c \
+		pvfdec.c \
 		qcp.c \
 		r3d.c \
 		rawdec.c \
@@ -262,6 +273,7 @@ LIBAVFORMAT_SRC_FILES := \
 		txd.c \
 		udp.c \
 		utils.c \
+		vivo.c \
 		voc.c \
 		vocdec.c \
 		vorbiscomment.c \

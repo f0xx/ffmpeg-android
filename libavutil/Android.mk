@@ -7,7 +7,7 @@ LOCAL_APP_ABI += armeabi-v7a
 LOCAL_ARM_MODE += arm
 LOCAL_MODULE    := avutil_vfp
 LOCAL_CFLAGS := -mfpu=vfp -march=armv6
-LOCAL_C_INCLUDES += .
+LOCAL_C_INCLUDES += . ..
 LOCAL_SRC_FILES += arm/float_dsp_init_vfp.c
 LOCAL_SRC_FILES += arm/float_dsp_vfp.S
 
@@ -18,7 +18,7 @@ include $(CLEAR_VARS)
 LOCAL_APP_ABI += armeabi-v7a
 LOCAL_ARM_MODE += arm
 LOCAL_MODULE    := avutil_neon
-LOCAL_C_INCLUDES += .
+LOCAL_C_INCLUDES += . ..
 LOCAL_SRC_FILES += arm/float_dsp_init_neon.c
 LOCAL_SRC_FILES += arm/float_dsp_neon.S
 
@@ -60,11 +60,11 @@ LIBAVUTIL_SRC_FILES := \
 		arm/cpu.c \
 		arm/float_dsp_init_arm.c \
 		aes.c \
-		audioconvert.c \
 		audio_fifo.c \
 		avstring.c \
 		base64.c \
 		bprint.c \
+		channel_layout.c \
 		cpu.c \
 		crc.c \
 		des.c \

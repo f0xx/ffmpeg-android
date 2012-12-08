@@ -35,7 +35,7 @@
 ; to x264-devel@videolan.org .
 
 %ifndef program_name
-    %define program_name ff
+    %define program_name x264
 %endif
 
 %define WIN64  0
@@ -983,6 +983,7 @@ AVX_INSTR cmpps, 1, 0, 0
 AVX_INSTR cmpsd, 1, 0, 0
 AVX_INSTR cmpss, 1, 0, 0
 AVX_INSTR cvtdq2ps, 1, 0, 0
+AVX_INSTR cvtpd2dq, 1, 0, 0
 AVX_INSTR cvtps2dq, 1, 0, 0
 AVX_INSTR divpd, 1, 0, 0
 AVX_INSTR divps, 1, 0, 0

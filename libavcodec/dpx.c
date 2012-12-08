@@ -23,6 +23,7 @@
 #include "libavutil/imgutils.h"
 #include "bytestream.h"
 #include "avcodec.h"
+#include "internal.h"
 
 typedef struct DPXContext {
     AVFrame picture;
@@ -58,7 +59,7 @@ static uint16_t read10in32(const uint8_t **ptr, uint32_t * lbuf,
 
 static int decode_frame(AVCodecContext *avctx,
                         void *data,
-                        int *data_size,
+                        int *got_frame,
                         AVPacket *avpkt)
 {
     const uint8_t *buf = avpkt->data;
@@ -104,6 +105,11 @@ static int decode_frame(AVCodecContext *avctx,
     buf = avpkt->data + 0x304;
     w = read32(&buf, endian);
     h = read32(&buf, endian);
+    if (av_image_check_size(w, h, 0, avctx))
+        return AVERROR(EINVAL);
+
+    if (w != avctx->width || h != avctx->height)
+        avcodec_set_dimensions(avctx, w, h);
 
     // Need to end in 0x320 to read the descriptor
     buf += 20;
@@ -182,11 +188,7 @@ static int decode_frame(AVCodecContext *avctx,
 
     if (s->picture.data[0])
         avctx->release_buffer(avctx, &s->picture);
-    if (av_image_check_size(w, h, 0, avctx))
-        return -1;
-    if (w != avctx->width || h != avctx->height)
-        avcodec_set_dimensions(avctx, w, h);
-    if (avctx->get_buffer(avctx, p) < 0) {
+    if (ff_get_buffer(avctx, p) < 0) {
         av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
         return -1;
     }
@@ -261,7 +263,7 @@ static int decode_frame(AVCodecContext *avctx,
     }
 
     *picture   = s->picture;
-    *data_size = sizeof(AVPicture);
+    *got_frame = 1;
 
     return buf_size;
 }

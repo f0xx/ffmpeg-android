@@ -34,6 +34,7 @@
 #include "libavutil/intreadwrite.h"
 #include "libavutil/mem.h"
 #include "avcodec.h"
+#include "internal.h"
 
 
 #define EXTRADATA1_SIZE (6 + 256 * 3) ///< video base, clr count, palette
@@ -140,7 +141,7 @@ static av_cold int rl2_decode_init(AVCodecContext *avctx)
     /** parse extra data */
     if(!avctx->extradata || avctx->extradata_size < EXTRADATA1_SIZE){
         av_log(avctx, AV_LOG_ERROR, "invalid extradata size\n");
-        return -1;
+        return AVERROR_INVALIDDATA;
     }
 
     /** get frame_offset */
@@ -149,7 +150,7 @@ static av_cold int rl2_decode_init(AVCodecContext *avctx)
 
     if(s->video_base >= avctx->width * avctx->height){
         av_log(avctx, AV_LOG_ERROR, "invalid video_base\n");
-        return -1;
+        return AVERROR_INVALIDDATA;
     }
 
     /** initialize palette */
@@ -162,7 +163,7 @@ static av_cold int rl2_decode_init(AVCodecContext *avctx)
     if(back_size > 0){
         unsigned char* back_frame = av_mallocz(avctx->width*avctx->height);
         if(!back_frame)
-            return -1;
+            return AVERROR(ENOMEM);
         rl2_rle_decode(s,avctx->extradata + EXTRADATA1_SIZE,back_size,
                            back_frame,avctx->width,0);
         s->back_frame = back_frame;
@@ -172,21 +173,22 @@ static av_cold int rl2_decode_init(AVCodecContext *avctx)
 
 
 static int rl2_decode_frame(AVCodecContext *avctx,
-                              void *data, int *data_size,
+                              void *data, int *got_frame,
                               AVPacket *avpkt)
 {
     const uint8_t *buf = avpkt->data;
     int buf_size = avpkt->size;
     Rl2Context *s = avctx->priv_data;
+    int ret;
 
     if(s->frame.data[0])
         avctx->release_buffer(avctx, &s->frame);
 
     /** get buffer */
     s->frame.reference= 0;
-    if(avctx->get_buffer(avctx, &s->frame)) {
+    if ((ret = ff_get_buffer(avctx, &s->frame)) < 0) {
         av_log(s->avctx, AV_LOG_ERROR, "get_buffer() failed\n");
-        return -1;
+        return ret;
     }
 
     /** run length decode */
@@ -195,7 +197,7 @@ static int rl2_decode_frame(AVCodecContext *avctx,
     /** make the palette available on the way out */
     memcpy(s->frame.data[1], s->palette, AVPALETTE_SIZE);
 
-    *data_size = sizeof(AVFrame);
+    *got_frame = 1;
     *(AVFrame*)data = s->frame;
 
     /** report that the buffer was completely consumed */

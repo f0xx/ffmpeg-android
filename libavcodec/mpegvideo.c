@@ -58,9 +58,6 @@ static void dct_unquantize_h263_inter_c(MpegEncContext *s,
                                   DCTELEM *block, int n, int qscale);
 
 
-/* enable all paranoid tests for rounding, overflows, etc... */
-//#define PARANOID
-
 //#define DEBUG
 
 
@@ -536,6 +533,8 @@ int ff_mpeg_update_thread_context(AVCodecContext *dst,
     if (dst == src)
         return 0;
 
+    av_assert0(s != s1);
+
     // FIXME can parameters change on I-frames?
     // in that case dst may need a reinit
     if (!s->context_initialized) {
@@ -570,6 +569,7 @@ int ff_mpeg_update_thread_context(AVCodecContext *dst,
     s->picture_number       = s1->picture_number;
     s->input_picture_number = s1->input_picture_number;
 
+    av_assert0(!s->picture || s->picture != s1->picture);
     memcpy(s->picture, s1->picture, s1->picture_count * sizeof(Picture));
     memcpy(&s->last_picture, &s1->last_picture,
            (char *) &s1->last_picture_ptr - (char *) &s1->last_picture);
@@ -839,9 +839,8 @@ av_cold int ff_MPV_common_init(MpegEncContext *s)
     s->flags  = s->avctx->flags;
     s->flags2 = s->avctx->flags2;
 
-        /* set chroma shifts */
-        avcodec_get_chroma_sub_sample(s->avctx->pix_fmt, &s->chroma_x_shift,
-                                      &s->chroma_y_shift);
+    /* set chroma shifts */
+    avcodec_get_chroma_sub_sample(s->avctx->pix_fmt, &s->chroma_x_shift, &s->chroma_y_shift);
 
     /* convert fourcc to upper case */
     s->codec_tag        = avpriv_toupper4(s->avctx->codec_tag);
@@ -1454,8 +1453,7 @@ int ff_MPV_frame_start(MpegEncContext *s, AVCodecContext *avctx)
     if (s->next_picture_ptr)
         ff_copy_picture(&s->next_picture, s->next_picture_ptr);
 
-    if (HAVE_THREADS && (avctx->active_thread_type & FF_THREAD_FRAME) &&
-        (s->out_format != FMT_H264 || s->codec_id == AV_CODEC_ID_SVQ3)) {
+    if (HAVE_THREADS && (avctx->active_thread_type & FF_THREAD_FRAME)) {
         if (s->next_picture_ptr)
             s->next_picture_ptr->owner2 = s;
         if (s->last_picture_ptr)
@@ -1762,8 +1760,8 @@ void ff_print_debug_info(MpegEncContext *s, AVFrame *pict)
                                    (s->codec_id == AV_CODEC_ID_H264 ? 0 : 1);
         s->low_delay = 0; // needed to see the vectors without trashing the buffers
 
-        avcodec_get_chroma_sub_sample(s->avctx->pix_fmt,
-                                      &h_chroma_shift, &v_chroma_shift);
+        avcodec_get_chroma_sub_sample(s->avctx->pix_fmt, &h_chroma_shift, &v_chroma_shift);
+
         for (i = 0; i < 3; i++) {
             size_t size= (i == 0) ? pict->linesize[i] * FFALIGN(height, 16):
                          pict->linesize[i] * FFALIGN(height, 16) >> v_chroma_shift;

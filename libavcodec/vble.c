@@ -29,6 +29,7 @@
 #include "avcodec.h"
 #include "dsputil.h"
 #include "get_bits.h"
+#include "internal.h"
 #include "mathops.h"
 
 typedef struct {
@@ -110,7 +111,7 @@ static void vble_restore_plane(VBLEContext *ctx, GetBitContext *gb, int plane,
     }
 }
 
-static int vble_decode_frame(AVCodecContext *avctx, void *data, int *data_size,
+static int vble_decode_frame(AVCodecContext *avctx, void *data, int *got_frame,
                              AVPacket *avpkt)
 {
     VBLEContext *ctx = avctx->priv_data;
@@ -127,8 +128,13 @@ static int vble_decode_frame(AVCodecContext *avctx, void *data, int *data_size,
     if (pic->data[0])
         avctx->release_buffer(avctx, pic);
 
+    if (avpkt->size < 4 || avpkt->size - 4 > INT_MAX/8) {
+        av_log(avctx, AV_LOG_ERROR, "Invalid packet size\n");
+        return AVERROR_INVALIDDATA;
+    }
+
     /* Allocate buffer */
-    if (avctx->get_buffer(avctx, pic) < 0) {
+    if (ff_get_buffer(avctx, pic) < 0) {
         av_log(avctx, AV_LOG_ERROR, "Could not allocate buffer.\n");
         return AVERROR(ENOMEM);
     }
@@ -140,10 +146,8 @@ static int vble_decode_frame(AVCodecContext *avctx, void *data, int *data_size,
     /* Version should always be 1 */
     version = AV_RL32(src);
 
-    if (version != 1) {
-        av_log(avctx, AV_LOG_ERROR, "Unsupported VBLE Version: %d\n", version);
-        return AVERROR_INVALIDDATA;
-    }
+    if (version != 1)
+        av_log(avctx, AV_LOG_WARNING, "Unsupported VBLE Version: %d\n", version);
 
     init_get_bits(&gb, src + 4, (avpkt->size - 4) * 8);
 
@@ -165,7 +169,7 @@ static int vble_decode_frame(AVCodecContext *avctx, void *data, int *data_size,
         vble_restore_plane(ctx, &gb, 2, offset, width_uv, height_uv);
     }
 
-    *data_size = sizeof(AVFrame);
+    *got_frame       = 1;
     *(AVFrame *)data = *pic;
 
     return avpkt->size;

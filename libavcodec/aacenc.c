@@ -191,7 +191,7 @@ WINDOW_FUNC(only_long)
 {
     const float *lwindow = sce->ics.use_kb_window[0] ? ff_aac_kbd_long_1024 : ff_sine_1024;
     const float *pwindow = sce->ics.use_kb_window[1] ? ff_aac_kbd_long_1024 : ff_sine_1024;
-    float *out = sce->ret;
+    float *out = sce->ret_buf;
 
     fdsp->vector_fmul       (out,        audio,        lwindow, 1024);
     dsp->vector_fmul_reverse(out + 1024, audio + 1024, pwindow, 1024);
@@ -201,7 +201,7 @@ WINDOW_FUNC(long_start)
 {
     const float *lwindow = sce->ics.use_kb_window[1] ? ff_aac_kbd_long_1024 : ff_sine_1024;
     const float *swindow = sce->ics.use_kb_window[0] ? ff_aac_kbd_short_128 : ff_sine_128;
-    float *out = sce->ret;
+    float *out = sce->ret_buf;
 
     fdsp->vector_fmul(out, audio, lwindow, 1024);
     memcpy(out + 1024, audio + 1024, sizeof(out[0]) * 448);
@@ -213,7 +213,7 @@ WINDOW_FUNC(long_stop)
 {
     const float *lwindow = sce->ics.use_kb_window[0] ? ff_aac_kbd_long_1024 : ff_sine_1024;
     const float *swindow = sce->ics.use_kb_window[1] ? ff_aac_kbd_short_128 : ff_sine_128;
-    float *out = sce->ret;
+    float *out = sce->ret_buf;
 
     memset(out, 0, sizeof(out[0]) * 448);
     fdsp->vector_fmul(out + 448, audio + 448, swindow, 128);
@@ -226,7 +226,7 @@ WINDOW_FUNC(eight_short)
     const float *swindow = sce->ics.use_kb_window[0] ? ff_aac_kbd_short_128 : ff_sine_128;
     const float *pwindow = sce->ics.use_kb_window[1] ? ff_aac_kbd_short_128 : ff_sine_128;
     const float *in = audio + 448;
-    float *out = sce->ret;
+    float *out = sce->ret_buf;
     int w;
 
     for (w = 0; w < 8; w++) {
@@ -251,7 +251,7 @@ static void apply_window_and_mdct(AACEncContext *s, SingleChannelElement *sce,
                                   float *audio)
 {
     int i;
-    float *output = sce->ret;
+    float *output = sce->ret_buf;
 
     apply_window[sce->ics.window_sequence[0]](&s->dsp, &s->fdsp, sce, audio);
 
@@ -811,6 +811,13 @@ static const AVClass aacenc_class = {
     LIBAVUTIL_VERSION_INT,
 };
 
+/* duplicated from avpriv_mpeg4audio_sample_rates to avoid shared build
+ * failures */
+static const int mpeg4audio_sample_rates[16] = {
+    96000, 88200, 64000, 48000, 44100, 32000,
+    24000, 22050, 16000, 12000, 11025, 8000, 7350
+};
+
 AVCodec ff_aac_encoder = {
     .name           = "aac",
     .type           = AVMEDIA_TYPE_AUDIO,
@@ -819,7 +826,7 @@ AVCodec ff_aac_encoder = {
     .init           = aac_encode_init,
     .encode2        = aac_encode_frame,
     .close          = aac_encode_end,
-    .supported_samplerates = avpriv_mpeg4audio_sample_rates,
+    .supported_samplerates = mpeg4audio_sample_rates,
     .capabilities   = CODEC_CAP_SMALL_LAST_FRAME | CODEC_CAP_DELAY |
                       CODEC_CAP_EXPERIMENTAL,
     .sample_fmts    = (const enum AVSampleFormat[]){ AV_SAMPLE_FMT_FLTP,

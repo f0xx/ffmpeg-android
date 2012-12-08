@@ -822,14 +822,16 @@ static int encode_residual_ch(FlacEncodeContext *s, int ch)
         omethod == ORDER_METHOD_8LEVEL) {
         int levels = 1 << omethod;
         uint64_t bits[1 << ORDER_METHOD_8LEVEL];
-        int order;
+        int order       = -1;
         int opt_index   = levels-1;
         opt_order       = max_order-1;
         bits[opt_index] = UINT32_MAX;
         for (i = levels-1; i >= 0; i--) {
+            int last_order = order;
             order = min_order + (((max_order-min_order+1) * (i+1)) / levels)-1;
-            if (order < 0)
-                order = 0;
+            order = av_clip(order, min_order - 1, max_order - 1);
+            if (order == last_order)
+                continue;
             s->flac_dsp.lpc_encode(res, smp, n, order+1, coefs[order],
                                    shift[order]);
             bits[i] = find_subframe_rice_params(s, sub, order+1);
@@ -1318,7 +1320,7 @@ static const AVOption options[] = {
 { "fixed",    NULL, 0, AV_OPT_TYPE_CONST, {.i64 = FF_LPC_TYPE_FIXED },    INT_MIN, INT_MAX, FLAGS, "lpc_type" },
 { "levinson", NULL, 0, AV_OPT_TYPE_CONST, {.i64 = FF_LPC_TYPE_LEVINSON }, INT_MIN, INT_MAX, FLAGS, "lpc_type" },
 { "cholesky", NULL, 0, AV_OPT_TYPE_CONST, {.i64 = FF_LPC_TYPE_CHOLESKY }, INT_MIN, INT_MAX, FLAGS, "lpc_type" },
-{ "lpc_passes", "Number of passes to use for Cholesky factorization during LPC analysis", offsetof(FlacEncodeContext, options.lpc_passes),  AV_OPT_TYPE_INT, {.i64 = -1 }, INT_MIN, INT_MAX, FLAGS },
+{ "lpc_passes", "Number of passes to use for Cholesky factorization during LPC analysis", offsetof(FlacEncodeContext, options.lpc_passes),  AV_OPT_TYPE_INT, {.i64 = 2 }, 1, INT_MAX, FLAGS },
 { "min_partition_order",  NULL, offsetof(FlacEncodeContext, options.min_partition_order),  AV_OPT_TYPE_INT, {.i64 = -1 },      -1, MAX_PARTITION_ORDER, FLAGS },
 { "max_partition_order",  NULL, offsetof(FlacEncodeContext, options.max_partition_order),  AV_OPT_TYPE_INT, {.i64 = -1 },      -1, MAX_PARTITION_ORDER, FLAGS },
 { "prediction_order_method", "Search method for selecting prediction order", offsetof(FlacEncodeContext, options.prediction_order_method), AV_OPT_TYPE_INT, {.i64 = -1 }, -1, ORDER_METHOD_LOG, FLAGS, "predm" },

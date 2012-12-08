@@ -26,7 +26,7 @@
  */
 
 #define BITSTREAM_READER_LE
-#include "libavutil/audioconvert.h"
+#include "libavutil/channel_layout.h"
 #include "libavutil/mem.h"
 #include "libavutil/opt.h"
 #include "avcodec.h"
@@ -36,6 +36,7 @@
 #include "celp_filters.h"
 #include "celp_math.h"
 #include "g723_1_data.h"
+#include "internal.h"
 
 #define CNG_RANDOM_SEED 12345
 
@@ -359,7 +360,7 @@ static void lsp2lpc(int16_t *lpc)
 
     /* Calculate negative cosine */
     for (j = 0; j < LPC_ORDER; j++) {
-        int index     = lpc[j] >> 7;
+        int index     = (lpc[j] >> 7) & 0x1FF;
         int offset    = lpc[j] & 0x7f;
         int temp1     = cos_tab[index] << 16;
         int temp2     = (cos_tab[index + 1] - cos_tab[index]) *
@@ -1187,7 +1188,7 @@ static int g723_1_decode_frame(AVCodecContext *avctx, void *data,
     }
 
     p->frame.nb_samples = FRAME_LEN;
-    if ((ret = avctx->get_buffer(avctx, &p->frame)) < 0) {
+    if ((ret = ff_get_buffer(avctx, &p->frame)) < 0) {
         av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
         return ret;
     }

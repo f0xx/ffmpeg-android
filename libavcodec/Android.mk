@@ -137,6 +137,7 @@ LIBAVCODEC_SRC_FILES := \
 		adxdec.c \
 		adx_parser.c \
 		alac.c \
+		alac_data.c \
 		allcodecs.c \
 		alsdec.c \
 		amrnbdec.c \
@@ -158,6 +159,7 @@ LIBAVCODEC_SRC_FILES := \
 		avpacket.c \
 		avrndec.c \
 		avs.c \
+		avpicture.c \
 		avuidec.c \
 		bethsoftvideo.c \
 		bfi.c \
@@ -171,6 +173,7 @@ LIBAVCODEC_SRC_FILES := \
 		bmp.c \
 		bmp_parser.c \
 		bmv.c \
+		brender_pix.c \
 		cpia.c \
 		c93.c \
 		cabac.c \

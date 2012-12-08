@@ -19,9 +19,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include "libavutil/audioconvert.h"
+#include "libavutil/channel_layout.h"
 #include "libavutil/float_dsp.h"
 #include "avcodec.h"
+#include "internal.h"
 #define BITSTREAM_READER_LE
 #include "get_bits.h"
 #include "ra288.h"
@@ -66,6 +67,11 @@ static av_cold int ra288_decode_init(AVCodecContext *avctx)
     avctx->channels       = 1;
     avctx->channel_layout = AV_CH_LAYOUT_MONO;
     avctx->sample_fmt     = AV_SAMPLE_FMT_FLT;
+
+    if (avctx->block_align <= 0) {
+        av_log_ask_for_sample(avctx, "unsupported block align\n");
+        return AVERROR_PATCHWELCOME;
+    }
 
     avpriv_float_dsp_init(&ractx->fdsp, avctx->flags & CODEC_FLAG_BITEXACT);
 
@@ -195,7 +201,7 @@ static int ra288_decode_frame(AVCodecContext * avctx, void *data,
 
     /* get output buffer */
     ractx->frame.nb_samples = RA288_BLOCK_SIZE * RA288_BLOCKS_PER_FRAME;
-    if ((ret = avctx->get_buffer(avctx, &ractx->frame)) < 0) {
+    if ((ret = ff_get_buffer(avctx, &ractx->frame)) < 0) {
         av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
         return ret;
     }

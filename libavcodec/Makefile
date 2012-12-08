@@ -16,6 +16,7 @@ HEADERS = avcodec.h                                                     \
 OBJS = allcodecs.o                                                      \
        audioconvert.o                                                   \
        avpacket.o                                                       \
+       avpicture.o                                                      \
        bitstream.o                                                      \
        bitstream_filter.o                                               \
        codec_desc.o                                                     \
@@ -88,8 +89,8 @@ OBJS-$(CONFIG_AC3_DECODER)             += ac3dec.o ac3dec_data.o ac3.o kbdwin.o
 OBJS-$(CONFIG_AC3_ENCODER)             += ac3enc_float.o ac3enc.o ac3tab.o \
                                           ac3.o kbdwin.o
 OBJS-$(CONFIG_AC3_FIXED_ENCODER)       += ac3enc_fixed.o ac3enc.o ac3tab.o ac3.o
-OBJS-$(CONFIG_ALAC_DECODER)            += alac.o
-OBJS-$(CONFIG_ALAC_ENCODER)            += alacenc.o
+OBJS-$(CONFIG_ALAC_DECODER)            += alac.o alac_data.o
+OBJS-$(CONFIG_ALAC_ENCODER)            += alacenc.o alac_data.o
 OBJS-$(CONFIG_ALS_DECODER)             += alsdec.o bgmc.o mpeg4audio.o
 OBJS-$(CONFIG_AMRNB_DECODER)           += amrnbdec.o celp_filters.o   \
                                           celp_math.o acelp_filters.o \
@@ -135,6 +136,7 @@ OBJS-$(CONFIG_BMP_DECODER)             += bmp.o msrledec.o
 OBJS-$(CONFIG_BMP_ENCODER)             += bmpenc.o
 OBJS-$(CONFIG_BMV_VIDEO_DECODER)       += bmv.o
 OBJS-$(CONFIG_BMV_AUDIO_DECODER)       += bmv.o
+OBJS-$(CONFIG_BRENDER_PIX_DECODER)     += brender_pix.o
 OBJS-$(CONFIG_C93_DECODER)             += c93.o
 OBJS-$(CONFIG_CAVS_DECODER)            += cavs.o cavsdec.o cavsdsp.o \
                                           cavsdata.o mpeg12data.o
@@ -191,7 +193,7 @@ OBJS-$(CONFIG_FFVHUFF_DECODER)         += huffyuv.o
 OBJS-$(CONFIG_FFVHUFF_ENCODER)         += huffyuv.o
 OBJS-$(CONFIG_FFWAVESYNTH_DECODER)     += ffwavesynth.o
 OBJS-$(CONFIG_FLAC_DECODER)            += flacdec.o flacdata.o flac.o flacdsp.o
-OBJS-$(CONFIG_FLAC_ENCODER)            += flacenc.o flacdata.o flac.o vorbis_data.o
+OBJS-$(CONFIG_FLAC_ENCODER)            += flacenc.o flacdata.o flac.o flacdsp.o vorbis_data.o
 OBJS-$(CONFIG_FLASHSV_DECODER)         += flashsv.o
 OBJS-$(CONFIG_FLASHSV_ENCODER)         += flashsvenc.o
 OBJS-$(CONFIG_FLASHSV2_ENCODER)        += flashsv2enc.o
@@ -521,22 +523,30 @@ OBJS-$(CONFIG_PCM_MULAW_DECODER)          += pcm.o
 OBJS-$(CONFIG_PCM_MULAW_ENCODER)          += pcm.o
 OBJS-$(CONFIG_PCM_S8_DECODER)             += pcm.o
 OBJS-$(CONFIG_PCM_S8_ENCODER)             += pcm.o
-OBJS-$(CONFIG_PCM_S8_PLANAR_DECODER)      += 8svx.o
+OBJS-$(CONFIG_PCM_S8_PLANAR_DECODER)      += pcm.o
+OBJS-$(CONFIG_PCM_S8_PLANAR_ENCODER)      += pcm.o
 OBJS-$(CONFIG_PCM_S16BE_DECODER)          += pcm.o
 OBJS-$(CONFIG_PCM_S16BE_ENCODER)          += pcm.o
+OBJS-$(CONFIG_PCM_S16BE_PLANAR_DECODER)   += pcm.o
+OBJS-$(CONFIG_PCM_S16BE_PLANAR_ENCODER)   += pcm.o
 OBJS-$(CONFIG_PCM_S16LE_DECODER)          += pcm.o
 OBJS-$(CONFIG_PCM_S16LE_ENCODER)          += pcm.o
 OBJS-$(CONFIG_PCM_S16LE_PLANAR_DECODER)   += pcm.o
+OBJS-$(CONFIG_PCM_S16LE_PLANAR_ENCODER)   += pcm.o
 OBJS-$(CONFIG_PCM_S24BE_DECODER)          += pcm.o
 OBJS-$(CONFIG_PCM_S24BE_ENCODER)          += pcm.o
 OBJS-$(CONFIG_PCM_S24DAUD_DECODER)        += pcm.o
 OBJS-$(CONFIG_PCM_S24DAUD_ENCODER)        += pcm.o
 OBJS-$(CONFIG_PCM_S24LE_DECODER)          += pcm.o
 OBJS-$(CONFIG_PCM_S24LE_ENCODER)          += pcm.o
+OBJS-$(CONFIG_PCM_S24LE_PLANAR_DECODER)   += pcm.o
+OBJS-$(CONFIG_PCM_S24LE_PLANAR_ENCODER)   += pcm.o
 OBJS-$(CONFIG_PCM_S32BE_DECODER)          += pcm.o
 OBJS-$(CONFIG_PCM_S32BE_ENCODER)          += pcm.o
 OBJS-$(CONFIG_PCM_S32LE_DECODER)          += pcm.o
 OBJS-$(CONFIG_PCM_S32LE_ENCODER)          += pcm.o
+OBJS-$(CONFIG_PCM_S32LE_PLANAR_DECODER)   += pcm.o
+OBJS-$(CONFIG_PCM_S32LE_PLANAR_ENCODER)   += pcm.o
 OBJS-$(CONFIG_PCM_U8_DECODER)             += pcm.o
 OBJS-$(CONFIG_PCM_U8_ENCODER)             += pcm.o
 OBJS-$(CONFIG_PCM_U16BE_DECODER)          += pcm.o
@@ -556,6 +566,7 @@ OBJS-$(CONFIG_PCM_ZORK_DECODER)           += pcm.o
 OBJS-$(CONFIG_ADPCM_4XM_DECODER)          += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_ADX_DECODER)          += adxdec.o adx.o
 OBJS-$(CONFIG_ADPCM_ADX_ENCODER)          += adxenc.o adx.o
+OBJS-$(CONFIG_ADPCM_AFC_DECODER)          += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_CT_DECODER)           += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_EA_DECODER)           += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_EA_MAXIS_XA_DECODER)  += adpcm.o adpcm_data.o
@@ -574,6 +585,7 @@ OBJS-$(CONFIG_ADPCM_IMA_DK4_DECODER)      += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_IMA_EA_EACS_DECODER)  += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_IMA_EA_SEAD_DECODER)  += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_IMA_ISS_DECODER)      += adpcm.o adpcm_data.o
+OBJS-$(CONFIG_ADPCM_IMA_OKI_DECODER)      += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_IMA_QT_DECODER)       += adpcm.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_IMA_QT_ENCODER)       += adpcmenc.o adpcm_data.o
 OBJS-$(CONFIG_ADPCM_IMA_SMJPEG_DECODER)   += adpcm.o adpcm_data.o
@@ -630,6 +642,7 @@ OBJS-$(CONFIG_RTP_MUXER)               += mpeg4audio.o xiph.o
 OBJS-$(CONFIG_RTPDEC)                  += mjpeg.o
 OBJS-$(CONFIG_SPDIF_DEMUXER)           += aacadtsdec.o mpeg4audio.o
 OBJS-$(CONFIG_SPDIF_MUXER)             += dca.o
+OBJS-$(CONFIG_TAK_DEMUXER)             += tak.o
 OBJS-$(CONFIG_WEBM_MUXER)              += mpeg4audio.o mpegaudiodata.o  \
                                           xiph.o flac.o flacdata.o \
                                           vorbis_data.o
@@ -774,6 +787,7 @@ TESTPROGS = cabac                                                       \
             fft-fixed                                                   \
             golomb                                                      \
             iirfilter                                                   \
+            imgconvert                                                  \
             rangecoder                                                  \
             snowenc                                                     \
 

@@ -43,7 +43,7 @@
 #include "libswscale/swscale.h"
 #include "libswresample/swresample.h"
 #include "libavutil/opt.h"
-#include "libavutil/audioconvert.h"
+#include "libavutil/channel_layout.h"
 #include "libavutil/parseutils.h"
 #include "libavutil/samplefmt.h"
 #include "libavutil/colorspace.h"
@@ -846,6 +846,10 @@ static void do_video_out(AVFormatContext *s,
            method. */
         enc->coded_frame->interlaced_frame = in_picture->interlaced_frame;
         enc->coded_frame->top_field_first  = in_picture->top_field_first;
+        if (enc->coded_frame->interlaced_frame)
+            enc->field_order = enc->coded_frame->top_field_first ? AV_FIELD_TB:AV_FIELD_BT;
+        else
+            enc->field_order = AV_FIELD_PROGRESSIVE;
         pkt.data   = (uint8_t *)in_picture;
         pkt.size   =  sizeof(AVPicture);
         pkt.pts    = av_rescale_q(in_picture->pts, enc->time_base, ost->st->time_base);
@@ -867,6 +871,14 @@ static void do_video_out(AVFormatContext *s,
             else
                 big_picture.top_field_first = !!ost->top_field_first;
         }
+
+        if (big_picture.interlaced_frame) {
+            if (enc->codec->id == AV_CODEC_ID_MJPEG)
+                enc->field_order = big_picture.top_field_first ? AV_FIELD_TT:AV_FIELD_BB;
+            else
+                enc->field_order = big_picture.top_field_first ? AV_FIELD_TB:AV_FIELD_BT;
+        } else
+            enc->field_order = AV_FIELD_PROGRESSIVE;
 
         big_picture.quality = ost->st->codec->global_quality;
         if (!enc->me_threshold)
@@ -946,14 +958,14 @@ static void do_video_stats(OutputStream *ost, int frame_size)
 
     enc = ost->st->codec;
     if (enc->codec_type == AVMEDIA_TYPE_VIDEO) {
-        frame_number = ost->frame_number;
+        frame_number = ost->st->nb_frames;
         fprintf(vstats_file, "frame= %5d q= %2.1f ", frame_number, enc->coded_frame->quality / (float)FF_QP2LAMBDA);
         if (enc->flags&CODEC_FLAG_PSNR)
             fprintf(vstats_file, "PSNR= %6.2f ", psnr(enc->coded_frame->error[0] / (enc->width * enc->height * 255.0 * 255.0)));
 
         fprintf(vstats_file,"f_size= %6d ", frame_size);
         /* compute pts value */
-        ti1 = ost->sync_opts * av_q2d(enc->time_base);
+        ti1 = ost->st->pts.val * av_q2d(enc->time_base);
         if (ti1 < 0.01)
             ti1 = 0.01;
 
@@ -965,7 +977,7 @@ static void do_video_stats(OutputStream *ost, int frame_size)
     }
 }
 
-/*
+/**
  * Get and encode new output from any of the filtergraphs, without causing
  * activity.
  *
@@ -1292,6 +1304,9 @@ static void flush_encoders(void)
                 if (pkt.duration > 0)
                     pkt.duration = av_rescale_q(pkt.duration, enc->time_base, ost->st->time_base);
                 write_frame(os, &pkt, ost);
+                if (ost->st->codec->codec_type == AVMEDIA_TYPE_VIDEO && vstats_filename) {
+                    do_video_stats(ost, pkt.size);
+                }
             }
 
             if (stop_encoding)
@@ -1367,7 +1382,7 @@ static void do_streamcopy(InputStream *ist, OutputStream *ost, const AVPacket *p
             duration = ist->st->codec->frame_size;
         opkt.dts = opkt.pts = av_rescale_delta(ist->st->time_base, pkt->dts,
                                                (AVRational){1, ist->st->codec->sample_rate}, duration, &ist->filter_in_rescale_delta_last,
-                                               ost->st->time_base);
+                                               ost->st->time_base) - ost_tb_start_time;
     }
 
     opkt.duration = av_rescale_q(pkt->duration, ist->st->time_base, ost->st->time_base);
@@ -2750,9 +2765,41 @@ static int process_input(int file_index)
     if (ist->discard)
         goto discard_packet;
 
-    if(!ist->wrap_correction_done && input_files[file_index]->ctx->start_time != AV_NOPTS_VALUE && ist->st->pts_wrap_bits < 64){
-        int64_t stime = av_rescale_q(input_files[file_index]->ctx->start_time, AV_TIME_BASE_Q, ist->st->time_base);
-        int64_t stime2= stime + (1ULL<<ist->st->pts_wrap_bits);
+    if (debug_ts) {
+        av_log(NULL, AV_LOG_INFO, "demuxer -> ist_index:%d type:%s "
+               "next_dts:%s next_dts_time:%s next_pts:%s next_pts_time:%s pkt_pts:%s pkt_pts_time:%s pkt_dts:%s pkt_dts_time:%s off:%s off_time:%s\n",
+               ifile->ist_index + pkt.stream_index, av_get_media_type_string(ist->st->codec->codec_type),
+               av_ts2str(ist->next_dts), av_ts2timestr(ist->next_dts, &AV_TIME_BASE_Q),
+               av_ts2str(ist->next_pts), av_ts2timestr(ist->next_pts, &AV_TIME_BASE_Q),
+               av_ts2str(pkt.pts), av_ts2timestr(pkt.pts, &ist->st->time_base),
+               av_ts2str(pkt.dts), av_ts2timestr(pkt.dts, &ist->st->time_base),
+               av_ts2str(input_files[ist->file_index]->ts_offset),
+               av_ts2timestr(input_files[ist->file_index]->ts_offset, &AV_TIME_BASE_Q));
+    }
+
+    if(!ist->wrap_correction_done && is->start_time != AV_NOPTS_VALUE && ist->st->pts_wrap_bits < 64){
+        int64_t stime, stime2;
+        // Correcting starttime based on the enabled streams
+        // FIXME this ideally should be done before the first use of starttime but we do not know which are the enabled streams at that point.
+        //       so we instead do it here as part of discontinuity handling
+        if (   ist->next_dts == AV_NOPTS_VALUE
+            && ifile->ts_offset == -is->start_time
+            && (is->iformat->flags & AVFMT_TS_DISCONT)) {
+            int64_t new_start_time = INT64_MAX;
+            for (i=0; i<is->nb_streams; i++) {
+                AVStream *st = is->streams[i];
+                if(st->discard == AVDISCARD_ALL || st->start_time == AV_NOPTS_VALUE)
+                    continue;
+                new_start_time = FFMIN(new_start_time, av_rescale_q(st->start_time, st->time_base, AV_TIME_BASE_Q));
+            }
+            if (new_start_time > is->start_time) {
+                av_log(is, AV_LOG_VERBOSE, "Correcting start time by %"PRId64"\n", new_start_time - is->start_time);
+                ifile->ts_offset = -new_start_time;
+            }
+        }
+
+        stime = av_rescale_q(is->start_time, AV_TIME_BASE_Q, ist->st->time_base);
+        stime2= stime + (1ULL<<ist->st->pts_wrap_bits);
         ist->wrap_correction_done = 1;
 
         if(stime2 > stime && pkt.dts != AV_NOPTS_VALUE && pkt.dts > stime + (1LL<<(ist->st->pts_wrap_bits-1))) {
@@ -2774,17 +2821,6 @@ static int process_input(int file_index)
         pkt.pts *= ist->ts_scale;
     if (pkt.dts != AV_NOPTS_VALUE)
         pkt.dts *= ist->ts_scale;
-
-    if (debug_ts) {
-        av_log(NULL, AV_LOG_INFO, "demuxer -> ist_index:%d type:%s "
-                "next_dts:%s next_dts_time:%s next_pts:%s next_pts_time:%s  pkt_pts:%s pkt_pts_time:%s pkt_dts:%s pkt_dts_time:%s off:%"PRId64"\n",
-                ifile->ist_index + pkt.stream_index, av_get_media_type_string(ist->st->codec->codec_type),
-                av_ts2str(ist->next_dts), av_ts2timestr(ist->next_dts, &AV_TIME_BASE_Q),
-                av_ts2str(ist->next_pts), av_ts2timestr(ist->next_pts, &AV_TIME_BASE_Q),
-                av_ts2str(pkt.pts), av_ts2timestr(pkt.pts, &ist->st->time_base),
-                av_ts2str(pkt.dts), av_ts2timestr(pkt.dts, &ist->st->time_base),
-                input_files[ist->file_index]->ts_offset);
-    }
 
     if (pkt.dts != AV_NOPTS_VALUE && ist->next_dts != AV_NOPTS_VALUE &&
         !copy_ts) {
@@ -2821,6 +2857,15 @@ static int process_input(int file_index)
                 }
             }
         }
+    }
+
+    if (debug_ts) {
+        av_log(NULL, AV_LOG_INFO, "demuxer+ffmpeg -> ist_index:%d type:%s pkt_pts:%s pkt_pts_time:%s pkt_dts:%s pkt_dts_time:%s off:%s off_time:%s\n",
+               ifile->ist_index + pkt.stream_index, av_get_media_type_string(ist->st->codec->codec_type),
+               av_ts2str(pkt.pts), av_ts2timestr(pkt.pts, &ist->st->time_base),
+               av_ts2str(pkt.dts), av_ts2timestr(pkt.dts, &ist->st->time_base),
+               av_ts2str(input_files[ist->file_index]->ts_offset),
+               av_ts2timestr(input_files[ist->file_index]->ts_offset, &AV_TIME_BASE_Q));
     }
 
     sub2video_heartbeat(ist, pkt.pts);

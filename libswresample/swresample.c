@@ -22,7 +22,7 @@
 #include "swresample_internal.h"
 #include "audioconvert.h"
 #include "libavutil/avassert.h"
-#include "libavutil/audioconvert.h"
+#include "libavutil/channel_layout.h"
 
 #include <float.h>
 
@@ -41,22 +41,22 @@
 #define PARAM AV_OPT_FLAG_AUDIO_PARAM
 
 static const AVOption options[]={
-{"ich"                  , "set input channel count"     , OFFSET( in.ch_count   ), AV_OPT_TYPE_INT  , {.i64=2                     }, 0      , SWR_CH_MAX, PARAM},
-{"in_channel_count"     , "set input channel count"     , OFFSET( in.ch_count   ), AV_OPT_TYPE_INT  , {.i64=2                     }, 0      , SWR_CH_MAX, PARAM},
-{"och"                  , "set output channel count"    , OFFSET(out.ch_count   ), AV_OPT_TYPE_INT  , {.i64=2                     }, 0      , SWR_CH_MAX, PARAM},
-{"out_channel_count"    , "set output channel count"    , OFFSET(out.ch_count   ), AV_OPT_TYPE_INT  , {.i64=2                     }, 0      , SWR_CH_MAX, PARAM},
+{"ich"                  , "set input channel count"     , OFFSET( in.ch_count   ), AV_OPT_TYPE_INT  , {.i64=0                     }, 0      , SWR_CH_MAX, PARAM},
+{"in_channel_count"     , "set input channel count"     , OFFSET( in.ch_count   ), AV_OPT_TYPE_INT  , {.i64=0                     }, 0      , SWR_CH_MAX, PARAM},
+{"och"                  , "set output channel count"    , OFFSET(out.ch_count   ), AV_OPT_TYPE_INT  , {.i64=0                     }, 0      , SWR_CH_MAX, PARAM},
+{"out_channel_count"    , "set output channel count"    , OFFSET(out.ch_count   ), AV_OPT_TYPE_INT  , {.i64=0                     }, 0      , SWR_CH_MAX, PARAM},
 {"uch"                  , "set used channel count"      , OFFSET(used_ch_count  ), AV_OPT_TYPE_INT  , {.i64=0                     }, 0      , SWR_CH_MAX, PARAM},
 {"used_channel_count"   , "set used channel count"      , OFFSET(used_ch_count  ), AV_OPT_TYPE_INT  , {.i64=0                     }, 0      , SWR_CH_MAX, PARAM},
 {"isr"                  , "set input sample rate"       , OFFSET( in_sample_rate), AV_OPT_TYPE_INT  , {.i64=0                     }, 0      , INT_MAX   , PARAM},
 {"in_sample_rate"       , "set input sample rate"       , OFFSET( in_sample_rate), AV_OPT_TYPE_INT  , {.i64=0                     }, 0      , INT_MAX   , PARAM},
 {"osr"                  , "set output sample rate"      , OFFSET(out_sample_rate), AV_OPT_TYPE_INT  , {.i64=0                     }, 0      , INT_MAX   , PARAM},
 {"out_sample_rate"      , "set output sample rate"      , OFFSET(out_sample_rate), AV_OPT_TYPE_INT  , {.i64=0                     }, 0      , INT_MAX   , PARAM},
-{"isf"                  , "set input sample format"     , OFFSET( in_sample_fmt ), AV_OPT_TYPE_INT  , {.i64=AV_SAMPLE_FMT_NONE    }, -1     , AV_SAMPLE_FMT_NB-1+256, PARAM},
-{"in_sample_fmt"        , "set input sample format"     , OFFSET( in_sample_fmt ), AV_OPT_TYPE_INT  , {.i64=AV_SAMPLE_FMT_NONE    }, -1     , AV_SAMPLE_FMT_NB-1+256, PARAM},
-{"osf"                  , "set output sample format"    , OFFSET(out_sample_fmt ), AV_OPT_TYPE_INT  , {.i64=AV_SAMPLE_FMT_NONE    }, -1     , AV_SAMPLE_FMT_NB-1+256, PARAM},
-{"out_sample_fmt"       , "set output sample format"    , OFFSET(out_sample_fmt ), AV_OPT_TYPE_INT  , {.i64=AV_SAMPLE_FMT_NONE    }, -1     , AV_SAMPLE_FMT_NB-1+256, PARAM},
-{"tsf"                  , "set internal sample format"  , OFFSET(int_sample_fmt ), AV_OPT_TYPE_INT  , {.i64=AV_SAMPLE_FMT_NONE    }, -1     , AV_SAMPLE_FMT_FLTP, PARAM},
-{"internal_sample_fmt"  , "set internal sample format"  , OFFSET(int_sample_fmt ), AV_OPT_TYPE_INT  , {.i64=AV_SAMPLE_FMT_NONE    }, -1     , AV_SAMPLE_FMT_FLTP, PARAM},
+{"isf"                  , "set input sample format"     , OFFSET( in_sample_fmt ), AV_OPT_TYPE_SAMPLE_FMT , {.i64=AV_SAMPLE_FMT_NONE}, -1   , AV_SAMPLE_FMT_NB-1, PARAM},
+{"in_sample_fmt"        , "set input sample format"     , OFFSET( in_sample_fmt ), AV_OPT_TYPE_SAMPLE_FMT , {.i64=AV_SAMPLE_FMT_NONE}, -1   , AV_SAMPLE_FMT_NB-1, PARAM},
+{"osf"                  , "set output sample format"    , OFFSET(out_sample_fmt ), AV_OPT_TYPE_SAMPLE_FMT , {.i64=AV_SAMPLE_FMT_NONE}, -1   , AV_SAMPLE_FMT_NB-1, PARAM},
+{"out_sample_fmt"       , "set output sample format"    , OFFSET(out_sample_fmt ), AV_OPT_TYPE_SAMPLE_FMT , {.i64=AV_SAMPLE_FMT_NONE}, -1   , AV_SAMPLE_FMT_NB-1, PARAM},
+{"tsf"                  , "set internal sample format"  , OFFSET(int_sample_fmt ), AV_OPT_TYPE_SAMPLE_FMT , {.i64=AV_SAMPLE_FMT_NONE}, -1   , AV_SAMPLE_FMT_NB-1, PARAM},
+{"internal_sample_fmt"  , "set internal sample format"  , OFFSET(int_sample_fmt ), AV_OPT_TYPE_SAMPLE_FMT , {.i64=AV_SAMPLE_FMT_NONE}, -1   , AV_SAMPLE_FMT_NB-1, PARAM},
 {"icl"                  , "set input channel layout"    , OFFSET( in_ch_layout  ), AV_OPT_TYPE_INT64, {.i64=0                     }, 0      , INT64_MAX , PARAM, "channel_layout"},
 {"in_channel_layout"    , "set input channel layout"    , OFFSET( in_ch_layout  ), AV_OPT_TYPE_INT64, {.i64=0                     }, 0      , INT64_MAX , PARAM, "channel_layout"},
 {"ocl"                  , "set output channel layout"   , OFFSET(out_ch_layout  ), AV_OPT_TYPE_INT64, {.i64=0                     }, 0      , INT64_MAX , PARAM, "channel_layout"},

@@ -762,14 +762,15 @@ static int ebml_read_ascii(AVIOContext *pb, int size, char **str)
  */
 static int ebml_read_binary(AVIOContext *pb, int length, EbmlBin *bin)
 {
-    av_free(bin->data);
-    if (!(bin->data = av_malloc(length)))
+    av_fast_padded_malloc(&bin->data, &bin->size, length);
+    if (!bin->data)
         return AVERROR(ENOMEM);
 
     bin->size = length;
     bin->pos  = avio_tell(pb);
     if (avio_read(pb, bin->data, length) != length) {
         av_freep(&bin->data);
+        bin->size = 0;
         return AVERROR(EIO);
     }
 
@@ -1062,7 +1063,7 @@ static int matroska_decode_buffer(uint8_t** buf, int* buf_size,
         uint8_t *header = encodings[0].compression.settings.data;
 
         if (header_size && !header) {
-            av_log(0, AV_LOG_ERROR, "Compression size but no data in headerstrip\n");
+            av_log(NULL, AV_LOG_ERROR, "Compression size but no data in headerstrip\n");
             return -1;
         }
 
@@ -2032,7 +2033,7 @@ static int matroska_parse_rm_audio(MatroskaDemuxContext *matroska,
             }
             memcpy(track->audio.buf + y*w, data, w);
         } else {
-            if (size < sps * w / sps) {
+            if (size < sps * w / sps || h<=0) {
                 av_log(matroska->ctx, AV_LOG_ERROR,
                        "Corrupt generic RM-style audio packet size\n");
                 return AVERROR_INVALIDDATA;

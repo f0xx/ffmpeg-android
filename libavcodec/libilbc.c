@@ -21,10 +21,10 @@
 
 #include <ilbc.h>
 
-#include "libavutil/audioconvert.h"
-#include "avcodec.h"
+#include "libavutil/channel_layout.h"
 #include "libavutil/common.h"
 #include "libavutil/opt.h"
+#include "avcodec.h"
 #include "internal.h"
 
 static int get_mode(AVCodecContext *avctx)
@@ -95,7 +95,7 @@ static int ilbc_decode_frame(AVCodecContext *avctx, void *data,
     }
 
     s->frame.nb_samples = s->decoder.blockl;
-    if ((ret = avctx->get_buffer(avctx, &s->frame)) < 0) {
+    if ((ret = ff_get_buffer(avctx, &s->frame)) < 0) {
         av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
         return ret;
     }

@@ -29,11 +29,11 @@
 
 #include <gsm/gsm.h>
 
-#include "libavutil/audioconvert.h"
+#include "libavutil/channel_layout.h"
+#include "libavutil/common.h"
 #include "avcodec.h"
 #include "internal.h"
 #include "gsm.h"
-#include "libavutil/common.h"
 
 static av_cold int libgsm_encode_close(AVCodecContext *avctx) {
 #if FF_API_OLD_ENCODE_AUDIO
@@ -205,7 +205,7 @@ static int libgsm_decode_frame(AVCodecContext *avctx, void *data,
 
     /* get output buffer */
     s->frame.nb_samples = avctx->frame_size;
-    if ((ret = avctx->get_buffer(avctx, &s->frame)) < 0) {
+    if ((ret = ff_get_buffer(avctx, &s->frame)) < 0) {
         av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
         return ret;
     }
