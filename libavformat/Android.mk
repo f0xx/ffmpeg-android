@@ -267,6 +267,7 @@ LIBAVFORMAT_SRC_FILES := \
 		thp.c \
 		tiertexseq.c \
 		mkvtimestamp_v2.c \
+		tedcaptionsdec.c \
 		tmv.c \
 		tta.c \
 		tty.c \

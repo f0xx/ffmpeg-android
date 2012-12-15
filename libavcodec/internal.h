@@ -197,6 +197,7 @@ int ff_thread_can_start_frame(AVCodecContext *avctx);
 
 int ff_get_logical_cpus(AVCodecContext *avctx);
 
+av_export
 int avpriv_h264_has_num_reorder_frames(AVCodecContext *avctx);
 
 /**

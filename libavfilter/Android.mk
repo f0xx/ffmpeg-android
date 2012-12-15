@@ -41,8 +41,7 @@ LIBAVFILTER_SRC_FILES := \
 		af_join.c \
 		af_pan.c \
 		af_resample.c \
-		af_volume_justin.c \
-		af_volume_stefano.c \
+		af_volume.c \
 		af_volumedetect.c \
 		af_silencedetect.c \
 		allfilters.c \
@@ -63,6 +62,7 @@ LIBAVFILTER_SRC_FILES := \
 		f_ebur128.c \
 		f_setpts.c \
 		f_settb.c \
+		f_select.c \
 		f_sendcmd.c \
 		formats.c \
 		graphparser.c \
@@ -111,7 +111,6 @@ LIBAVFILTER_SRC_FILES := \
 		vf_pixdesctest.c \
 		vf_removelogo.c \
 		vf_scale.c \
-		vf_select.c \
 		vf_setfield.c \
 		vf_smartblur.c \
 		vf_showinfo.c \
@@ -143,7 +142,6 @@ LIBMPCODECS_SRC_FILES := \
 		img_format.c \
 		mp_image.c \
 		pullup.c \
-		vf_denoise3d.c \
 		vf_detc.c \
 		vf_dint.c \
 		vf_divtc.c \

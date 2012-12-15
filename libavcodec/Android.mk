@@ -6,12 +6,15 @@ LOCAL_APP_ABI += armeabi-v7a
 LOCAL_ARM_MODE += arm
 LOCAL_MODULE    := avcodec_vfp
 LOCAL_CFLAGS := -mfpu=vfp -march=armv6
+LOCAL_C_INCLUDES += . 
+LOCAL_C_INCLUDES += ..
 
 VFP_SRC_FILES := \
 		arm/dsputil_init_vfp.c \
 		arm/dsputil_vfp.S \
-		fmtconvert_vfp.S \
+		arm/fmtconvert_vfp.S \
 
+LOCAL_SRC_FILES := $(VFP_SRC_FILES)
 include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -19,14 +22,21 @@ include $(CLEAR_VARS)
 LOCAL_APP_ABI += armeabi-v7a
 LOCAL_ARM_MODE += arm
 LOCAL_MODULE    := avcodec_armv6
-LOCAL_CFLAGS := -mfpu=softfloat -march=armv6
+LOCAL_CFLAGS := -msoft-float -march=armv6
+LOCAL_C_INCLUDES += . 
+LOCAL_C_INCLUDES += ..
 
 ARM6_SRC_FILES := \
+		arm/ac3dsp_armv6.S \
 		arm/dsputil_armv6.S \
 		arm/dsputil_init_armv6.c \
 		arm/simple_idct_armv6.S \
+		arm/mpegaudiodsp_fixed_armv6.S \
+		arm/vp8_armv6.S \
 		arm/vp8dsp_armv6.S \
+		arm/vp8dsp_init_armv6.c \
 
+LOCAL_SRC_FILES := $(ARM6_SRC_FILES)
 include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -34,8 +44,11 @@ include $(CLEAR_VARS)
 LOCAL_APP_ABI += armeabi-v7a
 LOCAL_ARM_MODE += arm
 LOCAL_MODULE    := avcodec_neon
+LOCAL_CFLAGS := -mfpu=neon -march=armv7-a
+
 
 NEON_SRC_FILES := \
+		arm/aacpsdsp_neon.S \
 		arm/ac3dsp_neon.S \
 		arm/dcadsp_neon.S \
 		arm/dsputil_init_neon.c \
@@ -55,8 +68,10 @@ NEON_SRC_FILES := \
 		arm/rv40dsp_neon.S \
 		arm/simple_idct_neon.S \
 		arm/synth_filter_neon.S \
+		arm/rv34dsp_neon.S \
 		arm/vp3dsp_neon.S \
 		arm/vp56dsp_neon.S \
+		arm/vp8dsp_init_neon.c \
 		arm/vp8dsp_neon.S \
 		arm/sbrdsp_neon.S \
 
@@ -595,8 +610,8 @@ COMMON_ARM_SRC_FILES := $(ARMV5_LOCAL_SRC_FILES)
 
 LOCAL_SRC_FILES += $(COMMON_ARM_SRC_FILES)
 LOCAL_SRC_FILES += $(LIBAVCODEC_SRC_FILES)
+LOCAL_SRC_FILES += $(VP8_SRC_FILES)
 
-#LOCAL_SRC_FILES += $(VP8_SRC_FILES)
 #LOCAL_SRC_FILES += $(ARMV5_SRC_FILES)
 #LOCAL_SRC_FILES += $(ARM6_SRC_FILES) ## runtime cpu detection enabled
 #LOCAL_SRC_FILES += $(VFP_SRC_FILES) ## runtime cpu detection enabled 
