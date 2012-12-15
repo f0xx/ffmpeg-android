@@ -426,8 +426,7 @@ As an input option, ignore any timestamps stored in the file and instead
 generate timestamps assuming constant frame rate @var{fps}.
 
 As an output option, duplicate or drop input frames to achieve constant output
-frame rate @var{fps} (note that this actually causes the @code{fps} filter to be
-inserted to the end of the corresponding filtergraph).
+frame rate @var{fps}.
 
 @item -s[:@var{stream_specifier}] @var{size} (@emph{input/output,per-stream})
 Set frame size.
@@ -859,9 +858,17 @@ Audio sync method. "Stretches/squeezes" the audio stream to match the timestamps
 the parameter is the maximum samples per second by which the audio is changed.
 -async 1 is a special case where only the start of the audio stream is corrected
 without any later correction.
-This option has been deprecated. Use the @code{asyncts} audio filter instead.
+This option has been deprecated. Use the @code{aresample} audio filter instead.
+
 @item -copyts
-Copy timestamps from input to output.
+Do not process input timestamps, but keep their values without trying
+to sanitize them. In particular, do not remove the initial start time
+offset value.
+
+Note that, depending on the @option{vsync} option or on specific muxer
+processing, the output timestamps may mismatch with the input
+timestamps even when this option is selected.
+
 @item -copytb @var{mode}
 Specify how to set the encoder timebase when stream copying.  @var{mode} is an
 integer numeric value, and can assume one of the following values:
@@ -1252,7 +1259,7 @@ ffmpeg -f image2 -pattern_type glob -i 'foo-*.jpeg' -r 12 -s WxH foo.avi
 You can put many streams of the same type in the output:
 
 @example
-ffmpeg -i test1.avi -i test2.avi -map 0.3 -map 0.2 -map 0.1 -map 0.0 -c copy test12.nut
+ffmpeg -i test1.avi -i test2.avi -map 0:3 -map 0:2 -map 0:1 -map 0:0 -c copy test12.nut
 @end example
 
 The resulting output file @file{test12.avi} will contain first four streams from

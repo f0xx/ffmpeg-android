@@ -39,6 +39,9 @@ version <next>:
 - Paris Audio File demuxer
 - Virtual concatenation demuxer
 - VobSub demuxer
+- JSON captions for TED talks decoding support
+- SOX Resampler support in libswresample
+- aselect filter
 
 
 version 1.0:

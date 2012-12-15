@@ -929,20 +929,18 @@ static int dshow_read_header(AVFormatContext *avctx)
     }
 
     if (ctx->device_name[VideoDevice]) {
-        ret = dshow_open_device(avctx, devenum, VideoDevice);
-        if (ret < 0)
+        if ((r = dshow_open_device(avctx, devenum, VideoDevice)) < 0 ||
+            (r = dshow_add_device(avctx, VideoDevice)) < 0) {
+            ret = r;
             goto error;
-        ret = dshow_add_device(avctx, VideoDevice);
-        if (ret < 0)
-            goto error;
+        }
     }
     if (ctx->device_name[AudioDevice]) {
-        ret = dshow_open_device(avctx, devenum, AudioDevice);
-        if (ret < 0)
+        if ((r = dshow_open_device(avctx, devenum, AudioDevice)) < 0 ||
+            (r = dshow_add_device(avctx, AudioDevice)) < 0) {
+            ret = r;
             goto error;
-        ret = dshow_add_device(avctx, AudioDevice);
-        if (ret < 0)
-            goto error;
+        }
     }
 
     ctx->mutex = CreateMutex(NULL, 0, NULL);
@@ -1036,7 +1034,7 @@ static const AVOption options[] = {
 };
 
 static const AVClass dshow_class = {
-    .class_name = "DirectShow indev",
+    .class_name = "dshow indev",
     .item_name  = av_default_item_name,
     .option     = options,
     .version    = LIBAVUTIL_VERSION_INT,

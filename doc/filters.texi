@@ -411,11 +411,71 @@ Pass the audio source unchanged to the output.
 
 @section aresample
 
-Resample the input audio to the specified sample rate.
+Resample the input audio to the specified parameters. If none are specified
+then the filter will automatically convert between its input
+and output.
 
-The filter accepts exactly one parameter, the output sample rate. If not
-specified then the filter will automatically convert between its input
-and output sample rates.
+This filter is also able to stretch/squeeze the audio data to make it match
+the timestamps or to inject silence / cut out audio to make it match the
+timestamps, do a combination of both or do neither.
+
+The filter accepts the following named parameters:
+@table @option
+
+@item min_comp
+Minimum difference between timestamps and audio data (in seconds) to trigger
+stretching/squeezing/filling or trimming of the data to make it match the
+timestamps. The default is that stretching/squeezing/filling and
+trimming is disabled (min_comp = infinite).
+
+@item min_hard_comp
+Minimum difference between timestamps and audio data (in seconds) to trigger
+adding/dropping samples to make it match the timestamps.
+This option effectively is a threshold to select between hard (trim/fill) and
+soft (squeeze/stretch) compensation. Note that all compensation is by default
+disabled through min_comp.
+The default is 0.1 seconds.
+
+@item max_soft_comp
+Maximum stretch/squeeze factor.
+Default value 0.
+
+@item tsf, internal_sample_fmt
+Internal sampling format.
+Default is automatic selection
+
+@item clev, center_mix_level
+center mix level, for rematrixing
+Default is 3.0dB
+
+@item slev, surround_mix_level
+surround mix level, for rematrixing
+Default is 3.0dB
+
+@item rmvol, rematrix_volume
+rematrix volume
+Default is 1.0
+
+@item lfe_mix_level
+Low frequency effects mix level.
+Default is 0
+
+@item matrix_encoding
+matrixed stereo encoding
+@table @option
+@item none
+No matrixed stereo encoding
+
+@item dolby
+Dolby matrixed stereo encoding
+
+@item dolby
+Dolby Pro Logic II matrixed stereo encoding
+@end table
+
+Default value is @code{none}.
+
+@end table
 
 For example, to resample the input audio to 44100Hz:
 @example
@@ -722,11 +782,12 @@ Maximum compensation in samples per second. Relevant only with compensate=1.
 Default value 500.
 
 @item first_pts
-Assume the first pts should be this value.
+Assume the first pts should be this value. The time base is 1 / sample rate.
 This allows for padding/trimming at the start of stream. By default, no
 assumption is made about the first frame's expected pts, so no padding or
 trimming is done. For example, this could be set to 0 to pad the beginning with
-silence if an audio stream starts after the video stream.
+silence if an audio stream starts after the video stream or to trim any samples
+with a negative pts due to encoder delay.
 
 @end table
 
@@ -833,49 +894,64 @@ not meant to be used directly.
 
 Adjust the input audio volume.
 
-The filter accepts exactly one parameter @var{vol}, which expresses
-how the audio volume will be increased or decreased.
+The filter accepts the following named parameters. If the key of the
+first options is omitted, the arguments are interpreted according to
+the following syntax:
+@example
+volume=@var{volume}:@var{precision}
+@end example
+
+@table @option
+
+@item volume
+Expresses how the audio volume will be increased or decreased.
 
 Output values are clipped to the maximum value.
 
-If @var{vol} is expressed as a decimal number, the output audio
-volume is given by the relation:
+The output audio volume is given by the relation:
 @example
-@var{output_volume} = @var{vol} * @var{input_volume}
+@var{output_volume} = @var{volume} * @var{input_volume}
 @end example
 
-If @var{vol} is expressed as a decimal number followed by the string
-"dB", the value represents the requested change in decibels of the
-input audio power, and the output audio volume is given by the
-relation:
-@example
-@var{output_volume} = 10^(@var{vol}/20) * @var{input_volume}
-@end example
+Default value for @var{volume} is 1.0.
 
-Otherwise @var{vol} is considered an expression and its evaluated
-value is used for computing the output audio volume according to the
-first relation.
+@item precision
+Set the mathematical precision.
 
-Default value for @var{vol} is 1.0.
+This determines which input sample formats will be allowed, which affects the
+precision of the volume scaling.
+
+@table @option
+@item fixed
+8-bit fixed-point; limits input sample format to U8, S16, and S32.
+@item float
+32-bit floating-point; limits input sample format to FLT. (default)
+@item double
+64-bit floating-point; limits input sample format to DBL.
+@end table
+@end table
 
 @subsection Examples
 
 @itemize
 @item
-Half the input audio volume:
+Halve the input audio volume:
+@example
+volume=volume=0.5
+volume=volume=1/2
+volume=volume=-6.0206dB
+@end example
+
+In all the above example the named key for @option{volume} can be
+omitted, for example like in:
 @example
 volume=0.5
 @end example
 
-The above example is equivalent to:
-@example
-volume=1/2
-@end example
-
 @item
-Decrease input audio power by 12 decibels:
+Increase input audio power by 6 decibels using fixed-point precision:
 @example
-volume=-12dB
+volume=volume=6dB:precision=fixed
 @end example
 @end itemize
 
@@ -918,59 +994,6 @@ There are 6 samples at -4 dB, 62 at -5 dB, 286 at -6 dB, etc.
 
 In other words, raising the volume by +4 dB does not cause any clipping,
 raising it by +5 dB causes clipping for 6 samples, etc.
-
-@section volume_justin
-
-Adjust the input audio volume.
-
-The filter accepts the following named parameters:
-@table @option
-
-@item volume
-Expresses how the audio volume will be increased or decreased.
-
-Output values are clipped to the maximum value.
-
-The output audio volume is given by the relation:
-@example
-@var{output_volume} = @var{volume} * @var{input_volume}
-@end example
-
-Default value for @var{volume} is 1.0.
-
-@item precision
-Mathematical precision.
-
-This determines which input sample formats will be allowed, which affects the
-precision of the volume scaling.
-
-@table @option
-@item fixed
-8-bit fixed-point; limits input sample format to U8, S16, and S32.
-@item float
-32-bit floating-point; limits input sample format to FLT. (default)
-@item double
-64-bit floating-point; limits input sample format to DBL.
-@end table
-@end table
-
-@subsection Examples
-
-@itemize
-@item
-Halve the input audio volume:
-@example
-volume_justin=volume=0.5
-volume_justin=volume=1/2
-volume_justin=volume=-6.0206dB
-@end example
-
-@item
-Increase input audio power by 6 decibels using fixed-point precision:
-@example
-volume_justin=volume=6dB:precision=fixed
-@end example
-@end itemize
 
 @c man end AUDIO FILTERS
 
@@ -2386,12 +2409,32 @@ This filter accepts the following named parameters:
 @table @option
 
 @item fps
-Desired output framerate.
+Desired output framerate. The default is @code{25}.
 
 @item round
-Rounding method. The default is @code{near}.
+Rounding method.
+
+Possible values are:
+@table @option
+@item zero
+zero round towards 0
+@item inf
+round away from 0
+@item down
+round towards -infinity
+@item up
+round towards +infinity
+@item near
+round to nearest
+@end table
+The default is @code{near}.
 
 @end table
+
+Alternatively, the options can be specified as a flat string:
+@var{fps}[:@var{round}].
+
+See also the @ref{setpts} filter.
 
 @section framestep
 
@@ -2864,7 +2907,6 @@ the named filter.
 
 The list of the currently supported filters follows:
 @table @var
-@item denoise3d
 @item detc
 @item dint
 @item divtc
@@ -3465,128 +3507,6 @@ scale='min(500\, iw*3/2):-1'
 @end example
 @end itemize
 
-@section select
-Select frames to pass in output.
-
-It accepts in input an expression, which is evaluated for each input
-frame. If the expression is evaluated to a non-zero value, the frame
-is selected and passed to the output, otherwise it is discarded.
-
-The expression can contain the following constants:
-
-@table @option
-@item n
-the sequential number of the filtered frame, starting from 0
-
-@item selected_n
-the sequential number of the selected frame, starting from 0
-
-@item prev_selected_n
-the sequential number of the last selected frame, NAN if undefined
-
-@item TB
-timebase of the input timestamps
-
-@item pts
-the PTS (Presentation TimeStamp) of the filtered video frame,
-expressed in @var{TB} units, NAN if undefined
-
-@item t
-the PTS (Presentation TimeStamp) of the filtered video frame,
-expressed in seconds, NAN if undefined
-
-@item prev_pts
-the PTS of the previously filtered video frame, NAN if undefined
-
-@item prev_selected_pts
-the PTS of the last previously filtered video frame, NAN if undefined
-
-@item prev_selected_t
-the PTS of the last previously selected video frame, NAN if undefined
-
-@item start_pts
-the PTS of the first video frame in the video, NAN if undefined
-
-@item start_t
-the time of the first video frame in the video, NAN if undefined
-
-@item pict_type
-the type of the filtered frame, can assume one of the following
-values:
-@table @option
-@item I
-@item P
-@item B
-@item S
-@item SI
-@item SP
-@item BI
-@end table
-
-@item interlace_type
-the frame interlace type, can assume one of the following values:
-@table @option
-@item PROGRESSIVE
-the frame is progressive (not interlaced)
-@item TOPFIRST
-the frame is top-field-first
-@item BOTTOMFIRST
-the frame is bottom-field-first
-@end table
-
-@item key
-1 if the filtered frame is a key-frame, 0 otherwise
-
-@item pos
-the position in the file of the filtered frame, -1 if the information
-is not available (e.g. for synthetic video)
-
-@item scene
-value between 0 and 1 to indicate a new scene; a low value reflects a low
-probability for the current frame to introduce a new scene, while a higher
-value means the current frame is more likely to be one (see the example below)
-
-@end table
-
-The default value of the select expression is "1".
-
-Some examples follow:
-
-@example
-# select all frames in input
-select
-
-# the above is the same as:
-select=1
-
-# skip all frames:
-select=0
-
-# select only I-frames
-select='eq(pict_type\,I)'
-
-# select one frame every 100
-select='not(mod(n\,100))'
-
-# select only frames contained in the 10-20 time interval
-select='gte(t\,10)*lte(t\,20)'
-
-# select only I frames contained in the 10-20 time interval
-select='gte(t\,10)*lte(t\,20)*eq(pict_type\,I)'
-
-# select frames with a minimum distance of 10 seconds
-select='isnan(prev_selected_t)+gte(t-prev_selected_t\,10)'
-@end example
-
-Complete example to create a mosaic of the first scenes:
-
-@example
-ffmpeg -i video.avi -vf select='gt(scene\,0.4)',scale=160:120,tile -frames:v 1 preview.png
-@end example
-
-Comparing @var{scene} against a value between 0.3 and 0.5 is generally a sane
-choice.
-
 @section setdar, setsar
 
 The @code{setdar} filter sets the Display Aspect Ratio for the filter
@@ -3670,7 +3590,10 @@ output frames. It does not change the input frame, but only sets the
 corresponding property, which affects how the frame is treated by
 following filters (e.g. @code{fieldorder} or @code{yadif}).
 
-It accepts a string parameter, which can assume the following values:
+This filter accepts a single option @option{mode}, which can be
+specified either by setting @code{mode=VALUE} or setting the value
+alone. Available values are:
+
 @table @samp
 @item auto
 Keep the same field property.
@@ -4712,6 +4635,171 @@ tools.
 
 Below is a description of the currently available multimedia filters.
 
+@section aselect, select
+Select frames to pass in output.
+
+These filters accept a single option @option{expr} or @option{e}
+specifying the select expression, which can be specified either by
+specyfing @code{expr=VALUE} or specifying the expression
+alone.
+
+The select expression is evaluated for each input frame. If the
+evaluation result is a non-zero value, the frame is selected and
+passed to the output, otherwise it is discarded.
+
+The expression can contain the following constants:
+
+@table @option
+@item n
+the sequential number of the filtered frame, starting from 0
+
+@item selected_n
+the sequential number of the selected frame, starting from 0
+
+@item prev_selected_n
+the sequential number of the last selected frame, NAN if undefined
+
+@item TB
+timebase of the input timestamps
+
+@item pts
+the PTS (Presentation TimeStamp) of the filtered video frame,
+expressed in @var{TB} units, NAN if undefined
+
+@item t
+the PTS (Presentation TimeStamp) of the filtered video frame,
+expressed in seconds, NAN if undefined
+
+@item prev_pts
+the PTS of the previously filtered video frame, NAN if undefined
+
+@item prev_selected_pts
+the PTS of the last previously filtered video frame, NAN if undefined
+
+@item prev_selected_t
+the PTS of the last previously selected video frame, NAN if undefined
+
+@item start_pts
+the PTS of the first video frame in the video, NAN if undefined
+
+@item start_t
+the time of the first video frame in the video, NAN if undefined
+
+@item pict_type @emph{(video only)}
+the type of the filtered frame, can assume one of the following
+values:
+@table @option
+@item I
+@item P
+@item B
+@item S
+@item SI
+@item SP
+@item BI
+@end table
+
+@item interlace_type @emph{(video only)}
+the frame interlace type, can assume one of the following values:
+@table @option
+@item PROGRESSIVE
+the frame is progressive (not interlaced)
+@item TOPFIRST
+the frame is top-field-first
+@item BOTTOMFIRST
+the frame is bottom-field-first
+@end table
+
+@item consumed_sample_n @emph{(audio only)}
+the number of selected samples before the current frame
+
+@item samples_n @emph{(audio only)}
+the number of samples in the current frame
+
+@item sample_rate @emph{(audio only)}
+the input sample rate
+
+@item key
+1 if the filtered frame is a key-frame, 0 otherwise
+
+@item pos
+the position in the file of the filtered frame, -1 if the information
+is not available (e.g. for synthetic video)
+
+@item scene @emph{(video only)}
+value between 0 and 1 to indicate a new scene; a low value reflects a low
+probability for the current frame to introduce a new scene, while a higher
+value means the current frame is more likely to be one (see the example below)
+
+@end table
+
+The default value of the select expression is "1".
+
+@subsection Examples
+
+@itemize
+@item
+Select all frames in input:
+@example
+select
+@end example
+
+The example above is the same as:
+@example
+select=1
+@end example
+
+@item
+Skip all frames:
+@example
+select=0
+@end example
+
+@item
+Select only I-frames:
+@example
+select='eq(pict_type\,I)'
+@end example
+
+@item
+Select one frame every 100:
+@example
+select='not(mod(n\,100))'
+@end example
+
+@item
+Select only frames contained in the 10-20 time interval:
+@example
+select='gte(t\,10)*lte(t\,20)'
+@end example
+
+@item
+Select only I frames contained in the 10-20 time interval:
+@example
+select='gte(t\,10)*lte(t\,20)*eq(pict_type\,I)'
+@end example
+
+@item
+Select frames with a minimum distance of 10 seconds:
+@example
+select='isnan(prev_selected_t)+gte(t-prev_selected_t\,10)'
+@end example
+
+@item
+Use aselect to select only audio frames with samples number > 100:
+@example
+aselect='gt(samples_n\,100)'
+@end example
+
+@item
+Create a mosaic of the first scenes:
+@example
+ffmpeg -i video.avi -vf select='gt(scene\,0.4)',scale=160:120,tile -frames:v 1 preview.png
+@end example
+
+Comparing @var{scene} against a value between 0.3 and 0.5 is generally a sane
+choice.
+@end itemize
+
 @section asendcmd, sendcmd
 
 Send commands to filters in the filtergraph.
@@ -4843,6 +4931,7 @@ sendcmd=f=test.cmd,drawtext=fontfile=FreeSerif.ttf:text='',hue
 @end example
 @end itemize
 
+@anchor{setpts}
 @section asetpts, setpts
 
 Change the PTS (presentation timestamp) of the input frames.

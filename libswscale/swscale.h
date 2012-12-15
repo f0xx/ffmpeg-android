@@ -23,8 +23,13 @@
 
 /**
  * @file
- * @brief
- *     external api for the swscale stuff
+ * @ingroup lsws
+ * external API header
+ */
+
+/**
+ * @defgroup lsws Libswscale
+ * @{
  */
 
 #include <stdint.h>
@@ -347,5 +352,9 @@ av_export void sws_convertPalette8ToPacked24(const uint8_t *src, uint8_t *dst, i
  */
 av_export
 const AVClass *sws_get_class(void);
+
+/**
+ * @}
+ */
 
 #endif /* SWSCALE_SWSCALE_H */
