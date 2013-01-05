@@ -49,7 +49,7 @@
  * av_opt_set_int(avr, "in_sample_rate",     48000,                0);
  * av_opt_set_int(avr, "out_sample_rate",    44100,                0);
  * av_opt_set_int(avr, "in_sample_fmt",      AV_SAMPLE_FMT_FLTP,   0);
- * av_opt_set_int(avr, "out_sample_fmt,      AV_SAMPLE_FMT_S16,    0);
+ * av_opt_set_int(avr, "out_sample_fmt",     AV_SAMPLE_FMT_S16,    0);
  * @endcode
  *
  * Once the context is initialized, it must be opened with avresample_open(). If
@@ -117,6 +117,15 @@ enum AVResampleFilterType {
     AV_RESAMPLE_FILTER_TYPE_CUBIC,              /**< Cubic */
     AV_RESAMPLE_FILTER_TYPE_BLACKMAN_NUTTALL,   /**< Blackman Nuttall Windowed Sinc */
     AV_RESAMPLE_FILTER_TYPE_KAISER,             /**< Kaiser Windowed Sinc */
+};
+
+enum AVResampleDitherMethod {
+    AV_RESAMPLE_DITHER_NONE,            /**< Do not use dithering */
+    AV_RESAMPLE_DITHER_RECTANGULAR,     /**< Rectangular Dither */
+    AV_RESAMPLE_DITHER_TRIANGULAR,      /**< Triangular Dither*/
+    AV_RESAMPLE_DITHER_TRIANGULAR_HP,   /**< Triangular Dither with High Pass */
+    AV_RESAMPLE_DITHER_TRIANGULAR_NS,   /**< Triangular Dither with Noise Shaping */
+    AV_RESAMPLE_DITHER_NB,              /**< Number of dither types. Not part of ABI. */
 };
 
 /**
@@ -263,11 +272,10 @@ int avresample_set_matrix(AVAudioResampleContext *avr, const double *matrix,
 /**
  * Set compensation for resampling.
  *
- * This can be called anytime after avresample_open(). If resampling was not
- * being done previously, the AVAudioResampleContext is closed and reopened
- * with resampling enabled. In this case, any samples remaining in the output
- * FIFO and the current channel mixing matrix will be restored after reopening
- * the context.
+ * This can be called anytime after avresample_open(). If resampling is not
+ * automatically enabled because of a sample rate conversion, the
+ * "force_resampling" option must have been set to 1 when opening the context
+ * in order to use resampling compensation.
  *
  * @param avr                    audio resample context
  * @param sample_delta           compensation delta, in samples

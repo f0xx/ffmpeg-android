@@ -597,9 +597,8 @@ static void close_output_stream(OutputStream *ost)
 
     ost->finished = 1;
     if (of->shortest) {
-        int i;
-        for (i = 0; i < of->ctx->nb_streams; i++)
-            output_streams[of->ost_index + i]->finished = 1;
+        int64_t end = av_rescale_q(ost->sync_opts - ost->first_pts, ost->st->codec->time_base, AV_TIME_BASE_Q);
+        of->recording_time = FFMIN(of->recording_time, end);
     }
 }
 
@@ -803,7 +802,7 @@ static void do_video_out(AVFormatContext *s,
 
     format_video_sync = video_sync_method;
     if (format_video_sync == VSYNC_AUTO)
-        format_video_sync = (s->oformat->flags & AVFMT_VARIABLE_FPS) ? ((s->oformat->flags & AVFMT_NOTIMESTAMPS) ? VSYNC_PASSTHROUGH : VSYNC_VFR) : 1;
+        format_video_sync = (s->oformat->flags & AVFMT_VARIABLE_FPS) ? ((s->oformat->flags & AVFMT_NOTIMESTAMPS) ? VSYNC_PASSTHROUGH : VSYNC_VFR) : VSYNC_CFR;
 
     switch (format_video_sync) {
     case VSYNC_CFR:
@@ -1109,13 +1108,6 @@ static void print_report(int is_last_report, int64_t timer_start, int64_t cur_ti
     total_size = avio_size(oc->pb);
     if (total_size <= 0) // FIXME improve avio_size() so it works with non seekable output too
         total_size = avio_tell(oc->pb);
-    if (total_size < 0) {
-        char errbuf[128];
-        av_strerror(total_size, errbuf, sizeof(errbuf));
-        av_log(NULL, AV_LOG_VERBOSE, "Bitrate not available, "
-               "avio_tell() failed: %s\n", errbuf);
-        total_size = 0;
-    }
 
     buf[0] = '\0';
     vid = 0;
@@ -1196,16 +1188,21 @@ static void print_report(int is_last_report, int64_t timer_start, int64_t cur_ti
     hours = mins / 60;
     mins %= 60;
 
-    bitrate = pts ? total_size * 8 / (pts / 1000.0) : 0;
+    bitrate = pts && total_size >= 0 ? total_size * 8 / (pts / 1000.0) : -1;
 
-    snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
-             "size=%8.0fkB time=", total_size / 1024.0);
+    if (total_size < 0) snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
+                                 "size=N/A time=");
+    else                snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
+                                 "size=%8.0fkB time=", total_size / 1024.0);
     snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
              "%02d:%02d:%02d.%02d ", hours, mins, secs,
              (100 * us) / AV_TIME_BASE);
-    snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
-             "bitrate=%6.1fkbits/s", bitrate);
-    av_bprintf(&buf_script, "total_size=%"PRId64"\n", total_size);
+    if (bitrate < 0) snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
+                              "bitrate=N/A");
+    else             snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
+                              "bitrate=%6.1fkbits/s", bitrate);
+    if (total_size < 0) av_bprintf(&buf_script, "total_size=N/A\n");
+    else                av_bprintf(&buf_script, "total_size=%"PRId64"\n", total_size);
     av_bprintf(&buf_script, "out_time_ms=%"PRId64"\n", pts);
     av_bprintf(&buf_script, "out_time=%02d:%02d:%02d.%06d\n",
                hours, mins, secs, us);
@@ -3153,21 +3150,12 @@ static void log_callback_null(void *ptr, int level, const char *fmt, va_list vl)
 {
 }
 
-static void parse_cpuflags(int argc, char **argv, const OptionDef *options)
-{
-    int idx = locate_option(argc, argv, options, "cpuflags");
-    if (idx && argv[idx + 1])
-        opt_cpuflags(NULL, "cpuflags", argv[idx + 1]);
-}
-
 int main(int argc, char **argv)
 {
-    OptionsContext o = { 0 };
+    int ret;
     int64_t ti;
 
     atexit(exit_program);
-
-    reset_options(&o, 0);
 
     setvbuf(stderr,NULL,_IONBF,0); /* win32 runtime needs this */
 
@@ -3193,10 +3181,10 @@ int main(int argc, char **argv)
 
     term_init();
 
-    parse_cpuflags(argc, argv, options);
-
-    /* parse options */
-    parse_options(&o, argc, argv, options, opt_output_file);
+    /* parse options and open all input/output files */
+    ret = ffmpeg_parse_options(argc, argv);
+    if (ret < 0)
+        exit(1);
 
     if (nb_output_files <= 0 && nb_input_files == 0) {
         show_usage();

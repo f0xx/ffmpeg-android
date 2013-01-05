@@ -285,6 +285,9 @@ enum AVCodecID {
     AV_CODEC_ID_AVRN       = MKBETAG('A','V','R','n'),
     AV_CODEC_ID_CPIA       = MKBETAG('C','P','I','A'),
     AV_CODEC_ID_XFACE      = MKBETAG('X','F','A','C'),
+    AV_CODEC_ID_SGIRLE     = MKBETAG('S','G','I','R'),
+    AV_CODEC_ID_MVC1       = MKBETAG('M','V','C','1'),
+    AV_CODEC_ID_MVC2       = MKBETAG('M','V','C','2'),
 
     /* various PCM "codecs" */
     AV_CODEC_ID_FIRST_AUDIO = 0x10000,     ///< A dummy id pointing at the start of audio codecs
@@ -435,7 +438,9 @@ enum AVCodecID {
     AV_CODEC_ID_COMFORT_NOISE,
     AV_CODEC_ID_TAK_DEPRECATED,
     AV_CODEC_ID_FFWAVESYNTH = MKBETAG('F','F','W','S'),
+#if LIBAVCODEC_VERSION_MAJOR <= 54
     AV_CODEC_ID_8SVX_RAW    = MKBETAG('8','S','V','X'),
+#endif
     AV_CODEC_ID_SONIC       = MKBETAG('S','O','N','C'),
     AV_CODEC_ID_SONIC_LS    = MKBETAG('S','O','N','L'),
     AV_CODEC_ID_PAF_AUDIO   = MKBETAG('P','A','F','A'),
@@ -458,9 +463,13 @@ enum AVCodecID {
     AV_CODEC_ID_JACOSUB    = MKBETAG('J','S','U','B'),
     AV_CODEC_ID_SAMI       = MKBETAG('S','A','M','I'),
     AV_CODEC_ID_REALTEXT   = MKBETAG('R','T','X','T'),
+    AV_CODEC_ID_SUBVIEWER1 = MKBETAG('S','b','V','1'),
     AV_CODEC_ID_SUBVIEWER  = MKBETAG('S','u','b','V'),
     AV_CODEC_ID_SUBRIP     = MKBETAG('S','R','i','p'),
     AV_CODEC_ID_WEBVTT     = MKBETAG('W','V','T','T'),
+    AV_CODEC_ID_MPL2       = MKBETAG('M','P','L','2'),
+    AV_CODEC_ID_VPLAYER    = MKBETAG('V','P','l','r'),
+    AV_CODEC_ID_PJS        = MKBETAG('P','h','J','S'),
 
     /* other specific kind of codecs (generally used for attachments) */
     AV_CODEC_ID_FIRST_UNKNOWN = 0x18000,           ///< A dummy ID pointing at the start of various fake codecs.
@@ -1069,14 +1078,22 @@ enum AVSideDataParamChangeFlags {
  */
 
 /**
- * Audio Video Frame.
- * New fields can be added to the end of AVFRAME with minor version
- * bumps. Similarly fields that are marked as to be only accessed by
+ * This structure describes decoded (raw) audio or video data.
+ *
+ * AVFrame must be allocated using avcodec_alloc_frame() and freed with
+ * avcodec_free_frame(). Note that this allocates only the AVFrame itself. The
+ * buffers for the data must be managed through other means.
+ *
+ * AVFrame is typically allocated once and then reused multiple times to hold
+ * different data (e.g. a single AVFrame to hold frames received from a
+ * decoder). In such a case, avcodec_get_frame_defaults() should be used to
+ * reset the frame to its original clean state before it is reused again.
+ *
+ * sizeof(AVFrame) is not a part of the public ABI, so new fields may be added
+ * to the end with a minor bump.
+ * Similarly fields that are marked as to be only accessed by
  * av_opt_ptr() can be reordered. This allows 2 forks to add fields
  * without breaking compatibility with each other.
- * Removal, reordering and changes in the remaining cases require
- * a major version bump.
- * sizeof(AVFrame) must not be used outside libavcodec.
  */
 typedef struct AVFrame {
 #define AV_NUM_DATA_POINTERS 8
@@ -1180,14 +1197,14 @@ typedef struct AVFrame {
     int64_t pts;
 
     /**
-     * reordered pts from the last AVPacket that has been input into the decoder
+     * pts copied from the AVPacket that was decoded to produce this frame
      * - encoding: unused
      * - decoding: Read by user.
      */
     int64_t pkt_pts;
 
     /**
-     * dts from the last AVPacket that has been input into the decoder
+     * dts copied from the AVPacket that triggered returning this frame
      * - encoding: unused
      * - decoding: Read by user.
      */
@@ -5020,7 +5037,7 @@ av_export void av_fast_malloc(void *ptr, unsigned int *size, size_t min_size);
 
 /**
  * Same behaviour av_fast_malloc but the buffer has additional
- * FF_INPUT_PADDING_SIZE at the end which will will always be 0.
+ * FF_INPUT_BUFFER_PADDING_SIZE at the end which will will always be 0.
  *
  * In addition the whole buffer will initially and after resizes
  * be 0-initialized so that no uninitialized data will ever appear.

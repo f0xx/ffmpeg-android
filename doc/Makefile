@@ -25,7 +25,6 @@ HTMLPAGES   = $(COMPONENTS-yes:%=doc/%.html) $(LIBRARIES-yes:%=doc/%.html)     \
               doc/git-howto.html                                        \
               doc/nut.html                                              \
               doc/platform.html                                         \
-              doc/syntax.html                                           \
 
 TXTPAGES    = doc/fate.txt                                              \
 
@@ -92,6 +91,8 @@ uninstall: uninstall-man
 
 uninstall-man:
 	$(RM) $(addprefix "$(MANDIR)/man1/",$(ALLMANPAGES))
+
+docclean: clean
 
 clean::
 	$(RM) $(TXTPAGES) doc/*.html doc/*.pod doc/*.1 doc/*.3 $(CLEANSUFFIXES:%=doc/%) doc/avoptions_*.texi

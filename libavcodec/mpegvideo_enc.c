@@ -561,6 +561,13 @@ av_cold int ff_MPV_encode_init(AVCodecContext *avctx)
         return AVERROR(EINVAL);
     }
 
+    if (s->codec_id == AV_CODEC_ID_RV20 &&
+        (avctx->width &3 ||
+         avctx->height&3 )) {
+        av_log(avctx, AV_LOG_ERROR, "width and height must be a multiple of 4\n");
+        return AVERROR(EINVAL);
+    }
+
     if ((s->codec_id == AV_CODEC_ID_WMV1 ||
          s->codec_id == AV_CODEC_ID_WMV2) &&
          avctx->width & 1) {
@@ -744,6 +751,9 @@ av_cold int ff_MPV_encode_init(AVCodecContext *avctx)
             s->mjpeg_vsample[0] = s->mjpeg_hsample[0] =
             s->mjpeg_vsample[1] = s->mjpeg_hsample[1] =
             s->mjpeg_vsample[2] = s->mjpeg_hsample[2] = 1;
+        } else if (avctx->pix_fmt == AV_PIX_FMT_YUV444P || avctx->pix_fmt == AV_PIX_FMT_YUVJ444P) {
+            s->mjpeg_vsample[0] = s->mjpeg_vsample[1] = s->mjpeg_vsample[2] = 2;
+            s->mjpeg_hsample[0] = s->mjpeg_hsample[1] = s->mjpeg_hsample[2] = 1;
         } else {
             s->mjpeg_vsample[0] = 2;
             s->mjpeg_vsample[1] = 2 >> chroma_v_shift;
@@ -1876,17 +1886,19 @@ static av_always_inline void encode_mb_internal(MpegEncContext *s,
 
     if((mb_x*16+16 > s->width || mb_y*16+16 > s->height) && s->codec_id != AV_CODEC_ID_AMV){
         uint8_t *ebuf = s->edge_emu_buffer + 32;
-        s->dsp.emulated_edge_mc(ebuf, ptr_y, wrap_y, 16, 16, mb_x * 16,
-                                mb_y * 16, s->width, s->height);
+        int cw = (s->width  + s->chroma_x_shift) >> s->chroma_x_shift;
+        int ch = (s->height + s->chroma_y_shift) >> s->chroma_y_shift;
+        s->vdsp.emulated_edge_mc(ebuf, ptr_y, wrap_y, 16, 16, mb_x * 16,
+                                 mb_y * 16, s->width, s->height);
         ptr_y = ebuf;
-        s->dsp.emulated_edge_mc(ebuf + 18 * wrap_y, ptr_cb, wrap_c, mb_block_width,
-                                mb_block_height, mb_x * 8, mb_y * 8,
-                                (s->width+1) >> 1, (s->height+1) >> 1);
+        s->vdsp.emulated_edge_mc(ebuf + 18 * wrap_y, ptr_cb, wrap_c, mb_block_width,
+                                 mb_block_height, mb_x * mb_block_width, mb_y * mb_block_height,
+                                 cw, ch);
         ptr_cb = ebuf + 18 * wrap_y;
-        s->dsp.emulated_edge_mc(ebuf + 18 * wrap_y + 8, ptr_cr, wrap_c, mb_block_width,
-                                mb_block_height, mb_x * 8, mb_y * 8,
-                                (s->width+1) >> 1, (s->height+1) >> 1);
-        ptr_cr = ebuf + 18 * wrap_y + 8;
+        s->vdsp.emulated_edge_mc(ebuf + 18 * wrap_y + 16, ptr_cr, wrap_c, mb_block_width,
+                                 mb_block_height, mb_x * mb_block_width, mb_y * mb_block_height,
+                                 cw, ch);
+        ptr_cr = ebuf + 18 * wrap_y + 16;
     }
 
     if (s->mb_intra) {
@@ -3218,7 +3230,7 @@ static void set_frame_distances(MpegEncContext * s){
 
 static int encode_picture(MpegEncContext *s, int picture_number)
 {
-    int i;
+    int i, ret;
     int bits;
     int context_count = s->slice_context_count;
 
@@ -3268,7 +3280,9 @@ static int encode_picture(MpegEncContext *s, int picture_number)
 
     s->mb_intra=0; //for the rate distortion & bit compare functions
     for(i=1; i<context_count; i++){
-        ff_update_duplicate_context(s->thread_context[i], s);
+        ret = ff_update_duplicate_context(s->thread_context[i], s);
+        if (ret < 0)
+            return ret;
     }
 
     if(ff_init_me(s)<0)
