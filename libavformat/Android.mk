@@ -54,6 +54,7 @@ LIBAVFORMAT_SRC_FILES := \
 		apc.c \
 		ape.c \
 		apetag.c \
+		aqtitledec.c \
 		asf.c \
 		asfcrypt.c \
 		asfdec.c \
@@ -89,6 +90,7 @@ LIBAVFORMAT_SRC_FILES := \
 		concatdec.c \
 		cutils.c \
 		daud.c \
+		data_uri.c \
 		dfa.c \
 		diracdec.c \
 		dnxhddec.c \
@@ -108,6 +110,7 @@ LIBAVFORMAT_SRC_FILES := \
 		flacenc_header.c \
 		flic.c \
 		flvdec.c \
+		frmdec.c \
 		gif.c \
 		gifdec.c \
 		gxf.c \
@@ -174,8 +177,12 @@ LIBAVFORMAT_SRC_FILES := \
 		mxfdec.c \
 		mxg.c \
 		mux.c \
+		mpl2dec.c \
+		mpsubdec.c \
+		mvdec.c \
 		ncdec.c \
 		network.c \
+		nistspheredec.c \
 		nsvdec.c \
 		nut.c \
 		nutdec.c \
@@ -258,6 +265,8 @@ LIBAVFORMAT_SRC_FILES := \
 		spdif.c \
 		spdifdec.c \
 		srtdec.c \
+		srtp.c \
+		srtpproto.c \
 		subviewerdec.c \
 		subtitles.c \
 		swf.c \
@@ -279,6 +288,7 @@ LIBAVFORMAT_SRC_FILES := \
 		vocdec.c \
 		vorbiscomment.c \
 		vqf.c \
+		w64.c \
 		wavdec.c \
 		wc3movie.c \
 		webvttdec.c \

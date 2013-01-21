@@ -32,6 +32,7 @@ const CodecTags ff_mkv_codec_tags[]={
     {"A_MPEG/L2"        , AV_CODEC_ID_MP2},
     {"A_MPEG/L1"        , AV_CODEC_ID_MP2},
     {"A_MPEG/L3"        , AV_CODEC_ID_MP3},
+    {"A_OPUS/EXPERIMENTAL",AV_CODEC_ID_OPUS},
     {"A_OPUS",            AV_CODEC_ID_OPUS},
     {"A_PCM/FLOAT/IEEE" , AV_CODEC_ID_PCM_F32LE},
     {"A_PCM/FLOAT/IEEE" , AV_CODEC_ID_PCM_F64LE},
@@ -82,6 +83,7 @@ const CodecTags ff_mkv_codec_tags[]={
     {"V_THEORA"         , AV_CODEC_ID_THEORA},
     {"V_UNCOMPRESSED"   , AV_CODEC_ID_RAWVIDEO},
     {"V_VP8"            , AV_CODEC_ID_VP8},
+    {"V_VP9"            , AV_CODEC_ID_VP9},
 
     {""                 , AV_CODEC_ID_NONE}
 };

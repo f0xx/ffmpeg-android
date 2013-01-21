@@ -191,10 +191,13 @@ static av_always_inline int64_t ff_samples_to_time_base(AVCodecContext *avctx,
  * AVCodecContext.get_buffer() and should be used instead calling get_buffer()
  * directly.
  */
+av_export
 int ff_get_buffer(AVCodecContext *avctx, AVFrame *frame);
 
+av_export
 int ff_thread_can_start_frame(AVCodecContext *avctx);
 
+av_export
 int ff_get_logical_cpus(AVCodecContext *avctx);
 
 av_export
@@ -205,16 +208,19 @@ int avpriv_h264_has_num_reorder_frames(AVCodecContext *avctx);
  * calling the function and then restoring again. Assumes the mutex is
  * already locked
  */
+av_export
 int ff_codec_open2_recursive(AVCodecContext *avctx, const AVCodec *codec, AVDictionary **options);
 
 /**
  * Call avcodec_close recursively, counterpart to avcodec_open2_recursive.
  */
+av_export
 int ff_codec_close_recursive(AVCodecContext *avctx);
 
 /**
  * Finalize buf into extradata and set its size appropriately.
  */
+av_export
 int avpriv_bprint_to_extradata(AVCodecContext *avctx, struct AVBPrint *buf);
 
 #endif /* AVCODEC_INTERNAL_H */

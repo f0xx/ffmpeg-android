@@ -34,12 +34,13 @@ LOCAL_LDFLAGS += -lz -llog
 # -lavcodec -lavutil
 #LOCAL_LDFLAGS += -L$(NDK_APP_DST_DIR) -L$(TARGET_OUT)
 
-LIBSWRESAMPLE_SRC_FILES := \
+LIBAWRESAMPLE_SRC_FILES := \
 		arm/audio_convert_init.c \
 		audio_convert.c \
 		audio_data.c \
 		audio_mix.c \
 		audio_mix_matrix.c \
+		dither.c \
 		options.c \
 		resample.c \
 		utils.c \
@@ -50,7 +51,7 @@ ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
 endif
 
 
-LOCAL_SRC_FILES := $(LIBSWRESAMPLE_SRC_FILES)
+LOCAL_SRC_FILES := $(LIBAWRESAMPLE_SRC_FILES)
 
 LOCAL_SHARED_LIBRARIES := avutil
 LOCAL_STATIC_LIBRARIES := avresample_neon

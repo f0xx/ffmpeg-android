@@ -74,6 +74,7 @@ LIBAVUTIL_SRC_FILES := \
 		fifo.c \
 		file.c \
 		float_dsp.c \
+		hmac.c \
 		imgutils.c \
 		integer.c \
 		intfloat_readwrite.c \

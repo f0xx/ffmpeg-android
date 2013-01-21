@@ -1865,10 +1865,8 @@ Set the thickness of the box edge. Default value is @code{4}.
 @end table
 
 If the key of the first options is omitted, the arguments are
-interpreted according to the following syntax:
-@example
-drawbox=@var{x}:@var{y}:@var{width}:@var{height}:@var{color}:@var{thickness}
-@end example
+interpreted according to the syntax
+@var{x}:@var{y}:@var{width}:@var{height}:@var{color}:@var{thickness}.
 
 Some examples follow:
 @itemize
@@ -2278,56 +2276,70 @@ edgedetect=low=0.1:high=0.4
 
 Apply fade-in/out effect to input video.
 
-It accepts the parameters:
-@var{type}:@var{start_frame}:@var{nb_frames}[:@var{options}]
+The filter accepts parameters as a list of @var{key}=@var{value}
+pairs, separated by ":". If the key of the first options is omitted,
+the arguments are interpreted according to the syntax
+@var{type}:@var{start_frame}:@var{nb_frames}.
 
-@var{type} specifies if the effect type, can be either "in" for
-fade-in, or "out" for a fade-out effect.
-
-@var{start_frame} specifies the number of the start frame for starting
-to apply the fade effect.
-
-@var{nb_frames} specifies the number of frames for which the fade
-effect has to last. At the end of the fade-in effect the output video
-will have the same intensity as the input video, at the end of the
-fade-out transition the output video will be completely black.
-
-@var{options} is an optional sequence of @var{key}=@var{value} pairs,
-separated by ":". The description of the accepted options follows.
+A description of the accepted parameters follows.
 
 @table @option
-
 @item type, t
-See @var{type}.
+Specify if the effect type, can be either @code{in} for fade-in, or
+@code{out} for a fade-out effect. Default is @code{in}.
 
 @item start_frame, s
-See @var{start_frame}.
+Specify the number of the start frame for starting to apply the fade
+effect. Default is 0.
 
 @item nb_frames, n
-See @var{nb_frames}.
+Specify the number of frames for which the fade effect has to last. At
+the end of the fade-in effect the output video will have the same
+intensity as the input video, at the end of the fade-out transition
+the output video will be completely black. Default is 25.
 
 @item alpha
 If set to 1, fade only alpha channel, if one exists on the input.
 Default value is 0.
 @end table
 
-A few usage examples follow, usable too as test scenarios.
+@subsection Examples
+@itemize
+@item
+Fade in first 30 frames of video:
 @example
-# fade in first 30 frames of video
 fade=in:0:30
+@end example
 
-# fade out last 45 frames of a 200-frame video
+The command above is equivalent to:
+@example
+fade=t=in:s=0:n=30
+@end example
+
+@item
+Fade out last 45 frames of a 200-frame video:
+@example
 fade=out:155:45
+@end example
 
-# fade in first 25 frames and fade out last 25 frames of a 1000-frame video
+@item
+Fade in first 25 frames and fade out last 25 frames of a 1000-frame video:
+@example
 fade=in:0:25, fade=out:975:25
+@end example
 
-# make first 5 frames black, then fade in from frame 5-24
+@item
+Make first 5 frames black, then fade in from frame 5-24:
+@example
 fade=in:5:20
+@end example
 
-# fade in alpha over first 25 frames of video
+@item
+Fade in alpha over first 25 frames of video:
+@example
 fade=in:0:25:alpha=1
 @end example
+@end itemize
 
 @section field
 

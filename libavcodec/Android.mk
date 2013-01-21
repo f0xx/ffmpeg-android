@@ -123,6 +123,7 @@ LOCAL_LDFLAGS += -lz -llog
 #		proresenc_anatoliy.c \
 
 LIBAVCODEC_SRC_FILES := \
+		012v.c \
 		4xm.c \
 		8bps.c \
 		8svx.c \
@@ -223,6 +224,7 @@ LIBAVCODEC_SRC_FILES := \
 		diracdsp.c \
 		dirac_arith.c \
 		diracdec.c \
+		dirac_dwt.c \
 		dirac_parser.c \
 		dnxhd_parser.c \
 		dnxhddata.c \
@@ -240,7 +242,6 @@ LIBAVCODEC_SRC_FILES := \
 		dvdata.c \
 		dvdsub_parser.c \
 		dvdsubdec.c \
-		dwt.c \
 		dxa.c \
 		dxtory.c \
 		eac3_data.c \
@@ -305,6 +306,7 @@ LIBAVCODEC_SRC_FILES := \
 		h264pred.c \
 		huffman.c \
 		huffyuv.c \
+		huffyuvdec.c \
 		idcinvideo.c \
 		iff.c \
 		imc.c \
@@ -381,6 +383,7 @@ LIBAVCODEC_SRC_FILES := \
 		mpegvideo.c \
 		mpegvideo_motion.c \
 		mpegvideo_parser.c \
+		mpl2dec.c \
 		msgsmdec.c \
 		msmpeg4.c \
 		msmpeg4data.c \
@@ -396,6 +399,7 @@ LIBAVCODEC_SRC_FILES := \
 		msvideo1.c \
 		mqc.c \
 		mqcdec.c \
+		mvcdec.c \
 		nellymoser.c \
 		nellymoserdec.c \
 		noise_bsf.c \
@@ -457,6 +461,7 @@ LIBAVCODEC_SRC_FILES := \
 		sanm.c \
 		sbrdsp.c \
 		sgidec.c \
+		sgirledec.c \
 		shorten.c \
 		simple_idct.c \
 		sipr.c \
@@ -465,6 +470,7 @@ LIBAVCODEC_SRC_FILES := \
 		smc.c \
 		snow.c \
 		snowdec.c \
+		snow_dwt.c \
 		sonic.c \
 		srtdec.c \
 		sp5xdec.c \
@@ -510,6 +516,7 @@ LIBAVCODEC_SRC_FILES := \
 		vc1dec.c \
 		vc1dsp.c \
 		vcr1.c \
+		videodsp.c \
 		vmdav.c \
 		vmnc.c \
 		vorbis.c \
@@ -591,6 +598,9 @@ ARMV5_LOCAL_SRC_FILES := \
 		arm/simple_idct_arm.S \
 		arm/simple_idct_armv5te.S \
 		arm/fmtconvert_init_arm.c \
+		arm/videodsp_init_arm.c \
+		arm/videodsp_armv5te.S \
+		arm/videodsp_init_armv5te.c \
 		arm/vp3dsp_init_arm.c \
 		arm/vp56dsp_init_arm.c \
 		arm/vp8dsp_init_arm.c \

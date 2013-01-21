@@ -346,6 +346,8 @@ This option is implicitly set when writing ismv (Smooth Streaming) files.
 Run a second pass moving the moov atom on top of the file. This
 operation can take a while, and will not work in various situations such
 as fragmented output, thus it is not enabled by default.
+@item -movflags rtphint
+Add RTP hinting tracks to the output file.
 @end table
 
 Smooth Streaming content can be pushed in real time to a publishing
@@ -521,9 +523,11 @@ reference stream. The default value is ``auto''.
 @item segment_format @var{format}
 Override the inner container format, by default it is guessed by the filename
 extension.
+
 @item segment_list @var{name}
 Generate also a listfile named @var{name}. If not specified no
 listfile is generated.
+
 @item segment_list_flags @var{flags}
 Set flags affecting the segment list generation.
 
@@ -543,8 +547,10 @@ the specified @var{segment_time}.
 Default value is @code{cache}.
 
 @item segment_list_size @var{size}
-Overwrite the listfile once it reaches @var{size} entries. If 0
-the listfile is never overwritten. Default value is 0.
+Update the list file so that it contains at most the last @var{size}
+segments. If 0 the list file will contain all the segments. Default
+value is 0.
+
 @item segment_list type @var{type}
 Specify the format for the segment list file.
 
@@ -580,8 +586,10 @@ A list file with the suffix @code{".m3u8"} will auto-select this format.
 @end table
 
 If not specified the type is guessed from the list file name suffix.
+
 @item segment_time @var{time}
 Set segment duration to @var{time}. Default value is "2".
+
 @item segment_time_delta @var{delta}
 Specify the accuracy time when selecting the start time for a
 segment. Default value is "0".
@@ -716,5 +724,20 @@ Attach a picture to an mp3:
 ffmpeg -i input.mp3 -i cover.png -c copy -metadata:s:v title="Album cover"
 -metadata:s:v comment="Cover (Front)" out.mp3
 @end example
+
+@section ogg
+
+Ogg container muxer.
+
+@table @option
+@item -page_duration @var{duration}
+Preferred page duration, in microseconds. The muxer will attempt to create
+pages that are approximately @var{duration} microseconds long. This allows the
+user to compromise between seek granularity and container overhead. The default
+is 1 second. A value of 0 will fill all segments, making pages as large as
+possible. A value of 1 will effectively use 1 packet-per-page in most
+situations, giving a small seek granularity at the cost of additional container
+overhead.
+@end table
 
 @c man end MUXERS

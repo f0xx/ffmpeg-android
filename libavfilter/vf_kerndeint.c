@@ -42,7 +42,6 @@ typedef struct {
     int           vsub;
     uint8_t       *tmp_data [4];  ///< temporary plane data buffer
     int           tmp_bwidth[4];  ///< temporary plane byte width
-    int           pixel_step;
 } KerndeintContext;
 
 #define OFFSET(x) offsetof(KerndeintContext, x)
@@ -82,7 +81,10 @@ static int query_formats(AVFilterContext *ctx)
     static const enum PixelFormat pix_fmts[] = {
         AV_PIX_FMT_YUV420P,
         AV_PIX_FMT_YUYV422,
-        AV_PIX_FMT_ARGB,
+        AV_PIX_FMT_ARGB, AV_PIX_FMT_0RGB,
+        AV_PIX_FMT_ABGR, AV_PIX_FMT_0BGR,
+        AV_PIX_FMT_RGBA, AV_PIX_FMT_RGB0,
+        AV_PIX_FMT_BGRA, AV_PIX_FMT_BGR0,
         AV_PIX_FMT_NONE
     };
 
@@ -95,12 +97,16 @@ static int config_props(AVFilterLink *inlink)
 {
     KerndeintContext *kerndeint = inlink->dst->priv;
     const AVPixFmtDescriptor *desc = &av_pix_fmt_descriptors[inlink->format];
+    int ret;
 
     kerndeint->vsub = desc->log2_chroma_h;
-    kerndeint->pixel_step = av_get_bits_per_pixel(desc) >> 3;
 
-    return av_image_alloc(kerndeint->tmp_data, kerndeint->tmp_bwidth,
+    ret = av_image_alloc(kerndeint->tmp_data, kerndeint->tmp_bwidth,
                           inlink->w, inlink->h, inlink->format, 1);
+    if (ret < 0)
+        return ret;
+    memset(kerndeint->tmp_data[0], 0, ret);
+    return 0;
 }
 
 static int filter_frame(AVFilterLink *inlink, AVFilterBufferRef *inpic)
@@ -139,6 +145,8 @@ static int filter_frame(AVFilterLink *inlink, AVFilterBufferRef *inpic)
     const int sharp  = kerndeint->sharp;
     const int twoway = kerndeint->twoway;
 
+    const int is_packed_rgb = av_pix_fmt_desc_get(inlink->format)->flags & PIX_FMT_RGB;
+
     outpic = ff_get_video_buffer(outlink, AV_PERM_WRITE|AV_PERM_ALIGN, outlink->w, outlink->h);
     if (!outpic) {
         avfilter_unref_bufferp(&inpic);
@@ -153,7 +161,7 @@ static int filter_frame(AVFilterLink *inlink, AVFilterBufferRef *inpic)
 
         srcp = srcp_saved = inpic->data[plane];
         src_linesize      = inpic->linesize[plane];
-        psrc_linesize     = outpic->linesize[plane];
+        psrc_linesize     = kerndeint->tmp_bwidth[plane];
         dstp = dstp_saved = outpic->data[plane];
         dst_linesize      = outpic->linesize[plane];
         srcp              = srcp_saved + (1 - order) * src_linesize;
@@ -203,7 +211,7 @@ static int filter_frame(AVFilterLink *inlink, AVFilterBufferRef *inpic)
                     if (map) {
                         g = x & ~3;
 
-                        if (inlink->format == AV_PIX_FMT_RGBA) {
+                        if (is_packed_rgb) {
                             AV_WB32(dstp + g, 0xffffffff);
                             x = g + 3;
                         } else if (inlink->format == AV_PIX_FMT_YUYV422) {
@@ -214,7 +222,7 @@ static int filter_frame(AVFilterLink *inlink, AVFilterBufferRef *inpic)
                             dstp[x] = plane == 0 ? 235 : 128;
                         }
                     } else {
-                        if (inlink->format == AV_PIX_FMT_RGBA) {
+                        if (is_packed_rgb) {
                             hi = 255;
                             lo = 0;
                         } else if (inlink->format == AV_PIX_FMT_YUYV422) {

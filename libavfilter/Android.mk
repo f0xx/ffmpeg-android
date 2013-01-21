@@ -29,6 +29,7 @@ LIBAVFILTER_SRC_FILES := \
 		af_aformat.c \
 		af_amerge.c \
 		af_amix.c \
+		af_apad.c \
 		af_aresample.c \
 		af_astreamsync.c \
 		af_asetnsamples.c \
@@ -99,16 +100,19 @@ LIBAVFILTER_SRC_FILES := \
 		vf_fieldorder.c \
 		vf_format.c \
 		vf_framestep.c \
+		vf_histeq.c \
 		vf_hflip.c \
 		vf_hqdn3d.c \
 		vf_hue.c \
 		vf_idet.c \
+		vf_kerndeint.c \
 		vf_null.c \
 		vf_lut.c \
 		vf_mp.c \
 		vf_overlay.c \
 		vf_pad.c \
 		vf_pixdesctest.c \
+		vf_pp.c \
 		vf_removelogo.c \
 		vf_scale.c \
 		vf_setfield.c \
@@ -161,7 +165,6 @@ LIBMPCODECS_SRC_FILES := \
 		vf_ow.c \
 		vf_perspective.c \
 		vf_phase.c \
-		vf_pp.c \
 		vf_pp7.c \
 		vf_pullup.c \
 		vf_qp.c \

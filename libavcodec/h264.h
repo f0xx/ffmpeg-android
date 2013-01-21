@@ -485,9 +485,9 @@ typedef struct H264Context {
 
     int redundant_pic_count;
 
+    Picture default_ref_list[2][32]; ///< base reference list for all slices of a coded picture
     Picture *short_ref[32];
     Picture *long_ref[32];
-    Picture default_ref_list[2][32]; ///< base reference list for all slices of a coded picture
     Picture *delayed_pic[MAX_DELAYED_PIC_COUNT + 2]; // FIXME size?
     int last_pocs[MAX_DELAYED_PIC_COUNT];
     Picture *next_output_pic;
@@ -669,9 +669,10 @@ void ff_h264_remove_all_refs(H264Context *h);
  */
 int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count);
 
-int ff_h264_decode_ref_pic_marking(H264Context *h, GetBitContext *gb);
+int ff_h264_decode_ref_pic_marking(H264Context *h, GetBitContext *gb,
+                                   int first_slice);
 
-void ff_generate_sliding_window_mmcos(H264Context *h);
+int ff_generate_sliding_window_mmcos(H264Context *h, int first_slice);
 
 /**
  * Check if the top & left blocks are available if needed & change the
