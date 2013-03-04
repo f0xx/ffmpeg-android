@@ -24,6 +24,7 @@ LOCAL_LDFLAGS := -lz -llog
 #		vf_ass.c
 LIBAVFILTER_SRC_FILES := \
 		avcodec.c \
+		af_afade.c \
 		af_anull.c \
 		af_aconvert.c \
 		af_aformat.c \
@@ -36,6 +37,7 @@ LIBAVFILTER_SRC_FILES := \
 		af_ashowinfo.c \
 		af_asyncts.c \
 		af_atempo.c \
+		af_biquads.c \
 		af_channelmap.c \
 		af_channelsplit.c \
 		af_earwax.c \
@@ -81,6 +83,7 @@ LIBAVFILTER_SRC_FILES := \
 		vf_aspect.c \
 		vf_blackdetect.c \
 		vf_blackframe.c \
+		vf_blend.c \
 		vf_bbox.c \
 		vf_boxblur.c \
 		vf_colormatrix.c \
@@ -92,21 +95,24 @@ LIBAVFILTER_SRC_FILES := \
 		vf_drawbox.c \
 		vf_delogo.c \
 		vf_edgedetect.c \
-		vf_fps.c \
 		vf_geq.c \
 		vf_gradfun.c \
+		vf_fps.c \
 		vf_fade.c \
 		vf_field.c \
 		vf_fieldorder.c \
 		vf_format.c \
 		vf_framestep.c \
+		vf_histogram.c \
 		vf_histeq.c \
 		vf_hflip.c \
 		vf_hqdn3d.c \
 		vf_hue.c \
 		vf_idet.c \
+		vf_il.c \
 		vf_kerndeint.c \
 		vf_null.c \
+		vf_noise.c \
 		vf_lut.c \
 		vf_mp.c \
 		vf_overlay.c \
@@ -150,16 +156,13 @@ LIBMPCODECS_SRC_FILES := \
 		vf_dint.c \
 		vf_divtc.c \
 		vf_down3dright.c \
-		vf_dsize.c \
 		vf_eq2.c \
 		vf_eq.c \
 		vf_fil.c \
 		vf_fspp.c \
 		vf_harddup.c \
-		vf_il.c \
 		vf_ilpack.c \
 		vf_ivtc.c \
-		vf_kerndeint.c \
 		vf_mcdeint.c \
 		vf_noise.c \
 		vf_ow.c \
@@ -170,12 +173,10 @@ LIBMPCODECS_SRC_FILES := \
 		vf_qp.c \
 		vf_sab.c \
 		vf_softpulldown.c \
-		vf_softskip.c \
 		vf_spp.c \
 		vf_stereo3d.c \
 		vf_telecine.c \
 		vf_tinterlace.c \
-		vf_unsharp.c \
 		vf_uspp.c \
 
 #		vf_filmdint.c \

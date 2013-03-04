@@ -190,7 +190,7 @@ static int decode_frame(AVCodecContext *avctx,
     p->key_frame = 1;
 
 #define ADVANCE_BY_DECODED do { \
-    if (decoded < 0) goto stop; \
+    if (decoded < 0 || decoded >= buf_size) goto buf_too_small; \
     buf += decoded; buf_size -= decoded; \
 } while(0)
     switch(l->mode) {
@@ -224,7 +224,8 @@ static int decode_frame(AVCodecContext *avctx,
         decoded = loco_decode_plane(l, p->data[0] + p->linesize[0]*(avctx->height-1) + 2, avctx->width, avctx->height,
                                     -p->linesize[0], buf, buf_size, 3);
         break;
-    case LOCO_CRGBA: case LOCO_RGBA:
+    case LOCO_CRGBA:
+    case LOCO_RGBA:
         decoded = loco_decode_plane(l, p->data[0] + p->linesize[0]*(avctx->height-1), avctx->width, avctx->height,
                                     -p->linesize[0], buf, buf_size, 4);
         ADVANCE_BY_DECODED;
@@ -237,13 +238,21 @@ static int decode_frame(AVCodecContext *avctx,
         decoded = loco_decode_plane(l, p->data[0] + p->linesize[0]*(avctx->height-1) + 3, avctx->width, avctx->height,
                                     -p->linesize[0], buf, buf_size, 4);
         break;
+    default:
+        av_assert0(0);
     }
-stop:
+
+    if (decoded < 0 || decoded > buf_size)
+        goto buf_too_small;
+    buf_size -= decoded;
 
     *got_frame      = 1;
     *(AVFrame*)data = l->pic;
 
-    return buf_size < 0 ? -1 : avpkt->size - buf_size;
+    return avpkt->size - buf_size;
+buf_too_small:
+    av_log(avctx, AV_LOG_ERROR, "Input data too small.\n");
+    return AVERROR(EINVAL);
 }
 
 static av_cold int decode_init(AVCodecContext *avctx)
@@ -287,7 +296,7 @@ static av_cold int decode_init(AVCodecContext *avctx)
         break;
     case LOCO_CRGBA:
     case LOCO_RGBA:
-        avctx->pix_fmt = AV_PIX_FMT_RGB32;
+        avctx->pix_fmt = AV_PIX_FMT_BGRA;
         break;
     default:
         av_log(avctx, AV_LOG_INFO, "Unknown colorspace, index = %i\n", l->mode);

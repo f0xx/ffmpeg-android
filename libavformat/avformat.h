@@ -754,7 +754,7 @@ typedef struct AVStream {
         int64_t last_dts;
         int64_t duration_gcd;
         int duration_count;
-        double duration_error[2][2][MAX_STD_TIMEBASES];
+        double (*duration_error)[2][MAX_STD_TIMEBASES];
         int64_t codec_info_duration;
         int64_t codec_info_duration_fields;
         int found_decoder;
@@ -844,7 +844,7 @@ typedef struct AVStream {
 
     /**
      * Number of internally decoded frames, used internally in libavformat, do not access
-     * its lifetime differs from info which is why its not in that structure.
+     * its lifetime differs from info which is why it is not in that structure.
      */
     int nb_decoded_frames;
 
@@ -1202,6 +1202,13 @@ typedef struct AVFormatContext {
      * - decoding: Set by user via AVOPtions (NO direct access)
      */
     unsigned int correct_ts_overflow;
+
+    /**
+     * Force seeking to any (also non key) frames.
+     * - encoding: unused
+     * - decoding: Set by user via AVOPtions (NO direct access)
+     */
+    int seek2any;
 
     /*****************************************************************
      * All fields below this line are not part of the public API. They

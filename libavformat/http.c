@@ -120,10 +120,6 @@ static int http_open_cnx(URLContext *h)
     HTTPAuthType cur_auth_type, cur_proxy_auth_type;
     HTTPContext *s = h->priv_data;
 
-    proxy_path = getenv("http_proxy");
-    use_proxy = (proxy_path != NULL) && !getenv("no_proxy") &&
-        av_strstart(proxy_path, "http://", NULL);
-
     /* fill the dest addr */
  redo:
     /* needed in any case to build the host string */
@@ -131,6 +127,10 @@ static int http_open_cnx(URLContext *h)
                  hostname, sizeof(hostname), &port,
                  path1, sizeof(path1), s->location);
     ff_url_join(hoststr, sizeof(hoststr), NULL, NULL, hostname, port, NULL);
+
+    proxy_path = getenv("http_proxy");
+    use_proxy = !ff_http_match_no_proxy(getenv("no_proxy"), hostname) &&
+                proxy_path != NULL && av_strstart(proxy_path, "http://", NULL);
 
     if (!strcmp(proto, "https")) {
         lower_proto = "tls";
@@ -298,9 +298,9 @@ static int process_line(URLContext *h, char *line, int line_count,
 
     p = line;
     if (line_count == 0) {
-        while (!isspace(*p) && *p != '\0')
+        while (!av_isspace(*p) && *p != '\0')
             p++;
-        while (isspace(*p))
+        while (av_isspace(*p))
             p++;
         s->http_code = strtol(p, &end, 10);
 
@@ -325,7 +325,7 @@ static int process_line(URLContext *h, char *line, int line_count,
         *p = '\0';
         tag = line;
         p++;
-        while (isspace(*p))
+        while (av_isspace(*p))
             p++;
         if (!av_strcasecmp(tag, "Location")) {
             av_strlcpy(s->location, p, sizeof(s->location));
@@ -406,8 +406,10 @@ static int get_cookies(HTTPContext *s, char **cookies, const char *path,
         while ((param = av_strtok(cookie, "; ", &next_param))) {
             cookie = NULL;
             if        (!av_strncasecmp("path=",   param, 5)) {
+                av_free(cpath);
                 cpath = av_strdup(&param[5]);
             } else if (!av_strncasecmp("domain=", param, 7)) {
+                av_free(cdomain);
                 cdomain = av_strdup(&param[7]);
             } else if (!av_strncasecmp("secure",  param, 6) ||
                        !av_strncasecmp("comment", param, 7) ||
@@ -415,6 +417,7 @@ static int get_cookies(HTTPContext *s, char **cookies, const char *path,
                        !av_strncasecmp("version", param, 7)) {
                 // ignore Comment, Max-Age, Secure and Version
             } else {
+                av_free(cvalue);
                 cvalue = av_strdup(param);
             }
         }

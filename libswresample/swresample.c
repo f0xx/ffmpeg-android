@@ -88,9 +88,13 @@ static const AVOption options[]={
 {"improved_e_weighted"  , "select improved-e-weighted noise shaping dither" , 0  , AV_OPT_TYPE_CONST, {.i64=SWR_DITHER_NS_IMPROVED_E_WEIGHTED }, INT_MIN, INT_MAX, PARAM, "dither_method"},
 
 {"filter_size"          , "set swr resampling filter size", OFFSET(filter_size)  , AV_OPT_TYPE_INT  , {.i64=32                    }, 0      , INT_MAX   , PARAM },
-{"phase_shift"          , "set swr resampling phase shift", OFFSET(phase_shift)  , AV_OPT_TYPE_INT  , {.i64=10                    }, 0      , 30        , PARAM },
+{"phase_shift"          , "set swr resampling phase shift", OFFSET(phase_shift)  , AV_OPT_TYPE_INT  , {.i64=10                    }, 0      , 24        , PARAM },
 {"linear_interp"        , "enable linear interpolation" , OFFSET(linear_interp)  , AV_OPT_TYPE_INT  , {.i64=0                     }, 0      , 1         , PARAM },
 {"cutoff"               , "set cutoff frequency ratio"  , OFFSET(cutoff)         , AV_OPT_TYPE_DOUBLE,{.dbl=0.                    }, 0      , 1         , PARAM },
+
+/* duplicate option in order to work with avconv */
+{"resample_cutoff"      , "set cutoff frequency ratio"  , OFFSET(cutoff)         , AV_OPT_TYPE_DOUBLE,{.dbl=0.                    }, 0      , 1         , PARAM },
+
 {"resampler"            , "set resampling Engine"       , OFFSET(engine)         , AV_OPT_TYPE_INT  , {.i64=0                     }, 0      , SWR_ENGINE_NB-1, PARAM, "resampler"},
 {"swr"                  , "select SW Resampler"         , 0                      , AV_OPT_TYPE_CONST, {.i64=SWR_ENGINE_SWR        }, INT_MIN, INT_MAX   , PARAM, "resampler"},
 {"soxr"                 , "select SoX Resampler"        , 0                      , AV_OPT_TYPE_CONST, {.i64=SWR_ENGINE_SOXR       }, INT_MIN, INT_MAX   , PARAM, "resampler"},
@@ -108,6 +112,8 @@ static const AVOption options[]={
                                                         , OFFSET(max_soft_compensation),AV_OPT_TYPE_FLOAT ,{.dbl=0                     }, INT_MIN, INT_MAX   , PARAM },
 {"async"                , "simplified 1 parameter audio timestamp matching, 0(disabled), 1(filling and trimming), >1(maximum stretch/squeeze in samples per second)"
                                                         , OFFSET(async)          , AV_OPT_TYPE_FLOAT ,{.dbl=0                     }, INT_MIN, INT_MAX   , PARAM },
+{"first_pts"            , "Assume the first pts should be this value (in samples)."
+                                                        , OFFSET(firstpts_in_samples), AV_OPT_TYPE_INT64 ,{.i64=AV_NOPTS_VALUE    }, INT64_MIN,INT64_MAX, PARAM },
 
 { "matrix_encoding"     , "set matrixed stereo encoding" , OFFSET(matrix_encoding), AV_OPT_TYPE_INT   ,{.i64 = AV_MATRIX_ENCODING_NONE}, AV_MATRIX_ENCODING_NONE,     AV_MATRIX_ENCODING_NB-1, PARAM, "matrix_encoding" },
     { "none",  "select none",               0, AV_OPT_TYPE_CONST, { .i64 = AV_MATRIX_ENCODING_NONE  }, INT_MIN, INT_MAX, PARAM, "matrix_encoding" },
@@ -121,6 +127,7 @@ static const AVOption options[]={
 
 { "kaiser_beta"         , "set swr Kaiser Window Beta"  , OFFSET(kaiser_beta)    , AV_OPT_TYPE_INT  , {.i64=9                     }, 2      , 16        , PARAM },
 
+{ "output_sample_bits"   , ""  , OFFSET(dither.output_sample_bits)               , AV_OPT_TYPE_INT  , {.i64=0                     }, 0      , 64        , 0 },
 {0}
 };
 
@@ -263,9 +270,51 @@ av_cold int swr_init(struct SwrContext *s){
         return AVERROR(EINVAL);
     }
 
+    if(av_get_channel_layout_nb_channels(s-> in_ch_layout) > SWR_CH_MAX) {
+        av_log(s, AV_LOG_WARNING, "Input channel layout 0x%"PRIx64" is invalid or unsupported.\n", s-> in_ch_layout);
+        s->in_ch_layout = 0;
+    }
+
+    if(av_get_channel_layout_nb_channels(s->out_ch_layout) > SWR_CH_MAX) {
+        av_log(s, AV_LOG_WARNING, "Output channel layout 0x%"PRIx64" is invalid or unsupported.\n", s->out_ch_layout);
+        s->out_ch_layout = 0;
+    }
+
+    switch(s->engine){
+#if CONFIG_LIBSOXR
+        extern struct Resampler const soxr_resampler;
+        case SWR_ENGINE_SOXR: s->resampler = &soxr_resampler; break;
+#endif
+        case SWR_ENGINE_SWR : s->resampler = &swri_resampler; break;
+        default:
+            av_log(s, AV_LOG_ERROR, "Requested resampling engine is unavailable\n");
+            return AVERROR(EINVAL);
+    }
+
+    if(!s->used_ch_count)
+        s->used_ch_count= s->in.ch_count;
+
+    if(s->used_ch_count && s-> in_ch_layout && s->used_ch_count != av_get_channel_layout_nb_channels(s-> in_ch_layout)){
+        av_log(s, AV_LOG_WARNING, "Input channel layout has a different number of channels than the number of used channels, ignoring layout\n");
+        s-> in_ch_layout= 0;
+    }
+
+    if(!s-> in_ch_layout)
+        s-> in_ch_layout= av_get_default_channel_layout(s->used_ch_count);
+    if(!s->out_ch_layout)
+        s->out_ch_layout= av_get_default_channel_layout(s->out.ch_count);
+
+    s->rematrix= s->out_ch_layout  !=s->in_ch_layout || s->rematrix_volume!=1.0 ||
+                 s->rematrix_custom;
+
     if(s->int_sample_fmt == AV_SAMPLE_FMT_NONE){
         if(av_get_planar_sample_fmt(s->in_sample_fmt) <= AV_SAMPLE_FMT_S16P){
             s->int_sample_fmt= AV_SAMPLE_FMT_S16P;
+        }else if(   av_get_planar_sample_fmt(s-> in_sample_fmt) == AV_SAMPLE_FMT_S32P
+                 && av_get_planar_sample_fmt(s->out_sample_fmt) == AV_SAMPLE_FMT_S32P
+                 && !s->rematrix
+                 && s->engine != SWR_ENGINE_SOXR){
+            s->int_sample_fmt= AV_SAMPLE_FMT_S32P;
         }else if(av_get_planar_sample_fmt(s->in_sample_fmt) <= AV_SAMPLE_FMT_FLTP){
             s->int_sample_fmt= AV_SAMPLE_FMT_FLTP;
         }else{
@@ -282,19 +331,16 @@ av_cold int swr_init(struct SwrContext *s){
         return AVERROR(EINVAL);
     }
 
-    switch(s->engine){
-#if CONFIG_LIBSOXR
-        extern struct Resampler const soxr_resampler;
-        case SWR_ENGINE_SOXR: s->resampler = &soxr_resampler; break;
-#endif
-        case SWR_ENGINE_SWR : s->resampler = &swri_resampler; break;
-        default:
-            av_log(s, AV_LOG_ERROR, "Requested resampling engine is unavailable\n");
-            return AVERROR(EINVAL);
-    }
-
     set_audiodata_fmt(&s-> in, s-> in_sample_fmt);
     set_audiodata_fmt(&s->out, s->out_sample_fmt);
+
+    if (s->firstpts_in_samples != AV_NOPTS_VALUE) {
+        if (!s->async && s->min_compensation >= FLT_MAX/2)
+            s->async = 1;
+        s->firstpts =
+        s->outpts   = s->firstpts_in_samples * s->out_sample_rate;
+    } else
+        s->firstpts = AV_NOPTS_VALUE;
 
     if (s->async) {
         if (s->min_compensation >= FLT_MAX/2)
@@ -316,22 +362,6 @@ av_cold int swr_init(struct SwrContext *s){
         av_log(s, AV_LOG_ERROR, "Resampling only supported with internal s16/s32/flt/dbl\n");
         return -1;
     }
-
-    if(!s->used_ch_count)
-        s->used_ch_count= s->in.ch_count;
-
-    if(s->used_ch_count && s-> in_ch_layout && s->used_ch_count != av_get_channel_layout_nb_channels(s-> in_ch_layout)){
-        av_log(s, AV_LOG_WARNING, "Input channel layout has a different number of channels than the number of used channels, ignoring layout\n");
-        s-> in_ch_layout= 0;
-    }
-
-    if(!s-> in_ch_layout)
-        s-> in_ch_layout= av_get_default_channel_layout(s->used_ch_count);
-    if(!s->out_ch_layout)
-        s->out_ch_layout= av_get_default_channel_layout(s->out.ch_count);
-
-    s->rematrix= s->out_ch_layout  !=s->in_ch_layout || s->rematrix_volume!=1.0 ||
-                 s->rematrix_custom;
 
 #define RSC 1 //FIXME finetune
     if(!s-> in.ch_count)
@@ -870,6 +900,10 @@ int swr_set_compensation(struct SwrContext *s, int sample_delta, int compensatio
 int64_t swr_next_pts(struct SwrContext *s, int64_t pts){
     if(pts == INT64_MIN)
         return s->outpts;
+
+    if (s->firstpts == AV_NOPTS_VALUE)
+        s->outpts = s->firstpts = pts;
+
     if(s->min_compensation >= FLT_MAX) {
         return (s->outpts = pts - swr_get_delay(s, s->in_sample_rate * (int64_t)s->out_sample_rate));
     } else {
@@ -877,7 +911,7 @@ int64_t swr_next_pts(struct SwrContext *s, int64_t pts){
         double fdelta = delta /(double)(s->in_sample_rate * (int64_t)s->out_sample_rate);
 
         if(fabs(fdelta) > s->min_compensation) {
-            if(!s->outpts || fabs(fdelta) > s->min_hard_compensation){
+            if(s->outpts == s->firstpts || fabs(fdelta) > s->min_hard_compensation){
                 int ret;
                 if(delta > 0) ret = swr_inject_silence(s,  delta / s->out_sample_rate);
                 else          ret = swr_drop_output   (s, -delta / s-> in_sample_rate);

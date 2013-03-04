@@ -237,7 +237,9 @@ LIBAVFORMAT_SRC_FILES := \
 		rtpdec_ilbc.c \
 		rtpdec_jpeg.c \
 		rtpdec_latm.c \
+		rtpdec_mpeg12.c \
 		rtpdec_mpeg4.c \
+		rtpdec_mpegts.c \
 		rtpdec_qcelp.c \
 		rtpdec_qdm2.c \
 		rtpdec_qt.c \

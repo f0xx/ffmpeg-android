@@ -10,8 +10,8 @@ LOCAL_C_INCLUDES += .
 LOCAL_C_INCLUDES += ..
 
 VFP_SRC_FILES := \
-		arm/dsputil_init_vfp.c \
-		arm/dsputil_vfp.S \
+		arm/dsputil_init_armv6.c \
+		arm/dsputil_armv6.S \
 		arm/fmtconvert_vfp.S \
 
 LOCAL_SRC_FILES := $(VFP_SRC_FILES)
@@ -46,7 +46,6 @@ LOCAL_ARM_MODE += arm
 LOCAL_MODULE    := avcodec_neon
 LOCAL_CFLAGS := -mfpu=neon -march=armv7-a
 
-
 NEON_SRC_FILES := \
 		arm/aacpsdsp_neon.S \
 		arm/ac3dsp_neon.S \
@@ -60,6 +59,7 @@ NEON_SRC_FILES := \
 		arm/h264dsp_neon.S \
 		arm/h264idct_neon.S \
 		arm/h264pred_neon.S \
+		arm/h264qpel_neon.S \
 		arm/int_neon.S \
 		arm/mdct_neon.S \
 		arm/mdct_fixed_neon.S \
@@ -69,6 +69,7 @@ NEON_SRC_FILES := \
 		arm/simple_idct_neon.S \
 		arm/synth_filter_neon.S \
 		arm/rv34dsp_neon.S \
+		arm/vorbisdsp_neon.S \
 		arm/vp3dsp_neon.S \
 		arm/vp56dsp_neon.S \
 		arm/vp8dsp_init_neon.c \
@@ -255,6 +256,7 @@ LIBAVCODEC_SRC_FILES := \
 		error_resilience.c \
 		escape124.c \
 		escape130.c \
+		evrcdec.c \
 		exr.c \
 		faanidct.c \
 		faxcompr.c \
@@ -302,8 +304,10 @@ LIBAVCODEC_SRC_FILES := \
 		h264_ps.c \
 		h264_refs.c \
 		h264_sei.c \
+		h264chroma.c \
 		h264idct.c \
 		h264pred.c \
+		h264qpel.c \
 		huffman.c \
 		huffyuv.c \
 		huffyuvdec.c \
@@ -521,8 +525,9 @@ LIBAVCODEC_SRC_FILES := \
 		vmnc.c \
 		vorbis.c \
 		vorbis_data.c \
-		vorbisdec.c \
 		vorbis_parser.c \
+		vorbisdec.c \
+		vorbisdsp.c \
 		vble.c \
 		v308dec.c \
 		v408dec.c \
@@ -549,6 +554,7 @@ LIBAVCODEC_SRC_FILES := \
 		wmavoice.c \
 		wmv2.c \
 		wmv2dec.c \
+		wmv2dsp.c \
 		wnv1.c \
 		ws-snd1.c \
 		xan.c \
@@ -585,8 +591,10 @@ ARMV5_LOCAL_SRC_FILES := \
 		arm/flacdsp_init_arm.c \
 		arm/fft_init_arm.c \
 		arm/fft_fixed_init_arm.c \
+		arm/h264chroma_init_arm.c \
 		arm/h264dsp_init_arm.c \
 		arm/h264pred_init_arm.c \
+		arm/h264qpel_init_arm.c \
 		arm/jrevdct_arm.S \
 		arm/mpegaudiodsp_init_arm.c \
 		arm/mpegvideo_arm.c \
@@ -601,6 +609,7 @@ ARMV5_LOCAL_SRC_FILES := \
 		arm/videodsp_init_arm.c \
 		arm/videodsp_armv5te.S \
 		arm/videodsp_init_armv5te.c \
+		arm/vorbisdsp_init_arm.c \
 		arm/vp3dsp_init_arm.c \
 		arm/vp56dsp_init_arm.c \
 		arm/vp8dsp_init_arm.c \

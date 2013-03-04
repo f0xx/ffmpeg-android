@@ -406,7 +406,7 @@ static int decode_wmv9(AVCodecContext *avctx, const uint8_t *buf, int buf_size,
         return ret;
     }
 
-    ff_er_frame_start(s);
+    ff_mpeg_er_frame_start(s);
 
     v->bits = buf_size * 8;
 
@@ -419,7 +419,7 @@ static int decode_wmv9(AVCodecContext *avctx, const uint8_t *buf, int buf_size,
 
     ff_vc1_decode_blocks(v);
 
-    ff_er_frame_end(s);
+    ff_er_frame_end(&s->er);
 
     ff_MPV_frame_end(s);
 
@@ -759,9 +759,6 @@ static av_cold int wmv9_init(AVCodecContext *avctx)
     v->s.avctx    = avctx;
     avctx->flags |= CODEC_FLAG_EMU_EDGE;
     v->s.flags   |= CODEC_FLAG_EMU_EDGE;
-
-    if (avctx->idct_algo == FF_IDCT_AUTO)
-        avctx->idct_algo = FF_IDCT_WMV2;
 
     if ((ret = ff_vc1_init_common(v)) < 0)
         return ret;

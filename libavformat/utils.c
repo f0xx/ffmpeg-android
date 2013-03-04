@@ -1767,7 +1767,10 @@ int av_index_search_timestamp(AVStream *st, int64_t wanted_timestamp,
 static int64_t ff_read_timestamp(AVFormatContext *s, int stream_index, int64_t *ppos, int64_t pos_limit,
                                  int64_t (*read_timestamp)(struct AVFormatContext *, int , int64_t *, int64_t ))
 {
-    return wrap_timestamp(s->streams[stream_index], read_timestamp(s, stream_index, ppos, pos_limit));
+    int64_t ts = read_timestamp(s, stream_index, ppos, pos_limit);
+    if (stream_index >= 0)
+        ts = wrap_timestamp(s->streams[stream_index], ts);
+    return ts;
 }
 
 int ff_seek_frame_binary(AVFormatContext *s, int stream_index, int64_t target_ts, int flags)
@@ -1860,10 +1863,10 @@ int64_t ff_gen_search(AVFormatContext *s, int stream_index, int64_t target_ts,
         filesize = avio_size(s->pb);
         pos_max = filesize - 1;
         do{
-            pos_max -= step;
+            pos_max = FFMAX(0, pos_max - step);
             ts_max = ff_read_timestamp(s, stream_index, &pos_max, pos_max + step, read_timestamp);
             step += step;
-        }while(ts_max == AV_NOPTS_VALUE && pos_max >= step);
+        }while(ts_max == AV_NOPTS_VALUE && pos_max > 0);
         if (ts_max == AV_NOPTS_VALUE)
             return -1;
 
@@ -2091,6 +2094,9 @@ int avformat_seek_file(AVFormatContext *s, int stream_index, int64_t min_ts, int
 {
     if(min_ts > ts || max_ts < ts)
         return -1;
+
+    if(s->seek2any>0)
+        flags |= AVSEEK_FLAG_ANY;
 
     if (s->iformat->read_seek2) {
         int ret;
@@ -2432,6 +2438,9 @@ static int has_codec_parameters(AVStream *st, const char **errmsg_ptr)
             FAIL("unspecified size");
         if (st->info->found_decoder >= 0 && avctx->pix_fmt == AV_PIX_FMT_NONE)
             FAIL("unspecified pixel format");
+        if (st->codec->codec_id == AV_CODEC_ID_RV30 || st->codec->codec_id == AV_CODEC_ID_RV40)
+            if (!st->sample_aspect_ratio.num && !st->codec->sample_aspect_ratio.num && !st->codec_info_nb_frames)
+                FAIL("no frame in rv30/40 and no sar");
         break;
     case AVMEDIA_TYPE_SUBTITLE:
         if (avctx->codec_id == AV_CODEC_ID_HDMV_PGS_SUBTITLE && !avctx->width)
@@ -2766,6 +2775,8 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
                 fps_analyze_framecount *= 2;
             if (ic->fps_probe_size >= 0)
                 fps_analyze_framecount = ic->fps_probe_size;
+            if (st->disposition & AV_DISPOSITION_ATTACHED_PIC)
+                fps_analyze_framecount = 0;
             /* variable fps and no guess at the real fps */
             if(   tb_unreliable(st->codec) && !(st->r_frame_rate.num && st->avg_frame_rate.num)
                && st->info->duration_count < fps_analyze_framecount
@@ -2883,9 +2894,12 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
                 double dts= (is_relative(pkt->dts) ?  pkt->dts - RELATIVE_TS_BASE : pkt->dts) * av_q2d(st->time_base);
                 int64_t duration= pkt->dts - last;
 
+                if (!st->info->duration_error)
+                    st->info->duration_error = av_mallocz(sizeof(st->info->duration_error[0])*2);
+
 //                 if(st->codec->codec_type == AVMEDIA_TYPE_VIDEO)
 //                     av_log(NULL, AV_LOG_ERROR, "%f\n", dts);
-                for (i=0; i<FF_ARRAY_ELEMS(st->info->duration_error[0][0]); i++) {
+                for (i=0; i<MAX_STD_TIMEBASES; i++) {
                     int framerate= get_std_framerate(i);
                     double sdts= dts*framerate/(1001*12);
                     for(j=0; j<2; j++){
@@ -3018,7 +3032,7 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
                 int num = 0;
                 double best_error= 0.01;
 
-                for (j=0; j<FF_ARRAY_ELEMS(st->info->duration_error[0][0]); j++) {
+                for (j=0; j<MAX_STD_TIMEBASES; j++) {
                     int k;
 
                     if(st->info->codec_info_duration && st->info->codec_info_duration*av_q2d(st->time_base) < (1001*12.0)/get_std_framerate(j))
@@ -3079,8 +3093,11 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
 
  find_stream_info_err:
     for (i=0; i < ic->nb_streams; i++) {
+        st = ic->streams[i];
         if (ic->streams[i]->codec)
             ic->streams[i]->codec->thread_count = 0;
+        if (st->info)
+            av_freep(&st->info->duration_error);
         av_freep(&ic->streams[i]->info);
     }
     if(ic->pb)
@@ -3200,6 +3217,8 @@ void ff_free_stream(AVFormatContext *s, AVStream *st){
     av_freep(&st->codec->subtitle_header);
     av_freep(&st->codec);
     av_freep(&st->priv_data);
+    if (st->info)
+        av_freep(&st->info->duration_error);
     av_freep(&st->info);
     av_freep(&st->probe_data.buf);
     av_freep(&s->streams[ --s->nb_streams ]);
@@ -3622,11 +3641,11 @@ int av_get_frame_filename(char *buf, int buf_size,
         if (c == '%') {
             do {
                 nd = 0;
-                while (isdigit(*p)) {
+                while (av_isdigit(*p)) {
                     nd = nd * 10 + *p++ - '0';
                 }
                 c = *p++;
-            } while (isdigit(c));
+            } while (av_isdigit(c));
 
             switch(c) {
             case '%':
@@ -3847,7 +3866,7 @@ int ff_hex_to_data(uint8_t *data, const char *p)
         p += strspn(p, SPACE_CHARS);
         if (*p == '\0')
             break;
-        c = toupper((unsigned char) *p++);
+        c = av_toupper((unsigned char) *p++);
         if (c >= '0' && c <= '9')
             c = c - '0';
         else if (c >= 'A' && c <= 'F')
@@ -3951,6 +3970,10 @@ int ff_write_chained(AVFormatContext *dst, int dst_stream, AVPacket *pkt,
         local_pkt.dts = av_rescale_q(pkt->dts,
                                      src->streams[pkt->stream_index]->time_base,
                                      dst->streams[dst_stream]->time_base);
+    if (pkt->duration)
+        local_pkt.duration = av_rescale_q(pkt->duration,
+                                          src->streams[pkt->stream_index]->time_base,
+                                          dst->streams[dst_stream]->time_base);
     return av_write_frame(dst, &local_pkt);
 }
 
@@ -3966,7 +3989,7 @@ void ff_parse_key_value(const char *str, ff_parse_key_val_cb callback_get_buf,
         int key_len, dest_len = 0;
 
         /* Skip whitespace and potential commas. */
-        while (*ptr && (isspace(*ptr) || *ptr == ','))
+        while (*ptr && (av_isspace(*ptr) || *ptr == ','))
             ptr++;
         if (!*ptr)
             break;
@@ -3999,7 +4022,7 @@ void ff_parse_key_value(const char *str, ff_parse_key_val_cb callback_get_buf,
             if (*ptr == '\"')
                 ptr++;
         } else {
-            for (; *ptr && !(isspace(*ptr) || *ptr == ','); ptr++)
+            for (; *ptr && !(av_isspace(*ptr) || *ptr == ','); ptr++)
                 if (dest && dest < dest_end)
                     *dest++ = *ptr;
         }
@@ -4362,4 +4385,58 @@ void ff_generate_avci_extradata(AVStream *st)
         return;
     memcpy(st->codec->extradata, data, size);
     st->codec->extradata_size = size;
+}
+
+static int match_host_pattern(const char *pattern, const char *hostname)
+{
+    int len_p, len_h;
+    if (!strcmp(pattern, "*"))
+        return 1;
+    // Skip a possible *. at the start of the pattern
+    if (pattern[0] == '*')
+        pattern++;
+    if (pattern[0] == '.')
+        pattern++;
+    len_p = strlen(pattern);
+    len_h = strlen(hostname);
+    if (len_p > len_h)
+        return 0;
+    // Simply check if the end of hostname is equal to 'pattern'
+    if (!strcmp(pattern, &hostname[len_h - len_p])) {
+        if (len_h == len_p)
+            return 1; // Exact match
+        if (hostname[len_h - len_p - 1] == '.')
+            return 1; // The matched substring is a domain and not just a substring of a domain
+    }
+    return 0;
+}
+
+int ff_http_match_no_proxy(const char *no_proxy, const char *hostname)
+{
+    char *buf, *start;
+    int ret = 0;
+    if (!no_proxy)
+        return 0;
+    if (!hostname)
+        return 0;
+    buf = av_strdup(no_proxy);
+    if (!buf)
+        return 0;
+    start = buf;
+    while (start) {
+        char *sep, *next = NULL;
+        start += strspn(start, " ,");
+        sep = start + strcspn(start, " ,");
+        if (*sep) {
+            next = sep + 1;
+            *sep = '\0';
+        }
+        if (match_host_pattern(start, hostname)) {
+            ret = 1;
+            break;
+        }
+        start = next;
+    }
+    av_free(buf);
+    return ret;
 }
